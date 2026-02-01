@@ -1,0 +1,7 @@
+{
+  "name": "Z-GPS",
+  "description": "Government Grant Positioning System for SMEs.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
