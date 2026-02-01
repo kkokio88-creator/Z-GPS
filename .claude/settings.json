@@ -1,0 +1,85 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx *)",
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(tsc *)",
+      "Bash(rm -rf dist*)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(du *)",
+      "Bash(start http://localhost:*)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ],
+    "prompt": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(chmod *)"
+    ]
+  },
+  "skills": {
+    "autoRun": {
+      "security-checker": {
+        "trigger": "pre-commit",
+        "blocking": true
+      },
+      "code-reviewer": {
+        "trigger": "on-file-save",
+        "filePatterns": ["*.ts", "*.tsx"]
+      }
+    }
+  },
+  "hooks": {
+    "pre-commit": [
+      {
+        "name": "security-check",
+        "command": "claude skill run security-checker",
+        "blocking": true
+      },
+      {
+        "name": "type-check",
+        "command": "npx tsc --noEmit",
+        "blocking": false
+      }
+    ],
+    "post-edit": [
+      {
+        "name": "organize-imports",
+        "pattern": "*.{ts,tsx}",
+        "command": "organize-imports ${file}"
+      }
+    ],
+    "post-write": [
+      {
+        "name": "format-code",
+        "pattern": "*.{ts,tsx,json,md}",
+        "command": "prettier --write ${file}"
+      }
+    ]
+  },
+  "agent": {
+    "maxConcurrentTasks": 5,
+    "backgroundExecution": true,
+    "autoRetry": {
+      "enabled": true,
+      "maxAttempts": 3,
+      "backoff": "exponential"
+    }
+  },
+  "project": {
+    "name": "Z-GPS",
+    "type": "react-typescript",
+    "buildCommand": "npm run build",
+    "testCommand": "npm run check",
+    "devCommand": "npm run dev"
+  },
+  "autoUpdatesChannel": "latest"
+}

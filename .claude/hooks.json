@@ -1,0 +1,177 @@
+{
+  "hooks": {
+    "pre-commit": {
+      "description": "커밋 전 자동 검증",
+      "steps": [
+        {
+          "name": "Security Check",
+          "command": "claude skill run security-checker",
+          "blocking": true,
+          "failureMessage": "❌ 보안 문제 발견! 수정 후 다시 커밋하세요."
+        },
+        {
+          "name": "Type Check",
+          "command": "npx tsc --noEmit",
+          "blocking": false,
+          "failureMessage": "⚠️ TypeScript 에러가 있습니다."
+        },
+        {
+          "name": "Lint Check",
+          "command": "npm run lint",
+          "blocking": false,
+          "continueOnError": true
+        }
+      ]
+    },
+    "post-edit": {
+      "description": "파일 수정 후 자동 작업",
+      "patterns": {
+        "*.ts": [
+          {
+            "name": "Organize Imports",
+            "action": "organize-imports"
+          },
+          {
+            "name": "Fix Formatting",
+            "action": "format"
+          }
+        ],
+        "*.tsx": [
+          {
+            "name": "Organize Imports",
+            "action": "organize-imports"
+          },
+          {
+            "name": "Fix Formatting",
+            "action": "format"
+          },
+          {
+            "name": "Check React Hooks",
+            "action": "validate-hooks-dependencies"
+          }
+        ],
+        "services/agent*.ts": [
+          {
+            "name": "Agent Integration Check",
+            "action": "verify-agent-imports"
+          }
+        ]
+      }
+    },
+    "post-write": {
+      "description": "새 파일 생성 후 자동 작업",
+      "steps": [
+        {
+          "name": "Format New File",
+          "command": "prettier --write ${file}",
+          "continueOnError": true
+        },
+        {
+          "name": "Add to Git",
+          "command": "git add ${file}",
+          "continueOnError": true
+        }
+      ]
+    },
+    "pre-push": {
+      "description": "푸시 전 최종 검증",
+      "steps": [
+        {
+          "name": "Full Build Test",
+          "command": "npm run build",
+          "blocking": true,
+          "failureMessage": "❌ 빌드 실패! 푸시가 차단되었습니다."
+        },
+        {
+          "name": "Agent System Test",
+          "command": "claude skill run agent-tester",
+          "blocking": false,
+          "continueOnError": true
+        }
+      ]
+    },
+    "on-agent-stop": {
+      "description": "에이전트 작업 완료 후 검증",
+      "steps": [
+        {
+          "name": "Verify Output",
+          "action": "check-agent-output"
+        },
+        {
+          "name": "Save State",
+          "action": "persist-agent-state"
+        },
+        {
+          "name": "Generate Report",
+          "action": "create-completion-report"
+        }
+      ]
+    },
+    "on-error": {
+      "description": "에러 발생 시 자동 대응",
+      "strategies": [
+        {
+          "errorType": "TypeScriptError",
+          "action": "auto-fix-types",
+          "maxAttempts": 3
+        },
+        {
+          "errorType": "ImportError",
+          "action": "organize-imports",
+          "maxAttempts": 2
+        },
+        {
+          "errorType": "BuildError",
+          "action": "analyze-and-suggest",
+          "maxAttempts": 1
+        }
+      ]
+    }
+  },
+  "customActions": {
+    "organize-imports": {
+      "description": "Import 문 자동 정리",
+      "command": "npx organize-imports-cli ${file}"
+    },
+    "format": {
+      "description": "코드 포매팅",
+      "command": "prettier --write ${file}"
+    },
+    "validate-hooks-dependencies": {
+      "description": "React Hooks 의존성 검증",
+      "pattern": "useEffect.*\\[.*\\]",
+      "check": "exhaustive-deps"
+    },
+    "verify-agent-imports": {
+      "description": "Agent import 검증",
+      "rules": [
+        {
+          "pattern": "structureAgent",
+          "suggestion": "structuringAgent"
+        },
+        {
+          "pattern": "intelligenceAgent",
+          "suggestion": "suitabilityAgent"
+        }
+      ]
+    },
+    "check-agent-output": {
+      "description": "Agent 출력 검증",
+      "verify": [
+        "no-errors",
+        "expected-format",
+        "completeness"
+      ]
+    },
+    "persist-agent-state": {
+      "description": "Agent 상태 저장",
+      "location": ".claude/state/agents/",
+      "format": "json"
+    },
+    "create-completion-report": {
+      "description": "완료 리포트 생성",
+      "template": "agent-completion",
+      "output": ".claude/reports/"
+    }
+  }
+}
