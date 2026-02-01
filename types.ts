@@ -215,3 +215,108 @@ export interface QAState {
     currentIndex: number;
     checklist: QATestItem[];
 }
+
+// ===== Multi-Agent System Types =====
+
+export type AgentRole =
+  | 'ORCHESTRATOR'      // 전체 조율자
+  | 'ANALYZER'          // 데이터 분석 에이전트
+  | 'WRITER'            // 문서 작성 에이전트
+  | 'REVIEWER'          // 검토 및 평가 에이전트
+  | 'RESEARCHER'        // 시장조사 및 정보수집 에이전트
+  | 'STRATEGIST'        // 전략 수립 에이전트
+  | 'OPTIMIZER';        // 최적화 및 개선 에이전트
+
+export interface AgentMessage {
+  id: string;
+  from: AgentRole;
+  to: AgentRole | 'BROADCAST';
+  type: 'REQUEST' | 'RESPONSE' | 'NOTIFICATION' | 'QUERY';
+  payload: {
+    task?: string;
+    data?: unknown;
+    result?: unknown;
+    error?: string;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  };
+  timestamp: string;
+  conversationId?: string; // 연관된 대화 스레드
+}
+
+export interface AgentTask {
+  id: string;
+  assignedTo: AgentRole;
+  type: 'ANALYZE' | 'WRITE' | 'REVIEW' | 'RESEARCH' | 'STRATEGIZE' | 'OPTIMIZE';
+  description: string;
+  context: {
+    company?: Company;
+    program?: SupportProgram;
+    application?: Application;
+    additionalData?: unknown;
+  };
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'BLOCKED';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  dependencies?: string[]; // Task IDs that must complete first
+  result?: unknown;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface AgentState {
+  role: AgentRole;
+  status: 'IDLE' | 'BUSY' | 'ERROR' | 'OFFLINE';
+  currentTask?: string; // Task ID
+  tasksCompleted: number;
+  lastActive: string;
+  capabilities: string[];
+  performance: {
+    successRate: number;
+    avgResponseTime: number; // milliseconds
+  };
+}
+
+export interface SharedMemory {
+  id: string;
+  type: 'INSIGHT' | 'PATTERN' | 'STRATEGY' | 'FEEDBACK' | 'LEARNING';
+  content: unknown;
+  source: AgentRole;
+  relevance: number; // 0-1 score
+  tags: string[];
+  timestamp: string;
+  expiresAt?: string;
+}
+
+export interface OrchestratorState {
+  isActive: boolean;
+  mode: 'MANUAL' | 'AUTO' | 'SEMI_AUTO';
+  activeAgents: AgentRole[];
+  taskQueue: AgentTask[];
+  messageLog: AgentMessage[];
+  sharedMemory: SharedMemory[];
+  currentWorkflow?: {
+    id: string;
+    name: string;
+    stage: string;
+    progress: number;
+  };
+  metrics: {
+    totalTasks: number;
+    completedTasks: number;
+    failedTasks: number;
+    avgTaskDuration: number;
+  };
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  stages: {
+    id: string;
+    name: string;
+    agentRoles: AgentRole[];
+    tasks: Omit<AgentTask, 'id' | 'createdAt' | 'updatedAt'>[];
+  }[];
+}

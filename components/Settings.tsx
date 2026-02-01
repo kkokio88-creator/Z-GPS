@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
+import AgentControl from './AgentControl';
 import { getStoredCompany, saveStoredCompany, getStoredApiKey, saveStoredApiKey, getStoredAiModel, saveStoredAiModel, getStoredDartApiKey, saveStoredDartApiKey } from '../services/storageService';
 import { Company } from '../types';
 import { startQA, resetQA, getQAState } from '../services/qaService';
@@ -99,16 +100,66 @@ const Settings: React.FC = () => {
                   <div className="space-y-4">
                       <div>
                           <label className="block text-xs font-bold text-gray-500 mb-1">Gemini API Key</label>
-                          <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} className="w-full border rounded p-3 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none transition-all"/>
+                          <div className="flex gap-2">
+                              <input
+                                  type="password"
+                                  value={apiKey}
+                                  onChange={e=>setApiKey(e.target.value)}
+                                  placeholder="Gemini API 키를 입력하세요"
+                                  className="flex-1 border rounded p-3 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none transition-all"
+                              />
+                              <a
+                                  href="https://aistudio.google.com/app/apikey"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors whitespace-nowrap"
+                              >
+                                  <span className="material-icons-outlined text-sm">open_in_new</span>
+                                  발급받기
+                              </a>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                              Google AI Studio에서 무료로 발급 가능합니다
+                          </p>
                       </div>
                       <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Open DART API Key</label>
-                          <input type="text" value={dartApiKey} onChange={e=>setDartApiKey(e.target.value)} className="w-full border rounded p-3 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none transition-all"/>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Open DART API Key (선택)</label>
+                          <div className="flex gap-2">
+                              <input
+                                  type="text"
+                                  value={dartApiKey}
+                                  onChange={e=>setDartApiKey(e.target.value)}
+                                  placeholder="DART API 키를 입력하세요 (선택사항)"
+                                  className="flex-1 border rounded p-3 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-primary outline-none transition-all"
+                              />
+                              <a
+                                  href="https://opendart.fss.or.kr/"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors whitespace-nowrap"
+                              >
+                                  <span className="material-icons-outlined text-sm">open_in_new</span>
+                                  발급받기
+                              </a>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                              금융감독원 전자공시 데이터 조회용 (기업 재무정보)
+                          </p>
                       </div>
-                      <button onClick={handleSave} className="w-full bg-gray-800 hover:bg-black text-white py-3 rounded-lg font-bold transition-colors">
-                          {saveStatus === 'SUCCESS' ? '저장되었습니다!' : '설정 저장'}
+                      <button onClick={handleSave} className="w-full bg-gray-800 hover:bg-black text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2">
+                          <span className="material-icons-outlined text-sm">save</span>
+                          {saveStatus === 'SUCCESS' ? '✓ 저장되었습니다!' : '설정 저장'}
                       </button>
                   </div>
+              </div>
+
+              {/* Multi-Agent System Control */}
+              <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow-sm border border-purple-200 dark:border-purple-800">
+                  <h3 className="font-bold mb-6 flex items-center text-lg">
+                      <span className="material-icons-outlined mr-2">psychology</span>
+                      Multi-Agent AI System
+                  </h3>
+                  <AgentControl />
               </div>
           </div>
       </main>
