@@ -10,19 +10,20 @@ import ApplicationList from './components/ApplicationList';
 import ResearchHub from './components/ResearchHub';
 import Settings from './components/Settings';
 import GlobalSearch from './components/GlobalSearch';
-import ExpertMatch from './components/ExpertMatch'; 
+import ExpertMatch from './components/ExpertMatch';
 import ExecutionManager from './components/ExecutionManager';
-import Community from './components/Community'; 
+import Community from './components/Community';
 import PitchTrainer from './components/PitchTrainer';
 import LoginPage from './components/LoginPage';
 import { isAuthenticated } from './services/storageService';
 import { getQAState, stopQA, generateFixPrompt, executeTestLogic, updateTestResult } from './services/qaService';
+import { QAState, QATestItem } from './types';
 
 // Global QA Orchestrator Component
 const QAController = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [qaState, setQaState] = useState<any>(getQAState());
+    const [qaState, setQaState] = useState<QAState>(getQAState());
     const [showReport, setShowReport] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     
@@ -34,8 +35,8 @@ const QAController = () => {
             const current = getQAState();
             setQaState(current);
             // If active and we just finished, show report
-            if (!current.isActive && current.checklist.some((x:any) => x.status !== 'PENDING') && !showReport) {
-                // Logic to detect finish? 
+            if (!current.isActive && current.checklist.some((x: QATestItem) => x.status !== 'PENDING') && !showReport) {
+                // Logic to detect finish?
                 // Better handled by the orchestrator below.
             }
         };

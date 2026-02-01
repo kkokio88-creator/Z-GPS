@@ -196,3 +196,22 @@ export interface AuditDefenseResult {
         sampleAnswer: string; // 모범 답변
     }[];
 }
+
+// QA Test Interfaces
+export interface QATestItem {
+    id: string;
+    category: string;
+    name: string;
+    path: string;
+    action: string;
+    status: 'PENDING' | 'RUNNING' | 'PASS' | 'FAIL';
+    log: string[];
+    errorDetails?: string;
+    fixProposal?: string;
+}
+
+export interface QAState {
+    isActive: boolean;
+    currentIndex: number;
+    checklist: QATestItem[];
+}

@@ -1,9 +1,9 @@
 
 import { SupportProgram, EligibilityStatus, Company } from "../types";
 
-const API_KEY = "2eace0dba469cba424e6a7142db94de8da406f7ea2a05f9d5f7b35b2476b4eb0";
-const BASE_URL = "https://api.odcloud.kr/api";
-const ENDPOINT_PATH = "/15049270/v1/uddi:49607839-e916-4b65-b778-953e5e094627";
+const API_KEY = import.meta.env.VITE_ODCLOUD_API_KEY || "";
+const BASE_URL = import.meta.env.VITE_ODCLOUD_BASE_URL || "https://api.odcloud.kr/api";
+const ENDPOINT_PATH = import.meta.env.VITE_ODCLOUD_ENDPOINT_PATH || "/15049270/v1/uddi:49607839-e916-4b65-b778-953e5e094627";
 const CONNECTION_TIMEOUT_MS = 5000;
 
 export const fetchIncheonSupportPrograms = async (): Promise<SupportProgram[]> => {

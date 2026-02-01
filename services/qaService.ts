@@ -1,20 +1,8 @@
 
-import { Company } from "../types";
+import { Company, QATestItem, QAState } from "../types";
 import { getStoredCompany, saveStoredCompany, getStoredDartApiKey, getStoredApiKey } from "./storageService";
 import { fetchCompanyDetailsFromDART, fetchIncheonSupportPrograms } from "./apiService";
 import { draftAgent } from "./geminiAgents";
-
-export interface QATestItem {
-    id: string;
-    category: string;
-    name: string;
-    path: string;
-    action: string;
-    status: 'PENDING' | 'RUNNING' | 'PASS' | 'FAIL';
-    log: string[];
-    errorDetails?: string;
-    fixProposal?: string;
-}
 
 const QA_STORAGE_KEY = 'zmis_qa_state_v1';
 
@@ -59,22 +47,28 @@ export const INITIAL_QA_CHECKLIST: QATestItem[] = [
 
 // --- State Management ---
 
-export const getQAState = () => {
+export const getQAState = (): QAState => {
     const stored = localStorage.getItem(QA_STORAGE_KEY);
     return stored ? JSON.parse(stored) : { isActive: false, currentIndex: 0, checklist: INITIAL_QA_CHECKLIST };
 };
 
-export const saveQAState = (state: any) => {
+export const saveQAState = (state: QAState): void => {
     localStorage.setItem(QA_STORAGE_KEY, JSON.stringify(state));
     // Dispatch Global Event
     window.dispatchEvent(new Event('zmis-qa-update'));
 };
 
-export const startQA = () => {
-    const state = {
+export const startQA = (): QAState => {
+    const state: QAState = {
         isActive: true,
         currentIndex: 0,
-        checklist: INITIAL_QA_CHECKLIST.map(item => ({ ...item, status: 'PENDING', log: [], errorDetails: '', fixProposal: '' }))
+        checklist: INITIAL_QA_CHECKLIST.map(item => ({
+            ...item,
+            status: 'PENDING' as const,
+            log: [],
+            errorDetails: '',
+            fixProposal: ''
+        }))
     };
     saveQAState(state);
     return state;
