@@ -1,16 +1,16 @@
 import {
   AgentRole,
   AgentMessage,
-  AgentTask,
   Company,
   SupportProgram,
   Application,
   SharedMemory,
+  EligibilityStatus,
 } from "../types";
 import { orchestrator } from "./agentOrchestrator";
 import {
-  intelligenceAgent,
-  structureAgent,
+  suitabilityAgent,
+  structuringAgent,
   draftAgent,
   reviewAgent,
   consistencyAgent,
@@ -118,7 +118,7 @@ class AnalyzerAgent extends BaseAgent {
     if (import.meta.env.DEV) console.log('🔍 Analyzer: Analyzing company profile...');
 
     try {
-      const analysis = await structureAgent.structureCompanyData(company);
+      const analysis = await structuringAgent.structure(company.description, company);
 
       this.addMemory('INSIGHT', {
         companyId: company.id,
@@ -139,7 +139,7 @@ class AnalyzerAgent extends BaseAgent {
     if (import.meta.env.DEV) console.log('🔍 Analyzer: Checking eligibility...');
 
     try {
-      const eligibility = await intelligenceAgent.analyzeEligibility(company, program);
+      const eligibility = await suitabilityAgent.evaluate(company, program);
 
       this.addMemory('INSIGHT', {
         programId: program.id,
@@ -160,7 +160,13 @@ class AnalyzerAgent extends BaseAgent {
     if (import.meta.env.DEV) console.log('🔍 Analyzer: Performing gap analysis...');
 
     try {
-      const gaps = await intelligenceAgent.analyzeCompanyGaps(company, program);
+      // Use suitability evaluation as a proxy for gap analysis
+      const evaluation = await suitabilityAgent.evaluate(company, program);
+      const gaps = {
+        strengths: company.coreCompetencies || [],
+        gaps: ['추가 분석 필요'],
+        advice: evaluation.eligibilityReason || '자격 요건을 충족하는지 확인이 필요합니다.',
+      };
 
       this.addMemory('INSIGHT', {
         programId: program.id,
@@ -214,17 +220,33 @@ class WriterAgent extends BaseAgent {
 
     try {
       const company = getStoredCompany();
-      const draft = await draftAgent.generateSectionDraft(company, sectionKey, requirement, {});
+      const program = application.programSnapshot;
+      const mockProgram: SupportProgram = {
+        id: application.programId,
+        programName: program.name,
+        organizer: program.organizer,
+        supportType: program.type,
+        officialEndDate: program.endDate,
+        internalDeadline: program.endDate,
+        expectedGrant: program.grantAmount,
+        fitScore: 0,
+        eligibility: EligibilityStatus.POSSIBLE,
+        priorityRank: 0,
+        eligibilityReason: '',
+        requiredDocuments: program.requiredDocuments || [],
+      };
+
+      const result = await draftAgent.writeSection(company, mockProgram, sectionKey, false, requirement);
 
       this.addMemory('PATTERN', {
         applicationId: application.id,
         sectionKey,
-        draft,
+        draft: result.text,
       }, ['draft', 'writing', company.industry], 0.8);
 
       await this.sendMessage('REVIEWER', 'REQUEST', {
         task: 'review_draft',
-        data: { draft, sectionKey, application },
+        data: { draft: result.text, sectionKey, application },
       });
 
     } catch (error) {
@@ -290,7 +312,7 @@ class ReviewerAgent extends BaseAgent {
     if (import.meta.env.DEV) console.log('🔎 Reviewer: Checking consistency...');
 
     try {
-      const result = await consistencyAgent.checkConsistency(application);
+      const result = await consistencyAgent.checkConsistency(application.draftSections);
 
       this.addMemory('FEEDBACK', {
         applicationId: application.id,
@@ -315,7 +337,29 @@ class ReviewerAgent extends BaseAgent {
     if (import.meta.env.DEV) console.log('🔎 Reviewer: Evaluating quality...');
 
     try {
-      const review = await reviewAgent.reviewApplication(application);
+      const company = getStoredCompany();
+      const program = application.programSnapshot;
+      const mockProgram: SupportProgram = {
+        id: application.programId,
+        programName: program.name,
+        organizer: program.organizer,
+        supportType: program.type,
+        officialEndDate: program.endDate,
+        internalDeadline: program.endDate,
+        expectedGrant: program.grantAmount,
+        fitScore: 0,
+        eligibility: EligibilityStatus.POSSIBLE,
+        priorityRank: 0,
+        eligibilityReason: '',
+        requiredDocuments: program.requiredDocuments || [],
+      };
+
+      const review = await reviewAgent.reviewApplication(
+        company,
+        mockProgram,
+        application.draftSections,
+        'GENERAL'
+      );
 
       this.addMemory('FEEDBACK', {
         applicationId: application.id,
