@@ -1,0 +1,91 @@
+{
+  "name": "git-helper",
+  "description": "Git 작업 자동화 및 커밋 메시지 생성",
+  "version": "1.0.0",
+  "trigger": "manual",
+  "workflows": [
+    {
+      "name": "Smart Commit",
+      "steps": [
+        {
+          "action": "analyze-changes",
+          "description": "변경된 파일 분석"
+        },
+        {
+          "action": "generate-commit-message",
+          "format": "conventional-commits",
+          "includeCoAuthor": true,
+          "coAuthor": "Claude Sonnet 4.5 <noreply@anthropic.com>"
+        },
+        {
+          "action": "stage-files",
+          "exclude": [".env", ".env.local", "node_modules/"]
+        },
+        {
+          "action": "pre-commit-checks",
+          "run": ["typecheck", "security-check"]
+        },
+        {
+          "action": "commit",
+          "signOff": false
+        }
+      ]
+    },
+    {
+      "name": "Feature Branch",
+      "steps": [
+        {
+          "action": "create-branch",
+          "pattern": "feature/{feature-name}",
+          "baseBranch": "main"
+        },
+        {
+          "action": "switch-branch"
+        }
+      ]
+    },
+    {
+      "name": "Quick Push",
+      "steps": [
+        {
+          "action": "pull-rebase",
+          "branch": "main"
+        },
+        {
+          "action": "push",
+          "force": false
+        }
+      ]
+    },
+    {
+      "name": "Release Prep",
+      "steps": [
+        {
+          "action": "version-bump",
+          "type": "minor"
+        },
+        {
+          "action": "update-changelog"
+        },
+        {
+          "action": "create-tag"
+        },
+        {
+          "action": "push-with-tags"
+        }
+      ]
+    }
+  ],
+  "commitMessageTemplates": {
+    "feat": "feat: {description}\n\n{body}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>",
+    "fix": "fix: {description}\n\n{body}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>",
+    "refactor": "refactor: {description}\n\n{body}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>",
+    "docs": "docs: {description}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+  },
+  "hooks": {
+    "pre-commit": ["security-checker", "type-checker"],
+    "pre-push": ["build-validator"]
+  },
+  "onSuccess": "✅ Git 작업 완료!",
+  "onFailure": "❌ Git 작업 실패."
+}

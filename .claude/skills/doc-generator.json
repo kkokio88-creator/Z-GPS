@@ -1,0 +1,60 @@
+{
+  "name": "doc-generator",
+  "description": "자동 문서 생성 및 업데이트",
+  "version": "1.0.0",
+  "trigger": "manual",
+  "generators": [
+    {
+      "name": "API Documentation",
+      "sourceFiles": [
+        "services/agentOrchestrator.ts",
+        "services/agentTeam.ts",
+        "services/agentIntegration.ts"
+      ],
+      "outputFile": "docs/API_REFERENCE.md",
+      "template": "api-reference",
+      "includeExamples": true
+    },
+    {
+      "name": "Component Documentation",
+      "sourceFiles": ["components/*.tsx"],
+      "outputFile": "docs/COMPONENTS.md",
+      "template": "component-guide",
+      "includeProps": true,
+      "includeScreenshots": false
+    },
+    {
+      "name": "Type Documentation",
+      "sourceFile": "types.ts",
+      "outputFile": "docs/TYPES.md",
+      "template": "type-reference",
+      "includeExamples": true
+    },
+    {
+      "name": "Workflow Documentation",
+      "sourceFile": "services/agentWorkflows.ts",
+      "outputFile": "docs/WORKFLOWS.md",
+      "template": "workflow-guide",
+      "includeDiagrams": true
+    },
+    {
+      "name": "Changelog",
+      "source": "git-log",
+      "outputFile": "CHANGELOG.md",
+      "format": "keep-a-changelog",
+      "includeCommits": true
+    }
+  ],
+  "formatting": {
+    "markdown": true,
+    "codeBlocks": true,
+    "tables": true,
+    "toc": true
+  },
+  "autoUpdate": {
+    "onFileChange": true,
+    "onCommit": false
+  },
+  "onSuccess": "✅ 문서 생성 완료!",
+  "onFailure": "❌ 문서 생성 실패."
+}

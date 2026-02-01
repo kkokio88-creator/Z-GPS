@@ -1,0 +1,79 @@
+{
+  "name": "agent-tester",
+  "description": "Multi-Agent 시스템 통합 테스트",
+  "version": "1.0.0",
+  "trigger": "manual",
+  "testSuites": [
+    {
+      "name": "Agent Initialization",
+      "tests": [
+        {
+          "description": "All agents initialize without errors",
+          "check": "agentTeam.initialize() 성공 여부"
+        },
+        {
+          "description": "Orchestrator starts successfully",
+          "check": "orchestrator.start() 성공 여부"
+        }
+      ]
+    },
+    {
+      "name": "Agent Communication",
+      "tests": [
+        {
+          "description": "Messages are routed correctly",
+          "check": "에이전트 간 메시지 전송 확인"
+        },
+        {
+          "description": "Shared memory works",
+          "check": "공유 메모리 저장/조회 확인"
+        }
+      ]
+    },
+    {
+      "name": "Workflow Execution",
+      "tests": [
+        {
+          "description": "COMPLETE_APPLICATION workflow runs",
+          "check": "전체 지원서 작성 워크플로우 실행"
+        },
+        {
+          "description": "QUICK_REVIEW workflow runs",
+          "check": "빠른 검토 워크플로우 실행"
+        }
+      ]
+    },
+    {
+      "name": "Task Management",
+      "tests": [
+        {
+          "description": "Tasks are created correctly",
+          "check": "태스크 생성 확인"
+        },
+        {
+          "description": "Task dependencies work",
+          "check": "태스크 의존성 처리 확인"
+        },
+        {
+          "description": "Tasks complete successfully",
+          "check": "태스크 완료 상태 확인"
+        }
+      ]
+    }
+  ],
+  "mockData": {
+    "company": {
+      "id": "test_company",
+      "name": "테스트 기업",
+      "industry": "IT",
+      "description": "테스트용 기업 설명"
+    },
+    "program": {
+      "id": "test_program",
+      "programName": "테스트 지원사업",
+      "organizer": "테스트 기관"
+    }
+  },
+  "onSuccess": "✅ Agent 시스템 테스트 통과!",
+  "onFailure": "❌ Agent 시스템 테스트 실패. 로그를 확인하세요."
+}

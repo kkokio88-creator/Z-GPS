@@ -1,0 +1,35 @@
+{
+  "name": "build-validator",
+  "description": "프로덕션 빌드 검증 및 품질 체크",
+  "version": "1.0.0",
+  "trigger": "manual",
+  "steps": [
+    {
+      "name": "Clean old build",
+      "command": "rm -rf dist",
+      "continueOnError": true
+    },
+    {
+      "name": "TypeScript type check",
+      "command": "npx tsc --noEmit",
+      "errorMessage": "TypeScript 타입 에러가 있습니다. 수정이 필요합니다."
+    },
+    {
+      "name": "Build production",
+      "command": "npm run build",
+      "errorMessage": "프로덕션 빌드에 실패했습니다."
+    },
+    {
+      "name": "Check bundle size",
+      "command": "du -sh dist",
+      "continueOnError": true
+    },
+    {
+      "name": "Verify essential files",
+      "command": "test -f dist/index.html && test -d dist/assets",
+      "errorMessage": "필수 빌드 파일이 누락되었습니다."
+    }
+  ],
+  "onSuccess": "✅ 빌드 검증 완료! 배포 가능합니다.",
+  "onFailure": "❌ 빌드 검증 실패. 위의 에러를 수정하세요."
+}

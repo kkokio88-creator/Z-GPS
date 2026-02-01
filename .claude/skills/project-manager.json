@@ -1,0 +1,117 @@
+{
+  "name": "project-manager",
+  "description": "프로젝트 관리 및 작업 추적",
+  "version": "1.0.0",
+  "trigger": "manual",
+  "features": [
+    {
+      "name": "Status Report",
+      "generates": [
+        {
+          "type": "code-stats",
+          "metrics": [
+            "Total files",
+            "Total lines of code",
+            "TypeScript files count",
+            "Component count",
+            "Service count"
+          ]
+        },
+        {
+          "type": "git-stats",
+          "metrics": [
+            "Total commits",
+            "Contributors",
+            "Last commit date",
+            "Branch count"
+          ]
+        },
+        {
+          "type": "dependency-stats",
+          "metrics": [
+            "Total dependencies",
+            "Dev dependencies",
+            "Outdated packages"
+          ]
+        },
+        {
+          "type": "project-health",
+          "checks": [
+            "Build status",
+            "Type errors count",
+            "Security vulnerabilities",
+            "Test coverage"
+          ]
+        }
+      ],
+      "outputFormat": "markdown",
+      "outputFile": "PROJECT_STATUS.md"
+    },
+    {
+      "name": "Task Tracker",
+      "todoPatterns": [
+        "TODO:",
+        "FIXME:",
+        "HACK:",
+        "XXX:",
+        "NOTE:"
+      ],
+      "generateReport": true,
+      "groupBy": "file",
+      "outputFile": "TASKS.md"
+    },
+    {
+      "name": "Dependency Manager",
+      "checks": [
+        {
+          "type": "outdated",
+          "severity": "warning"
+        },
+        {
+          "type": "vulnerabilities",
+          "severity": "error"
+        },
+        {
+          "type": "unused",
+          "severity": "info"
+        }
+      ],
+      "autoUpdate": false,
+      "updateStrategy": "minor"
+    },
+    {
+      "name": "Code Quality Metrics",
+      "metrics": [
+        {
+          "name": "Cyclomatic Complexity",
+          "threshold": 10
+        },
+        {
+          "name": "Code Duplication",
+          "threshold": 5
+        },
+        {
+          "name": "Function Length",
+          "threshold": 50
+        },
+        {
+          "name": "File Length",
+          "threshold": 300
+        }
+      ],
+      "generateReport": true
+    }
+  ],
+  "schedules": [
+    {
+      "task": "dependency-check",
+      "frequency": "weekly"
+    },
+    {
+      "task": "status-report",
+      "frequency": "daily"
+    }
+  ],
+  "onSuccess": "✅ 프로젝트 관리 작업 완료!",
+  "onFailure": "❌ 프로젝트 관리 작업 실패."
+}

@@ -1,0 +1,70 @@
+{
+  "name": "security-checker",
+  "description": "보안 취약점 검사 및 API 키 노출 방지",
+  "version": "1.0.0",
+  "trigger": "pre-commit",
+  "checks": [
+    {
+      "name": "Hardcoded API Keys",
+      "pattern": "(AIza[0-9A-Za-z\\-_]{35}|sk-[a-zA-Z0-9]{48})",
+      "severity": "critical",
+      "message": "❌ API 키가 코드에 하드코딩되어 있습니다!",
+      "action": "block-commit"
+    },
+    {
+      "name": "Environment file committed",
+      "files": [".env", ".env.local", ".env.production"],
+      "severity": "critical",
+      "message": "❌ 환경 변수 파일이 커밋되려 하고 있습니다!",
+      "action": "block-commit"
+    },
+    {
+      "name": "Sensitive data patterns",
+      "patterns": [
+        "password\\s*=\\s*['\"][^'\"]+['\"]",
+        "secret\\s*=\\s*['\"][^'\"]+['\"]",
+        "token\\s*=\\s*['\"][^'\"]+['\"]"
+      ],
+      "severity": "high",
+      "message": "⚠️ 민감한 데이터가 포함되어 있을 수 있습니다.",
+      "action": "warn"
+    },
+    {
+      "name": "SQL Injection risks",
+      "pattern": "\\$\\{.*\\}.*SELECT|INSERT|UPDATE|DELETE",
+      "severity": "high",
+      "message": "⚠️ SQL Injection 위험이 있을 수 있습니다.",
+      "action": "warn"
+    },
+    {
+      "name": "XSS vulnerabilities",
+      "pattern": "dangerouslySetInnerHTML|innerHTML\\s*=",
+      "severity": "medium",
+      "message": "⚠️ XSS 취약점이 있을 수 있습니다.",
+      "action": "warn"
+    },
+    {
+      "name": "Eval usage",
+      "pattern": "\\beval\\(",
+      "severity": "high",
+      "message": "⚠️ eval() 사용은 보안 위험이 있습니다.",
+      "action": "warn"
+    }
+  ],
+  "whitelist": [
+    "// SECURITY: Reviewed and approved",
+    "// @security-approved"
+  ],
+  "scanDirectories": [
+    "components/",
+    "services/",
+    "types.ts"
+  ],
+  "excludePatterns": [
+    "node_modules/",
+    "dist/",
+    "*.test.ts"
+  ],
+  "onSuccess": "✅ 보안 검사 통과!",
+  "onFailure": "❌ 보안 문제 발견! 커밋이 차단되었습니다."
+}

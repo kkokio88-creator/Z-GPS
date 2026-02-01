@@ -1,0 +1,50 @@
+{
+  "name": "code-reviewer",
+  "description": "코드 변경사항 자동 리뷰 및 품질 검사",
+  "version": "1.0.0",
+  "trigger": "on-file-change",
+  "filePatterns": ["*.ts", "*.tsx"],
+  "checks": [
+    {
+      "name": "No any types",
+      "rule": "코드에 'any' 타입이 사용되지 않았는지 확인",
+      "severity": "error"
+    },
+    {
+      "name": "Import organization",
+      "rule": "import 문이 올바르게 정리되어 있는지 확인",
+      "severity": "warning"
+    },
+    {
+      "name": "Component naming",
+      "rule": "컴포넌트 이름이 PascalCase인지 확인",
+      "severity": "error"
+    },
+    {
+      "name": "Environment variables",
+      "rule": "환경 변수 접근 시 import.meta.env 사용 확인",
+      "severity": "error"
+    },
+    {
+      "name": "Console logs",
+      "rule": "console.log가 import.meta.env.DEV로 감싸져 있는지 확인",
+      "severity": "warning"
+    },
+    {
+      "name": "Unused imports",
+      "rule": "사용하지 않는 import가 없는지 확인",
+      "severity": "warning"
+    }
+  ],
+  "actions": [
+    {
+      "name": "Auto-fix imports",
+      "command": "organize-imports"
+    },
+    {
+      "name": "Suggest type improvements",
+      "command": "suggest-types"
+    }
+  ],
+  "reportFormat": "markdown"
+}

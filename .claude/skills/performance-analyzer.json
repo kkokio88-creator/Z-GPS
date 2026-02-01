@@ -1,0 +1,80 @@
+{
+  "name": "performance-analyzer",
+  "description": "React 성능 분석 및 최적화 제안",
+  "version": "1.0.0",
+  "trigger": "manual",
+  "analyses": [
+    {
+      "name": "Bundle Size Analysis",
+      "command": "npm run build && du -sh dist/assets/*.js",
+      "thresholds": {
+        "warning": "500KB",
+        "error": "1MB"
+      },
+      "suggestions": [
+        "Code splitting 적용",
+        "Dynamic import() 사용",
+        "Tree shaking 최적화"
+      ]
+    },
+    {
+      "name": "Component Complexity",
+      "checks": [
+        {
+          "rule": "컴포넌트 라인 수 < 300",
+          "severity": "warning"
+        },
+        {
+          "rule": "useEffect 의존성 배열 정확성",
+          "severity": "error"
+        },
+        {
+          "rule": "불필요한 리렌더링 체크",
+          "severity": "warning"
+        }
+      ]
+    },
+    {
+      "name": "Memory Leaks",
+      "checks": [
+        {
+          "pattern": "useEffect.*addEventListener",
+          "requiresCleanup": true,
+          "message": "이벤트 리스너가 cleanup되는지 확인하세요"
+        },
+        {
+          "pattern": "setInterval|setTimeout",
+          "requiresCleanup": true,
+          "message": "타이머가 cleanup되는지 확인하세요"
+        }
+      ]
+    },
+    {
+      "name": "Optimization Opportunities",
+      "suggestions": [
+        {
+          "pattern": "map\\(.*=>.*<",
+          "suggestion": "React.memo 또는 useMemo 사용 고려"
+        },
+        {
+          "pattern": "\\(\\)\\s*=>.*useCallback 사용 고려",
+          "suggestion": "useCallback으로 함수 메모이제이션"
+        },
+        {
+          "pattern": "expensive.*calculation",
+          "suggestion": "useMemo로 계산 결과 캐싱"
+        }
+      ]
+    }
+  ],
+  "metrics": [
+    "First Contentful Paint",
+    "Largest Contentful Paint",
+    "Time to Interactive",
+    "Total Bundle Size",
+    "Number of HTTP Requests"
+  ],
+  "reportFormat": "detailed",
+  "onSuccess": "✅ 성능 분석 완료!",
+  "onFailure": "⚠️ 성능 개선이 필요합니다."
+}
