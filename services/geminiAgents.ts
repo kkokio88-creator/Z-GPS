@@ -1,7 +1,6 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Company, SupportProgram, EligibilityStatus, StructureAgentResponse, FinancialData, IntellectualProperty, IndustryTrend, VaultDocument, ResearchReport, ReviewResult, ConsistencyCheckResult, AuditDefenseResult } from "../types";
+import { GoogleGenAI, Modality } from "@google/genai";
+import { Company, SupportProgram, EligibilityStatus, StructureAgentResponse, ReviewResult, ConsistencyCheckResult, AuditDefenseResult } from "../types";
 import { getContextForDrafting } from "./ontologyService";
-import { syncDeadlinesToCalendar } from "./calendarService";
 import { getStoredApiKey, getStoredAiModel } from "./storageService";
 
 export type ReviewPersona = 'GENERAL' | 'TECHNICAL' | 'VC' | 'COMPLIANCE';
@@ -11,10 +10,10 @@ export type ReviewPersona = 'GENERAL' | 'TECHNICAL' | 'VC' | 'COMPLIANCE';
 const getAI = () => {
     // V1.7 Fix: Strictly prioritize Stored Key
     const storedKey = getStoredApiKey();
-    const envKey = process.env.API_KEY || '';
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY || '';
     const key = storedKey || envKey;
-    
-    if (!key) {
+
+    if (!key && import.meta.env.DEV) {
         console.warn("Gemini API Key is missing. Using Demo Mode.");
     }
     return new GoogleGenAI({ apiKey: key });
@@ -34,7 +33,7 @@ export const verifyGeminiConnection = async (apiKey: string): Promise<{ success:
 
     for (const model of modelsToTry) {
         try {
-            console.log(`Testing connection with ${model}...`);
+            if (import.meta.env.DEV) console.log(`Testing connection with ${model}...`);
             await ai.models.generateContent({
                 model: model,
                 contents: 'ping',
@@ -42,7 +41,7 @@ export const verifyGeminiConnection = async (apiKey: string): Promise<{ success:
             // If successful
             return { success: true, message: "연동 성공", modelUsed: model };
         } catch (e: any) {
-            console.warn(`Model ${model} failed:`, e);
+            if (import.meta.env.DEV) console.warn(`Model ${model} failed:`, e);
             // If it's an authentication error, don't try other models, fail immediately
             if (String(e).includes("403") || String(e).includes("API key not valid")) {
                 return { success: false, message: "API Key가 유효하지 않습니다 (403 Forbidden)." };
@@ -76,7 +75,7 @@ const cleanAndParseJSON = (text: string): any => {
                 return JSON.parse(text.substring(start, end + 1));
             }
         } catch (e2) {
-            console.error("JSON Parse Failed for text:", text.substring(0, 100) + "...");
+            if (import.meta.env.DEV) console.error("JSON Parse Failed for text:", text.substring(0, 100) + "...");
             return {};
         }
     }
@@ -85,7 +84,7 @@ const cleanAndParseJSON = (text: string): any => {
 
 const handleGeminiError = (error: any, context: string = ""): string => {
     const errStr = String(error);
-    console.error(`Gemini API Error (${context}):`, error);
+    if (import.meta.env.DEV) console.error(`Gemini API Error (${context}):`, error);
     if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
         return "⚠️ 무료 사용량이 소진되었습니다. 잠시 후 다시 시도하거나 API Key를 확인하세요.";
     }
@@ -102,7 +101,7 @@ class BaseAgent {
   
   protected checkApiKey() {
     const storedKey = getStoredApiKey();
-    const envKey = process.env.API_KEY || '';
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY || '';
     return !!(storedKey || envKey);
   }
 
@@ -331,16 +330,16 @@ export class PositioningAgent extends BaseAgent {
         } catch (e) { return null; }
     }
 }
-export class SupervisorAgent extends BaseAgent { async syncDeadlines(p: any) { return []; } }
+export class SupervisorAgent extends BaseAgent { async syncDeadlines(_p: any) { return []; } }
 export class ConsultantAgent extends BaseAgent {
-    createChatSession(company: Company, program: SupportProgram) {
+    createChatSession(_company: Company, program: SupportProgram) {
         if (!this.checkApiKey()) return null;
         return this.ai.chats.create({ model: this.modelName, config: { systemInstruction: `Consultant for ${program.programName}.` } });
     }
 }
 
 export class ReviewAgent extends BaseAgent {
-    async reviewApplication(company: Company, program: SupportProgram, draftSections: any, persona: ReviewPersona): Promise<ReviewResult> {
+    async reviewApplication(_company: Company, _program: SupportProgram, _draftSections: any, persona: ReviewPersona): Promise<ReviewResult> {
         if (!this.checkApiKey()) return { totalScore: 80, scores: { technology: 80, marketability: 80, originality: 80, capability: 80, socialValue: 80 }, feedback: ["Demo"] };
         const prompt = `Review application as persona ${persona}. JSON output.`;
         try {
@@ -376,19 +375,19 @@ export class ReviewAgent extends BaseAgent {
 }
 
 export class OntologyLearningAgent extends BaseAgent {
-    async extractSuccessPatterns(text: string): Promise<string[]> { if (!this.checkApiKey()) return []; return []; }
+    async extractSuccessPatterns(_text: string): Promise<string[]> { if (!this.checkApiKey()) return []; return []; }
 }
 export class DraftRefinementAgent extends BaseAgent {
     async refine(text: string, instruction: string): Promise<string> { if(!this.checkApiKey()) return text; const response = await this.ai.models.generateContent({ model: this.modelName, contents: `Refine: ${text}. Instruction: ${instruction}` }); return response.text || text; }
 }
 export class ProgramParserAgent extends BaseAgent {
-    async parseAnnouncement(text: string): Promise<any> { 
-        if(!this.checkApiKey()) return {}; 
+    async parseAnnouncement(text: string): Promise<any> {
+        if(!this.checkApiKey()) return {};
         const prompt = `
             Parse the following government grant announcement text into structured JSON.
-            
+
             Text: ${text.substring(0, 15000)}...
-            
+
             Output JSON with keys:
             - programName (string)
             - organizer (string)
@@ -399,14 +398,14 @@ export class ProgramParserAgent extends BaseAgent {
             - description (summary)
         `;
         try {
-            const response = await this.ai.models.generateContent({ 
-                model: this.modelName, 
-                contents: prompt, 
-                config: {responseMimeType:"application/json"} 
-            }); 
+            const response = await this.ai.models.generateContent({
+                model: this.modelName,
+                contents: prompt,
+                config: {responseMimeType:"application/json"}
+            });
             return cleanAndParseJSON(response.text||"{}");
         } catch (e) {
-            console.error("ProgramParserAgent Error:", e);
+            if (import.meta.env.DEV) console.error("ProgramParserAgent Error:", e);
             return {};
         }
     }
@@ -420,17 +419,17 @@ export class VoiceDictationAgent extends BaseAgent {
     async dictateAndRefine(b64: string): Promise<string> { if(!this.checkApiKey()) return "Demo"; const r = await this.ai.models.generateContent({ model: 'gemini-2.5-flash-native-audio-preview-12-2025', contents: {parts:[{inlineData:{mimeType:'audio/webm', data:b64}}, {text:"Transcribe"}]} }); return r.text || ""; }
 }
 export class PresentationAgent extends BaseAgent {
-    async generateSlides(n: string, d: any): Promise<string> { if(!this.checkApiKey()) return "Demo"; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Slides for ${n}. Markdown.` }); return r.text || ""; }
+    async generateSlides(n: string, _d: any): Promise<string> { if(!this.checkApiKey()) return "Demo"; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Slides for ${n}. Markdown.` }); return r.text || ""; }
 }
 export class BudgetAgent extends BaseAgent {
-    async planBudget(g: number, t: string): Promise<any> { if(!this.checkApiKey()) return {items:[]}; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Budget ${g} for ${t}. JSON`, config: {responseMimeType:"application/json"} }); return cleanAndParseJSON(r.text||"{}"); }
+    async planBudget(g: number, _t: string): Promise<any> { if(!this.checkApiKey()) return {items:[]}; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Budget ${g}. JSON`, config: {responseMimeType:"application/json"} }); return cleanAndParseJSON(r.text||"{}"); }
 }
 export class InterviewAgent extends BaseAgent {
-    async generateQuestions(t: string): Promise<string[]> { if(!this.checkApiKey()) return ["Q1"]; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Interview Qs. JSON`, config: {responseMimeType:"application/json"} }); return cleanAndParseJSON(r.text||"[]"); }
+    async generateQuestions(_t: string): Promise<string[]> { if(!this.checkApiKey()) return ["Q1"]; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Interview Qs. JSON`, config: {responseMimeType:"application/json"} }); return cleanAndParseJSON(r.text||"[]"); }
     async evaluateAnswer(q: string, a: string): Promise<string> { if(!this.checkApiKey()) return "Feedback"; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Eval answer. Q:${q} A:${a}` }); return r.text || ""; }
 }
 export class CompetitorAnalysisAgent extends BaseAgent {
-    async analyze(c: any): Promise<any> { if(!this.checkApiKey()) return {competitors:[]}; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Competitors for ${c.name}. JSON`, config: {responseMimeType:"application/json", tools:[{googleSearch:{}}]} }); return cleanAndParseJSON(r.text||"{}"); }
+    async analyze(_c: any): Promise<any> { if(!this.checkApiKey()) return {competitors:[]}; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Competitors. JSON`, config: {responseMimeType:"application/json", tools:[{googleSearch:{}}]} }); return cleanAndParseJSON(r.text||"{}"); }
 }
 export class TranslationAgent extends BaseAgent {
     async translateToBusinessEnglish(t: string): Promise<string> { if(!this.checkApiKey()) return t; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Translate: ${t}` }); return r.text || ""; }
@@ -438,20 +437,20 @@ export class TranslationAgent extends BaseAgent {
 export class SpeechSynthesisAgent extends BaseAgent {
     async speak(t: string): Promise<string|null> { if(!this.checkApiKey()) return null; const r = await this.ai.models.generateContent({ model: 'gemini-2.5-flash-preview-tts', contents: {parts:[{text:t}]}, config: {responseModalities:[Modality.AUDIO], speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Kore'}}}} }); return r.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null; }
 }
-export class FinancialConsultantAgent extends BaseAgent { async analyze(f:any): Promise<string> { return "Demo"; } }
-export class IPEvaluationAgent extends BaseAgent { async evaluate(i:any, ind:string): Promise<string> { return "Demo"; } }
-export class TrendAnalysisAgent extends BaseAgent { async analyzeTrends(i:string): Promise<any[]> { return []; } }
-export class DocumentClassifierAgent extends BaseAgent { async classifyAndAnalyze(n:string, b:string): Promise<any> { return {}; } }
-export class MarketIntelligenceAgent extends BaseAgent { async research(q:string, i:string): Promise<any> { return {}; } }
-export class SummaryAgent extends BaseAgent { async generateOnePager(d:any): Promise<string> { if(!this.checkApiKey()) return "Demo"; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Summary` }); return r.text || ""; } }
-export class DocumentQAAgent extends BaseAgent { async ask(d:any, q:string): Promise<string> { return "Demo"; } }
-export class PitchCoachAgent extends BaseAgent { async analyzePitch(t:string): Promise<any> { return {}; } }
-export class FileParserAgent extends BaseAgent { async parseAndMap(c:string, s:any): Promise<any> { if(!this.checkApiKey()) return {}; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Map sections. JSON`, config:{responseMimeType:"application/json"} }); return cleanAndParseJSON(r.text||"{}"); } }
-export class VocAnalysisAgent extends BaseAgent { async analyzeReviews(t:string): Promise<any> { return {}; } }
-export class ImageGenerationAgent extends BaseAgent { async generateConceptImage(p:string): Promise<string|null> { return null; } }
+export class FinancialConsultantAgent extends BaseAgent { async analyze(_f:any): Promise<string> { return "Demo"; } }
+export class IPEvaluationAgent extends BaseAgent { async evaluate(_i:any, _ind:string): Promise<string> { return "Demo"; } }
+export class TrendAnalysisAgent extends BaseAgent { async analyzeTrends(_i:string): Promise<any[]> { return []; } }
+export class DocumentClassifierAgent extends BaseAgent { async classifyAndAnalyze(_n:string, _b:string): Promise<any> { return {}; } }
+export class MarketIntelligenceAgent extends BaseAgent { async research(_q:string, _i:string): Promise<any> { return {}; } }
+export class SummaryAgent extends BaseAgent { async generateOnePager(_d:any): Promise<string> { if(!this.checkApiKey()) return "Demo"; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Summary` }); return r.text || ""; } }
+export class DocumentQAAgent extends BaseAgent { async ask(_d:any, _q:string): Promise<string> { return "Demo"; } }
+export class PitchCoachAgent extends BaseAgent { async analyzePitch(_t:string): Promise<any> { return {}; } }
+export class FileParserAgent extends BaseAgent { async parseAndMap(_c:string, _s:any): Promise<any> { if(!this.checkApiKey()) return {}; const r = await this.ai.models.generateContent({ model: this.modelName, contents: `Map sections. JSON`, config:{responseMimeType:"application/json"} }); return cleanAndParseJSON(r.text||"{}"); } }
+export class VocAnalysisAgent extends BaseAgent { async analyzeReviews(_t:string): Promise<any> { return {}; } }
+export class ImageGenerationAgent extends BaseAgent { async generateConceptImage(_p:string): Promise<string|null> { return null; } }
 export class LabNoteAgent extends BaseAgent { async refineLog(l:string): Promise<string> { return l; } }
-export class ProductVisionAgent extends BaseAgent { async analyzeCompetitorImage(b:string): Promise<any> { return {}; } }
-export class HaccpAgent extends BaseAgent { async auditFacility(b:string, c:string): Promise<string> { return "Demo"; } }
+export class ProductVisionAgent extends BaseAgent { async analyzeCompetitorImage(_b:string): Promise<any> { return {}; } }
+export class HaccpAgent extends BaseAgent { async auditFacility(_b:string, _c:string): Promise<string> { return "Demo"; } }
 
 // --- V1.4 New Agents ---
 

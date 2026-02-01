@@ -1,5 +1,5 @@
 import { Application, Company } from "../types";
-import { getStoredApplications, getStoredCompany, saveStoredCompany } from "./storageService";
+import { getStoredCompany, saveStoredCompany } from "./storageService";
 import { ontologyLearningAgent } from "./geminiAgents";
 
 /**
@@ -16,9 +16,9 @@ export const learnFromApplication = async (application: Application) => {
 
   // 1. 작성된 지원서 초안 텍스트 수집
   const allText = Object.values(application.draftSections).join("\n\n");
-  
-  console.log("🧠 Ontology Engine: Analyzing draft for learning...");
-  
+
+  if (import.meta.env.DEV) console.log("🧠 Ontology Engine: Analyzing draft for learning...");
+
   // 2. Gemini Agent를 통한 핵심 패턴 추출
   const learnedKeywords = await ontologyLearningAgent.extractSuccessPatterns(allText);
 
@@ -34,7 +34,7 @@ export const learnFromApplication = async (application: Application) => {
   };
 
   saveStoredCompany(updatedCompany);
-  console.log("🧠 Ontology Engine: Updated successfully.", updatedCompany.preferredKeywords);
+  if (import.meta.env.DEV) console.log("🧠 Ontology Engine: Updated successfully.", updatedCompany.preferredKeywords);
 };
 
 export const getContextForDrafting = (): string => {

@@ -80,7 +80,7 @@ export const getStoredCompany = (): Company => {
         const parsed = JSON.parse(stored);
         if(parsed && parsed.id) return parsed;
     } catch (e) {
-        console.error("Failed to parse stored company", e);
+        if (import.meta.env.DEV) console.error("Failed to parse stored company", e);
     }
   }
   

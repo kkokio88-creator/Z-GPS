@@ -63,14 +63,14 @@ const QAController = () => {
 
                     // 1. Navigate to page (Visual confirmation)
                     if (location.pathname !== currentTest.path) {
-                        console.log(`[QA] Navigating to ${currentTest.path}`);
+                        if (import.meta.env.DEV) console.log(`[QA] Navigating to ${currentTest.path}`);
                         navigate(currentTest.path);
                         // Wait for navigation
                         await new Promise(r => setTimeout(r, 1000));
                     }
 
                     // 2. Execute Logic (Centralized)
-                    console.log(`[QA] Running Test: ${currentTest.name}`);
+                    if (import.meta.env.DEV) console.log(`[QA] Running Test: ${currentTest.name}`);
                     // Small delay for UI to settle
                     await new Promise(r => setTimeout(r, 800));
                     
@@ -110,7 +110,7 @@ const QAController = () => {
                         </span>
                     </div>
                     <div className="p-3 max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 text-xs">
-                        {qaState.checklist.map((t: any, i: number) => (
+                        {qaState.checklist.map((t: QATestItem, i: number) => (
                             <div key={t.id} className={`flex items-center mb-1.5 p-1 rounded ${i === qaState.currentIndex ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-gray-500'}`}>
                                 <span className="mr-2 text-[10px]">
                                     {t.status === 'PASS' ? '✅' : t.status === 'FAIL' ? '❌' : i === qaState.currentIndex ? (isProcessing ? '⚙️' : '⏳') : '○'}
@@ -160,7 +160,7 @@ const QAController = () => {
                             </div>
 
                             {/* Detailed List */}
-                            {qaState.checklist.map((t: any) => (
+                            {qaState.checklist.map((t: QATestItem) => (
                                 <div key={t.id} className={`p-4 border rounded-lg ${t.status === 'FAIL' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'}`}>
                                     <div className="flex justify-between items-center mb-2">
                                         <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200">{t.name}</h4>
@@ -180,7 +180,7 @@ const QAController = () => {
                             ))}
 
                             {/* Auto-Fix Prompt */}
-                            {qaState.checklist.some((i: any) => i.status === 'FAIL') && (
+                            {qaState.checklist.some((i: QATestItem) => i.status === 'FAIL') && (
                                 <div className="mt-6">
                                     <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Auto-Correction Prompt (Copy & Apply)</label>
                                     <textarea 
