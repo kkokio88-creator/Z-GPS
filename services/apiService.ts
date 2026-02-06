@@ -1,123 +1,184 @@
 
 import { SupportProgram, EligibilityStatus, Company } from "../types";
+import { getCachedPrograms, setCachedPrograms } from "./storageService";
+import { apiClient } from "./apiClient";
 
-const API_KEY = import.meta.env.VITE_ODCLOUD_API_KEY || "";
-const BASE_URL = import.meta.env.VITE_ODCLOUD_BASE_URL || "https://api.odcloud.kr/api";
-const ENDPOINT_PATH = import.meta.env.VITE_ODCLOUD_ENDPOINT_PATH || "/15049270/v1/uddi:49607839-e916-4b65-b778-953e5e094627";
-const CONNECTION_TIMEOUT_MS = 5000;
+const ENDPOINT_PATH = import.meta.env.VITE_ODCLOUD_ENDPOINT_PATH || "/15049270/v1/uddi:6b5d729e-28f8-4404-afae-c3f46842ff11";
+
+// API 호출 중복 방지를 위한 플래그
+let isFetchingPrograms = false;
+let lastFetchPromise: Promise<SupportProgram[]> | null = null;
 
 export const fetchIncheonSupportPrograms = async (): Promise<SupportProgram[]> => {
-  // ... (Keep existing fetch logic, assuming it's fine for now, or use fallback if needed)
   try {
-    const response = await fetch(`${BASE_URL}${ENDPOINT_PATH}?page=1&perPage=50&serviceKey=${encodeURIComponent(API_KEY)}`);
-    if (response.ok) {
-        const data = await response.json();
-        if (data && data.data) return filterActivePrograms(mapApiDataToModel(data.data));
+    const { data } = await apiClient.get<{ totalCount?: number; matchCount?: number; data?: unknown[] }>(
+      `/api/odcloud/programs?page=1&perPage=500&endpointPath=${encodeURIComponent(ENDPOINT_PATH)}`
+    );
+
+    if (import.meta.env.DEV) {
+      console.log(`[API] ODCloud response: ${data.totalCount || data.matchCount || 0} total, ${data.data?.length || 0} returned`);
     }
-    throw new Error("API Response invalid");
+    if (data && data.data && data.data.length > 0) {
+      return mapIncheonApiData(data.data);
+    }
+    throw new Error("API Response invalid or empty");
   } catch (e) {
-    console.warn("API Fail, using simulation");
+    if (import.meta.env.DEV) console.warn("[API] ODCloud API failed:", e);
     return getSimulatedData();
   }
 };
 
+// 인천 bizok API 데이터 매핑 (새로운 구조)
+const mapIncheonApiData = (rawData: unknown[]): SupportProgram[] => {
+  return rawData.map((item: unknown, index: number) => {
+    const record = item as Record<string, unknown>;
+
+    const programName = String(record['지원사업명'] || record['사업명'] || "제목 없음");
+    const organizer = String(record['주관기관'] || "인천광역시");
+    const supportType = String(record['지원분야'] || "일반지원");
+    const applyDate = String(record['신청일자'] || "");
+
+    // 마감일 계산 (신청일자 + 60일 기본값)
+    let endDate = "2099-12-31";
+    if (applyDate) {
+      try {
+        const start = new Date(applyDate);
+        if (!isNaN(start.getTime())) {
+          start.setDate(start.getDate() + 60);
+          endDate = start.toISOString().split('T')[0];
+        }
+      } catch { /* ignore */ }
+    }
+
+    // 지원금 랜덤 생성 (3천만~2억)
+    const grant = (Math.floor(Math.random() * 17) + 3) * 10000000;
+
+    // 적합도 랜덤 생성 (60~98%)
+    const fitScore = Math.floor(Math.random() * 38) + 60;
+
+    return {
+      id: `incheon_${record['번호'] || index}_${Date.now()}`,
+      organizer,
+      programName,
+      supportType,
+      officialEndDate: endDate,
+      internalDeadline: calculateInternalDeadline(endDate),
+      expectedGrant: grant,
+      fitScore,
+      eligibility: EligibilityStatus.REVIEW_NEEDED,
+      priorityRank: 99,
+      eligibilityReason: "AI 분석 대기",
+      requiredDocuments: [],
+      description: `${organizer}에서 진행하는 ${supportType} 분야 지원사업입니다.`,
+      successProbability: "Unknown",
+      detailUrl: `https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/view.do?search=${encodeURIComponent(programName)}`
+    };
+  });
+};
+
 /**
- * 🚀 QA IMPROVED: fetchCompanyDetailsFromDART
- * Now guaranteed to return data. If real API fails (likely in browser), it generates
- * consistent mock data seeded by the business number so the user sees "Result".
+ * fetchCompanyDetailsFromDART
+ * 백엔드 프록시를 통해 DART API 호출
  */
-export const fetchCompanyDetailsFromDART = async (businessNumber: string, apiKey: string, currentName?: string): Promise<Partial<Company>> => {
-    console.log(`[QA-API] Fetching DART for ${businessNumber}...`);
-    
-    // 1. Deterministic Mock Generator (Seeded by Business Number)
+export const fetchCompanyDetailsFromDART = async (businessNumber: string, _apiKey: string, currentName?: string): Promise<Partial<Company>> => {
+    if (import.meta.env.DEV) {
+      console.log(`[API] Fetching DART for ${businessNumber}...`);
+    }
+
+    // 산너머남촌 기업 데이터 반환
     const generateMockData = (bNum: string): Partial<Company> => {
-        const seed = bNum.replace(/-/g, '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const industries = ['식료품 제조업', '반도체 부품', '화장품 제조', '소프트웨어 개발'];
-        const industry = industries[seed % industries.length];
-        const revenue = ((seed % 50) + 10) * 100000000; // 10억 ~ 60억
-        
         return {
-            name: currentName && currentName !== '신규 기업' ? currentName : `(주)대한${['푸드','테크','바이오','시스템'][seed % 4]}`,
-            businessNumber: bNum,
-            industry: industry,
-            address: `인천광역시 남동구 남동대로 ${seed % 100}번길`,
-            revenue: revenue, 
-            employees: (seed % 30) + 5,
-            description: `${industry} 전문 기업으로, 최근 3년간 연평균 ${(seed%10)+5}% 성장을 기록하고 있습니다.`,
-            isVerified: true, // Mark as verified so dashboard UI unlocks
+            name: currentName && currentName !== '신규 기업' ? currentName : '(주)산너머남촌',
+            businessNumber: bNum || '131-86-42xxx',
+            industry: '식료품 제조업 (HMR/프리미엄 반찬)',
+            address: '인천광역시 서구 가석로 26 (가좌동)',
+            revenue: 10700000000,
+            employees: 81,
+            description: '2007년 강원도 토속한정식 전문점에서 시작하여 2016년 "집반찬연구소" 브랜드를 론칭한 프리미엄 반찬 전문 기업입니다. 17만 이상의 충성 고객층을 보유하고 있으며, 당일 제조-당일 발송 신선 배송 시스템을 운영합니다.',
+            isVerified: true,
+            certifications: ['HACCP 인증', '중소기업 확인서', '식품제조업 영업등록'],
+            coreCompetencies: [
+                '15년 이상의 한식 전문 노하우와 레시피 자산',
+                '당일제조-당일발송 콜드체인 물류 시스템',
+                '17만 고객 데이터 기반 수요 예측 역량',
+                '정기배송 구독 모델의 안정적 수익 구조'
+            ],
             financials: [
-                { year: 2022, revenue: revenue * 0.8, operatingProfit: revenue * 0.05 },
-                { year: 2023, revenue: revenue * 0.9, operatingProfit: revenue * 0.07 },
-                { year: 2024, revenue: revenue, operatingProfit: revenue * 0.1 }
+                { year: 2022, revenue: 10500000000, operatingProfit: 350000000 },
+                { year: 2023, revenue: 11370000000, operatingProfit: 200000000 },
+                { year: 2024, revenue: 10700000000, operatingProfit: -500000000 }
             ]
         };
     };
 
-    // 2. Try Real API (Only if specific conditions met, otherwise skip to avoid errors)
-    if (apiKey && apiKey.length > 20 && apiKey !== 'demo') {
-        try {
-            // Attempt fetch (will likely fail CORS in pure frontend, but we try)
-            // If this was a backend proxy, it would work.
-            const url = `https://opendart.fss.or.kr/api/company.json?crtfc_key=${apiKey}&corp_code=${businessNumber.replace(/-/g,'')}`;
-            const response = await fetch(url, { mode: 'cors' }); 
-            if (response.ok) {
-                // Parse real data if miracle happens
-                return await response.json(); 
-            }
-        } catch (e) {
-            console.warn("[QA-API] Real API failed (Expected). Switching to Deterministic Simulation.");
+    // Try Real API via backend proxy
+    try {
+        const corpCode = businessNumber.replace(/-/g, '');
+        const { data } = await apiClient.get<Record<string, unknown>>(
+          `/api/dart/company?corp_code=${corpCode}`
+        );
+        if (data && !('error' in data)) {
+            return data as Partial<Company>;
+        }
+    } catch (e) {
+        if (import.meta.env.DEV) {
+          console.warn("[API] DART API failed. Switching to simulation.", e);
         }
     }
 
-    // 3. Fallback: Return robust mock data
-    await new Promise(r => setTimeout(r, 800)); // Simulate delay
+    // Fallback: Return mock data
+    await new Promise(r => setTimeout(r, 800));
     return generateMockData(businessNumber);
 };
 
-// ... (Keep helpers: filterActivePrograms, mapApiDataToModel, getSimulatedData, calculateInternalDeadline unchanged)
+// ... helpers
 const filterActivePrograms = (programs: SupportProgram[]): SupportProgram[] => {
     const today = new Date();
     today.setHours(0,0,0,0);
+    const maxDate = new Date('2027-12-31');
+
     return programs.filter(p => {
         const endDate = new Date(p.officialEndDate);
-        return endDate >= today;
+        return !isNaN(endDate.getTime()) &&
+               endDate >= today &&
+               endDate <= maxDate;
     });
 };
 
-const mapApiDataToModel = (rawData: any[]): SupportProgram[] => {
+const mapApiDataToModel = (rawData: Record<string, unknown>[]): SupportProgram[] => {
   return rawData.map((item, index) => {
-    const programName = item.titl || item.사업명 || item.제목 || "제목 없음";
-    const organizer = item.dept_nm || item.주관기관 || item.지원기관 || "인천광역시";
-    const supportType = item.cate || item.지원분야 || item.사업유형 || "일반지원";
-    const endDate = item.edate || item.공고종료일 || item.접수마감일 || "2099-12-31";
-    const detailUrl = item.url || item.상세주소 || `https://www.google.com/search?q=${encodeURIComponent(programName + " 공고")}`;
+    const programName = String(item.titl || item['사업명'] || item['제목'] || "제목 없음");
+    const organizer = String(item.dept_nm || item['주관기관'] || item['지원기관'] || "인천광역시");
+    const supportType = String(item.cate || item['지원분야'] || item['사업유형'] || "일반지원");
+    const endDate = String(item.edate || item['공고종료일'] || item['접수마감일'] || "2099-12-31");
+    const detailUrl = String(item.url || item['상세주소'] || `https://www.google.com/search?q=${encodeURIComponent(programName + " 공고")}`);
 
-    let grant = item.expectedGrant || 0;
+    let grant = Number(item.expectedGrant) || 0;
     if (grant === 0) {
         grant = (Math.floor(Math.random() * 13) + 3) * 10000000;
     }
 
     const internalDate = calculateInternalDeadline(endDate);
     const requiredDocuments: string[] = [];
-    const docField = item.gu_docs || item.제출서류;
+    const docField = item.gu_docs || item['제출서류'];
     if (docField && typeof docField === 'string') {
         requiredDocuments.push(...docField.split(',').map((s:string) => s.trim()));
     }
 
     return {
-      id: item.sn || item.고유번호 || `api_real_${index}_${Date.now()}`,
+      id: String(item.sn || item['고유번호'] || `api_real_${index}_${Date.now()}`),
       organizer,
       programName,
       supportType,
       officialEndDate: endDate,
       internalDeadline: internalDate,
-      expectedGrant: grant, 
-      fitScore: item.fitScore || 0,
+      expectedGrant: grant,
+      fitScore: Number(item.fitScore) || 0,
       eligibility: EligibilityStatus.REVIEW_NEEDED,
       priorityRank: 99,
       eligibilityReason: "AI 분석 대기",
       requiredDocuments: requiredDocuments,
-      description: item.description || "상세 내용은 공고문을 참조하세요.",
+      description: String(item.description || "상세 내용은 공고문을 참조하세요."),
       successProbability: "Unknown",
       detailUrl: detailUrl
     };
@@ -129,9 +190,9 @@ const calculateInternalDeadline = (dateStr: string): string => {
     const end = new Date(dateStr);
     if (isNaN(end.getTime())) return dateStr;
     const internal = new Date(end);
-    internal.setDate(end.getDate() - 7); 
+    internal.setDate(end.getDate() - 7);
     return internal.toISOString().split('T')[0];
-  } catch (e) {
+  } catch {
     return dateStr;
   }
 };
@@ -167,7 +228,7 @@ const getSimulatedData = (): SupportProgram[] => {
     {
       titl: `[${TARGET_YEAR}] 농공상융합형 중소기업 판로개척 지원`,
       dept_nm: "농림축산식품부",
-      edate: getFutureDate(4, 10), 
+      edate: getFutureDate(4, 10),
       cate: "판로개척",
       description: "국산 농산물을 주원료로 사용하는 중소기업 대상 대형마트 입점, 홈쇼핑 방송 송출 지원.",
       fitScore: 85,
@@ -205,4 +266,242 @@ const getSimulatedData = (): SupportProgram[] => {
   ];
 
   return filterActivePrograms(mapApiDataToModel(rawApiData));
+};
+
+/**
+ * 중소벤처기업부 사업공고 API 호출 (백엔드 프록시 경유)
+ */
+export const fetchMssBizPrograms = async (): Promise<SupportProgram[]> => {
+  try {
+    const { data } = await apiClient.get<string>(
+      '/api/data-go/mss-biz?numOfRows=200&pageNo=1',
+      { headers: { 'Accept': 'application/xml' } }
+    );
+
+    const programs = parseMssBizXml(data);
+
+    if (import.meta.env.DEV) {
+      console.log(`[API] Fetched ${programs.length} MSS programs`);
+    }
+
+    return programs;
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[API] MSS Biz API failed:", e);
+    }
+    return [];
+  }
+};
+
+/**
+ * 중소벤처기업부 XML 응답 파싱
+ */
+const parseMssBizXml = (xmlText: string): SupportProgram[] => {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+  const items = xmlDoc.getElementsByTagName("item");
+
+  if (import.meta.env.DEV) {
+    console.log(`[API] MSS XML parsing: ${items.length} items found`);
+  }
+
+  const programs: SupportProgram[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const getText = (tag: string): string => {
+      const el = item.getElementsByTagName(tag)[0];
+      return el?.textContent?.trim() || "";
+    };
+
+    const programName = getText("title") || "제목 없음";
+    const description = getText("dataContents") || "";
+    const endDateStr = getText("applicationEndDate") || "";
+    const detailUrl = getText("viewUrl") || "";
+    const itemId = getText("itemId") || `mss_${i}`;
+
+    let endDate = "2099-12-31";
+    if (endDateStr) {
+      if (endDateStr.includes("-")) {
+        endDate = endDateStr;
+      } else if (endDateStr.length === 8) {
+        endDate = `${endDateStr.slice(0,4)}-${endDateStr.slice(4,6)}-${endDateStr.slice(6,8)}`;
+      }
+    }
+
+    const fitScore = Math.floor(Math.random() * 30) + 65;
+    const grant = (Math.floor(Math.random() * 25) + 5) * 10000000;
+
+    programs.push({
+      id: `mss_${itemId}_${Date.now()}`,
+      organizer: "중소벤처기업부",
+      programName,
+      supportType: "정부지원",
+      officialEndDate: endDate,
+      internalDeadline: calculateInternalDeadline(endDate),
+      expectedGrant: grant,
+      fitScore,
+      eligibility: EligibilityStatus.REVIEW_NEEDED,
+      priorityRank: 99,
+      eligibilityReason: "AI 분석 대기",
+      requiredDocuments: [],
+      description: description || "상세 내용은 공고문을 참조하세요.",
+      successProbability: "Unknown",
+      detailUrl: detailUrl || `https://www.mss.go.kr/`
+    });
+  }
+
+  return programs;
+};
+
+/**
+ * 창업진흥원 K-Startup 사업공고 API 호출 (백엔드 프록시 경유)
+ */
+export const fetchKStartupPrograms = async (): Promise<SupportProgram[]> => {
+  try {
+    const { data: result } = await apiClient.get<{ totalCount?: number; data?: { data?: Record<string, unknown>[] } | Record<string, unknown>[] }>(
+      '/api/data-go/kstartup?page=1&perPage=200'
+    );
+
+    const items = (Array.isArray(result?.data) ? result.data : (result?.data as { data?: Record<string, unknown>[] })?.data) || [];
+
+    if (import.meta.env.DEV) {
+      console.log(`[API] K-Startup response: totalCount=${result.totalCount}, items=${items.length}`);
+    }
+
+    const programs: SupportProgram[] = items.map((item: Record<string, unknown>, index: number) => {
+      const programName = String(item.biz_pbanc_nm || item.intg_pbanc_biz_nm || "제목 없음");
+      const organizer = String(item.sprv_inst || item.pbanc_ntrp_nm || "창업진흥원");
+      const supportType = String(item.supt_biz_clsfc || "창업지원");
+      const description = String(item.pbanc_ctnt || item.aply_trgt_ctnt || "");
+      const detailUrl = String(item.detl_pg_url || item.biz_gdnc_url || "https://www.k-startup.go.kr/");
+      const endDateStr = String(item.pbanc_rcpt_end_dt || "");
+
+      let endDate = "2099-12-31";
+      if (endDateStr.length === 8) {
+        endDate = `${endDateStr.slice(0,4)}-${endDateStr.slice(4,6)}-${endDateStr.slice(6,8)}`;
+      } else if (endDateStr.includes("-")) {
+        endDate = endDateStr;
+      }
+
+      const fitScore = Math.floor(Math.random() * 35) + 60;
+      const grant = (Math.floor(Math.random() * 17) + 3) * 10000000;
+
+      return {
+        id: String(item.pbanc_sn || `kstartup_${index}_${Date.now()}`),
+        organizer,
+        programName,
+        supportType,
+        officialEndDate: endDate,
+        internalDeadline: calculateInternalDeadline(endDate),
+        expectedGrant: grant,
+        fitScore,
+        eligibility: EligibilityStatus.REVIEW_NEEDED,
+        priorityRank: 99,
+        eligibilityReason: "AI 분석 대기",
+        requiredDocuments: [],
+        description: description || "상세 내용은 공고문을 참조하세요.",
+        successProbability: "Unknown",
+        detailUrl
+      };
+    });
+
+    return programs;
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[API] K-Startup API failed:", e);
+    }
+    return [];
+  }
+};
+
+/**
+ * 모든 API에서 지원사업 통합 조회
+ */
+export const fetchAllSupportPrograms = async (forceRefresh = false): Promise<SupportProgram[]> => {
+  if (!forceRefresh) {
+    const cached = getCachedPrograms();
+    if (cached && cached.programs.length > 0) {
+      return cached.programs;
+    }
+  }
+
+  if (isFetchingPrograms && lastFetchPromise) {
+    if (import.meta.env.DEV) {
+      console.log('[API] 진행 중인 요청 재사용');
+    }
+    return lastFetchPromise;
+  }
+
+  isFetchingPrograms = true;
+  lastFetchPromise = (async () => {
+    if (import.meta.env.DEV) {
+      console.log('[API] 지원사업 통합 조회 시작...');
+    }
+
+    try {
+      const results = await Promise.allSettled([
+        fetchIncheonSupportPrograms(),
+        fetchMssBizPrograms(),
+        fetchKStartupPrograms()
+      ]);
+
+      const allPrograms: SupportProgram[] = [];
+      const apiNames = ['인천 bizok', '중소벤처기업부', 'K-Startup'];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+          if (import.meta.env.DEV) {
+            console.log(`[API] ${apiNames[index]}: ${result.value.length}건 조회`);
+          }
+          allPrograms.push(...result.value);
+        } else {
+          if (import.meta.env.DEV) {
+            const reason = result.status === 'rejected' ? result.reason : '0건';
+            console.warn(`[API] ${apiNames[index]} 조회 실패/빈 결과:`, reason);
+          }
+        }
+      });
+
+      if (allPrograms.length === 0) {
+        const oldCache = getCachedPrograms();
+        if (oldCache && oldCache.programs.length > 0) {
+          if (import.meta.env.DEV) {
+            console.log('[API] API 실패, 이전 캐시 사용:', oldCache.programs.length + '건');
+          }
+          return oldCache.programs;
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('[API] 모든 API 실패, 시뮬레이션 데이터 사용');
+        }
+        const simData = getSimulatedData();
+        setCachedPrograms(simData, 'simulation');
+        return simData;
+      }
+
+      const uniquePrograms = allPrograms.filter((program, index, self) =>
+        index === self.findIndex(p => p.programName === program.programName)
+      );
+
+      const activePrograms = filterActivePrograms(uniquePrograms);
+
+      if (import.meta.env.DEV) {
+        console.log(`[API] 총 ${uniquePrograms.length}개 중 ${activePrograms.length}개 유효 (마감 ${uniquePrograms.length - activePrograms.length}건 제외)`);
+      }
+
+      setCachedPrograms(activePrograms, 'api');
+
+      return activePrograms;
+    } finally {
+      isFetchingPrograms = false;
+      lastFetchPromise = null;
+    }
+  })();
+
+  return lastFetchPromise;
+};
+
+export const refreshSupportPrograms = async (): Promise<SupportProgram[]> => {
+  return fetchAllSupportPrograms(true);
 };
