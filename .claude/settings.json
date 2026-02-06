@@ -10,26 +10,31 @@
       "Bash(mkdir *)",
       "Bash(cp *)",
       "Bash(mv *)",
-      "Bash(cat *)",
-      "Bash(grep *)",
-      "Bash(find *)",
       "Bash(ls *)",
       "Bash(du *)",
-      "Bash(start http://localhost:*)",
       "Bash(curl *)",
-      "Bash(wget *)"
+      "Bash(start http://localhost:*)",
+      "Bash(cd server *)",
+      "Bash(vercel *)",
+      "Bash(railway *)",
+      "Bash(gh *)",
+      "Bash(npm audit *)",
+      "Bash(npm outdated *)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebSearch",
+      "mcp__filesystem__*",
+      "mcp__fetch__*",
+      "mcp__github__*",
+      "mcp__memory__*",
+      "mcp__gsheets__*"
     ],
-    "prompt": [
-      "Bash(rm -rf *)",
-      "Bash(sudo *)",
-      "Bash(chmod *)"
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)"
     ]
-  },
-  "project": {
-    "name": "Z-GPS",
-    "type": "react-typescript",
-    "buildCommand": "npm run build",
-    "testCommand": "npm run check",
-    "devCommand": "npm run dev"
   }
 }
