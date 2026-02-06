@@ -4,6 +4,7 @@ export interface FinancialData {
   revenue: number; // 매출액
   operatingProfit: number; // 영업이익
   netIncome?: number; // 당기순이익
+  totalAssets?: number; // 총자산
 }
 
 export interface IntellectualProperty {
@@ -319,4 +320,138 @@ export interface WorkflowTemplate {
     agentRoles: AgentRole[];
     tasks: Omit<AgentTask, 'id' | 'createdAt' | 'updatedAt'>[];
   }[];
+}
+
+// ===== Application Entity Types (Repository Pattern) =====
+
+export enum ApplicationLifecycleStatus {
+  DRAFT = 'DRAFT',
+  GENERATING = 'GENERATING',
+  READY = 'READY',
+  FAILED = 'FAILED',
+}
+
+export interface DraftSection {
+  id: string;
+  title: string;
+  content: string;
+}
+
+export interface AgentExecutionMeta {
+  stage?: string;
+  progress?: number;
+  errorMessage?: string;
+}
+
+export interface ApplicationEntity {
+  id: string;
+  companyId: string;
+  programId: string;
+  status: ApplicationLifecycleStatus;
+  drafts: DraftSection[];
+  createdAt: string;
+  updatedAt: string;
+  review?: ReviewResult;
+  agentExecution?: AgentExecutionMeta;
+}
+
+export interface CreateApplicationInput {
+  companyId: string;
+  programId: string;
+}
+
+export interface ApplicationGenerationResult {
+  drafts: DraftSection[];
+  review?: ReviewResult;
+}
+
+// ===== Company Research Types =====
+
+export interface CompanySearchResult {
+  name: string;
+  businessNumber: string;
+  industry: string;
+  address?: string;
+  description?: string;
+  establishedYear?: number;
+  estimatedRevenue?: string;
+}
+
+export interface ResearchProgress {
+  stage: 'IDLE' | 'SEARCHING' | 'SELECTING' | 'RESEARCHING' | 'COMPLETE' | 'ERROR';
+  message: string;
+  progress: number;
+}
+
+export interface DeepResearchResult {
+  basicInfo: {
+    name: string;
+    representativeName: string;
+    businessNumber: string;
+    establishedDate: string;
+    address: string;
+    website?: string;
+    employeeCount: number;
+  };
+  financialInfo: {
+    recentRevenue: number;
+    revenueGrowth: string;
+    financials: FinancialData[];
+  };
+  businessInfo: {
+    industry: string;
+    mainProducts: string[];
+    businessDescription: string;
+    distributionChannels?: string[];
+  };
+  certifications: string[];
+  ipList: IntellectualProperty[];
+  marketPosition: {
+    competitors: string[];
+    marketShare: string;
+    uniqueSellingPoints: string[];
+  };
+  history: string;
+  coreCompetencies: string[];
+  strategicAnalysis?: {
+    swot: {
+      strengths: string[];
+      weaknesses: string[];
+      opportunities: string[];
+      threats: string[];
+    };
+    competitiveAdvantage: string;
+    growthPotential: string;
+    riskFactors: string[];
+  };
+  industryInsights?: {
+    marketTrends: string[];
+    industryOutlook: string;
+    regulatoryEnvironment: string;
+    technologyTrends: string[];
+  };
+  governmentFundingFit?: {
+    recommendedPrograms: string[];
+    eligibilityStrengths: string[];
+    potentialChallenges: string[];
+    applicationTips: string;
+  };
+  executiveSummary?: string;
+  sources?: { title: string; uri: string }[];
+  researchedAt?: string;
+  employmentInfo?: {
+    averageSalary?: number;
+    creditRating?: string;
+    reviewRating?: number;
+    reviewCount?: number;
+    reviewSource?: string;
+    benefits?: string[];
+    turnoverRate?: string;
+  };
+  investmentInfo?: {
+    totalRaised?: string;
+    fundingRounds?: { round: string; amount: string; date: string; investor?: string }[];
+    isBootstrapped?: boolean;
+  };
+  dataSources?: { name: string; url: string; dataTypes: string[]; lastUpdated: string }[];
 }

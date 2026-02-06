@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
-import { getStoredCompany, saveStoredCompany, getStoredApiKey } from '../services/storageService';
+import { getStoredCompany, saveStoredCompany, getStoredDeepResearch, saveStoredDeepResearch } from '../services/storageService';
 import { Company, CompanySearchResult, DeepResearchResult, ResearchProgress } from '../types';
 import { companyResearchAgent } from '../services/geminiAgents';
 import { getQAState } from '../services/qaService';
@@ -39,25 +39,26 @@ const CompanyProfile: React.FC = () => {
       employeeCount: 81
     },
     financialInfo: {
-      recentRevenue: 10700000000,
-      revenueGrowth: '-5.9%',
+      recentRevenue: 10670000000,
+      revenueGrowth: '-6.2%',
       financials: [
-        { year: 2024, revenue: 10700000000, operatingProfit: -500000000, netIncome: -1200000000 },
-        { year: 2023, revenue: 11370000000, operatingProfit: 200000000, netIncome: 50000000 },
+        { year: 2024, revenue: 10670000000, operatingProfit: -460000000, netIncome: -1160000000, totalAssets: 14820000000 },
+        { year: 2023, revenue: 11380000000, operatingProfit: 200000000, netIncome: 50000000, totalAssets: 15100000000 },
         { year: 2022, revenue: 10500000000, operatingProfit: 350000000, netIncome: 180000000 },
-        { year: 2021, revenue: 11370000000, operatingProfit: 420000000, netIncome: 250000000 }
+        { year: 2021, revenue: 11370000000, operatingProfit: 420000000, netIncome: 250000000 },
+        { year: 2019, revenue: 6160000000, operatingProfit: 150000000, netIncome: 80000000 }
       ]
     },
     businessInfo: {
       industry: '식료품 제조업 (HMR/프리미엄 반찬)',
       mainProducts: ['프리미엄 가정식 반찬', '밑반찬 정기배송', '간편식(HMR)', '명절 선물세트', '단체급식 B2B'],
-      businessDescription: '(주)산너머남촌은 2007년 강원도 토속한정식 전문점에서 시작하여, 2016년 \'집반찬연구소\' 브랜드를 론칭한 프리미엄 반찬 전문 기업입니다. 건강한 식재료로 주문 당일 제조하여 당일 발송하는 신선 반찬 배송 서비스를 운영하며, 17만 이상의 충성 고객층을 보유하고 있습니다. 온라인 D2C 플랫폼과 다양한 유통채널을 통해 전국 배송 서비스를 제공합니다.'
+      businessDescription: '(주)산너머남촌은 2007년 강원도 토속한정식 전문점에서 시작하여, 2016년 \'집반찬연구소\' 브랜드를 론칭한 프리미엄 반찬 전문 기업입니다. 건강한 식재료로 주문 당일 제조하여 당일 발송하는 신선 반찬 배송 서비스를 운영하며, 17만 이상의 충성 고객층을 보유하고 있습니다. 온라인 D2C 플랫폼과 다양한 유통채널을 통해 전국 배송 서비스를 제공합니다.',
+      distributionChannels: ['집반찬연구소 자사몰', '배민찬', '29CM', '네이버 스마트스토어', '만나박스']
     },
     certifications: ['HACCP 인증', '중소기업 확인서', '식품제조업 영업등록', '외부감사 대상 기업'],
     ipList: [
       { id: 'ip1', title: '집반찬연구소 브랜드', type: '상표', status: '등록', date: '2016-07-01' },
-      { id: 'ip2', title: '산너머남촌 브랜드', type: '상표', status: '등록', date: '2012-09-15' },
-      { id: 'ip3', title: '반찬 신선배송 시스템', type: '특허', status: '출원', date: '2023-03-20' }
+      { id: 'ip2', title: '산너머남촌 브랜드', type: '상표', status: '등록', date: '2012-09-15' }
     ],
     marketPosition: {
       competitors: ['마켓컬리 반찬', '배민찬(서비스종료)', '반찬가게', '프레시지', '심플리쿡', '지역 반찬가게'],
@@ -158,14 +159,37 @@ const CompanyProfile: React.FC = () => {
       ],
       applicationTips: '스마트공장 구축 지원사업이 현재 상황에 가장 적합합니다. 2025년 MES/OMS/WES 개발 계획을 구체화하여 정부 지원금과 연계하세요. 81명 고용과 17만 고객 기반을 "일자리 창출"과 "소비자 직접 판매" 관점에서 어필하면 효과적입니다. 2024년 적자는 "공격적 성장투자"와 "스마트화 준비"로 설명하고, 2025년 흑자 전환 계획을 구체적으로 제시하세요. 한식소스 글로벌 진출 계획은 수출바우처 사업 신청 시 핵심 어필 포인트입니다.'
     },
-    executiveSummary: '(주)산너머남촌은 2007년 강원도 토속한정식에서 시작하여 2016년 \'집반찬연구소\' 브랜드로 프리미엄 반찬 배송 시장에 진출한 식품제조 기업입니다. 박종철 대표가 이끄는 이 회사는 17만 고객 기반과 81명의 직원을 보유하며, 2024년 매출 107억원을 기록했습니다.\n\n핵심 강점은 (1) 당일제조-당일배송 신선 시스템, (2) 15년 한식 노하우와 레시피 자산, (3) 정기배송 구독 모델의 안정적 수익구조입니다. 다만 2024년 영업적자(-5억)로 수익성 개선이 시급합니다.\n\n전략적 제언: 2025년 스마트팩토리(MES/OMS/WES) 구축을 통해 생산성을 높이고, 정부의 스마트공장 지원사업을 적극 활용하세요. 중기적으로 한식소스 해외 진출(2026)과 서울 Micro Factory(2027) 전략을 차질없이 추진하여 새로운 성장동력을 확보해야 합니다.',
+    executiveSummary: '(주)산너머남촌은 2007년 강원도 토속한정식에서 시작하여 2016년 \'집반찬연구소\' 브랜드로 프리미엄 반찬 배송 시장에 진출한 식품제조 기업입니다. 박종철 대표가 이끄는 이 회사는 17만 고객 기반과 81명의 직원을 보유하며, 2024년 매출 106.7억원을 기록했습니다.\n\n핵심 강점은 (1) 당일제조-당일배송 신선 시스템, (2) 15년 한식 노하우와 레시피 자산, (3) 정기배송 구독 모델의 안정적 수익구조입니다. 다만 2024년 영업적자(-4.6억)로 수익성 개선이 시급합니다.\n\n전략적 제언: 2025년 스마트팩토리(MES/OMS/WES) 구축을 통해 생산성을 높이고, 정부의 스마트공장 지원사업을 적극 활용하세요. 중기적으로 한식소스 해외 진출(2026)과 서울 Micro Factory(2027) 전략을 차질없이 추진하여 새로운 성장동력을 확보해야 합니다.',
     sources: [
-      { title: '캐치 기업정보 - 산너머남촌', uri: 'https://www.catch.co.kr/Comp/CompSummary/J34502' },
       { title: '혁신의숲 - 산너머남촌', uri: 'https://www.innoforest.co.kr/company/CP00001044' },
-      { title: '집반찬연구소 공식 홈페이지', uri: 'https://www.zipbanchan.co.kr' },
-      { title: '잡코리아 기업정보', uri: 'https://www.jobkorea.co.kr/Recruit/Co_Read/C/sannam77' }
+      { title: '캐치 기업정보 - 산너머남촌', uri: 'https://www.catch.co.kr/Comp/CompSummary/J34502' },
+      { title: '잡코리아 기업정보', uri: 'https://www.jobkorea.co.kr/Recruit/Co_Read/C/sannam77' },
+      { title: '잡플래닛 리뷰', uri: 'https://www.jobplanet.co.kr/companies/347820' },
+      { title: 'FIS 금융정보', uri: 'https://fis.kr' },
+      { title: '집반찬연구소 공식 홈페이지', uri: 'https://www.zipbanchan.co.kr' }
     ],
-    researchedAt: new Date().toISOString()
+    researchedAt: new Date().toISOString(),
+    employmentInfo: {
+      averageSalary: 31370000,
+      creditRating: '양호',
+      reviewRating: 2.4,
+      reviewCount: 38,
+      reviewSource: '잡플래닛',
+      benefits: ['4대보험', '퇴직연금', '주5일근무', '연차/반차', '중식지원', '사내식당', '주차지원', '교육지원'],
+      turnoverRate: '보통'
+    },
+    investmentInfo: {
+      isBootstrapped: true,
+      totalRaised: '없음 (자체 성장)',
+      fundingRounds: []
+    },
+    dataSources: [
+      { name: '혁신의숲', url: 'https://www.innoforest.co.kr', dataTypes: ['매출', '직원수', '성장률'], lastUpdated: '2024-12' },
+      { name: '캐치', url: 'https://www.catch.co.kr', dataTypes: ['기업개요', '복리후생', '연봉'], lastUpdated: '2024-11' },
+      { name: '잡플래닛', url: 'https://www.jobplanet.co.kr', dataTypes: ['직원리뷰', '평점'], lastUpdated: '2025-01' },
+      { name: 'FIS', url: 'https://fis.kr', dataTypes: ['재무제표', '신용등급'], lastUpdated: '2024-12' },
+      { name: '집반찬연구소', url: 'https://www.zipbanchan.co.kr', dataTypes: ['제품정보', '유통채널'], lastUpdated: '2025-02' }
+    ]
   });
 
   // 저장된 기업 정보를 DeepResearchResult 형식으로 변환
@@ -211,22 +235,38 @@ const CompanyProfile: React.FC = () => {
     setCompany(storedCompany);
     setIsQaActive(getQAState().isActive);
 
-    // 저장된 기업 정보가 있으면 표시
-    if (storedCompany && storedCompany.name && storedCompany.name !== '신규 기업') {
-      // 산너머남촌인 경우 상세 목업 데이터 사용
+    // 1. 저장된 DeepResearch 확인
+    const storedResearch = getStoredDeepResearch();
+    if (storedResearch) {
+      setDeepResearchData(storedResearch);
+      setSearchMode('COMPLETE');
+    } else if (storedCompany && storedCompany.name && storedCompany.name !== '신규 기업') {
+      // 2. 산너머남촌이면 enriched mock 데이터
       if (storedCompany.name === '산너머남촌' || storedCompany.name === '(주)산너머남촌') {
-        setDeepResearchData(getSannamchonMockData());
+        const mockData = getSannamchonMockData();
+        setDeepResearchData(mockData);
+        saveStoredDeepResearch(mockData);
       } else {
-        // 다른 기업인 경우 저장된 정보를 변환하여 표시
+        // 3. 기타 저장 기업 → convertCompanyToResearchData
         setDeepResearchData(convertCompanyToResearchData(storedCompany));
       }
+      setSearchMode('COMPLETE');
+    } else {
+      // 4. 아무것도 없으면 → 산너머남촌 mock 자동 로드 + 저장
+      const mockData = getSannamchonMockData();
+      setDeepResearchData(mockData);
+      saveStoredDeepResearch(mockData);
       setSearchMode('COMPLETE');
     }
 
     const handleStorage = () => {
       const updatedCompany = getStoredCompany();
       setCompany(updatedCompany);
-      if (updatedCompany && updatedCompany.name && updatedCompany.name !== '신규 기업') {
+      const updatedResearch = getStoredDeepResearch();
+      if (updatedResearch) {
+        setDeepResearchData(updatedResearch);
+        setSearchMode('COMPLETE');
+      } else if (updatedCompany && updatedCompany.name && updatedCompany.name !== '신규 기업') {
         if (updatedCompany.name === '산너머남촌' || updatedCompany.name === '(주)산너머남촌') {
           setDeepResearchData(getSannamchonMockData());
         } else {
@@ -325,6 +365,7 @@ const CompanyProfile: React.FC = () => {
     };
 
     saveStoredCompany(newCompany);
+    saveStoredDeepResearch(deepResearchData);
     setCompany(newCompany);
     alert('기업 정보가 저장되었습니다!');
   };
@@ -339,10 +380,12 @@ const CompanyProfile: React.FC = () => {
   };
 
   const formatCurrency = (value: number): string => {
-    if (value >= 1000000000000) return `${(value / 1000000000000).toFixed(1)}조원`;
-    if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억원`;
-    if (value >= 10000) return `${(value / 10000).toFixed(0)}만원`;
-    return `${value.toLocaleString()}원`;
+    const abs = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
+    if (abs >= 1000000000000) return `${sign}${(abs / 1000000000000).toFixed(1)}조원`;
+    if (abs >= 100000000) return `${sign}${(abs / 100000000).toFixed(1)}억원`;
+    if (abs >= 10000) return `${sign}${(abs / 10000).toFixed(0)}만원`;
+    return `${sign}${abs.toLocaleString()}원`;
   };
 
   // API 키 없음 안내
@@ -534,7 +577,7 @@ const CompanyProfile: React.FC = () => {
   // Step 4: 결과 표시
   const renderResearchResult = () => {
     if (!deepResearchData) return null;
-    const { basicInfo, financialInfo, businessInfo, certifications, ipList, marketPosition, history, coreCompetencies, strategicAnalysis, industryInsights, governmentFundingFit, executiveSummary, sources } = deepResearchData;
+    const { basicInfo, financialInfo, businessInfo, certifications, ipList, marketPosition, history, coreCompetencies, strategicAnalysis, industryInsights, governmentFundingFit, executiveSummary, sources, employmentInfo, investmentInfo, dataSources } = deepResearchData;
 
     return (
       <div className="space-y-4">
@@ -645,6 +688,7 @@ const CompanyProfile: React.FC = () => {
                     <th className="px-4 py-2 text-right">매출액</th>
                     <th className="px-4 py-2 text-right">영업이익</th>
                     <th className="px-4 py-2 text-right">당기순이익</th>
+                    <th className="px-4 py-2 text-right">총자산</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -652,8 +696,9 @@ const CompanyProfile: React.FC = () => {
                     <tr key={i} className="border-t dark:border-gray-700">
                       <td className="px-4 py-2">{f.year}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(f.revenue)}</td>
-                      <td className="px-4 py-2 text-right">{formatCurrency(f.operatingProfit)}</td>
-                      <td className="px-4 py-2 text-right">{f.netIncome ? formatCurrency(f.netIncome) : '-'}</td>
+                      <td className={`px-4 py-2 text-right ${f.operatingProfit < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatCurrency(f.operatingProfit)}</td>
+                      <td className={`px-4 py-2 text-right ${f.netIncome && f.netIncome < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{f.netIncome !== undefined ? formatCurrency(f.netIncome) : '-'}</td>
+                      <td className="px-4 py-2 text-right">{f.totalAssets ? formatCurrency(f.totalAssets) : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -687,6 +732,18 @@ const CompanyProfile: React.FC = () => {
           )}
           {businessInfo.businessDescription && (
             <p className="text-gray-600 dark:text-gray-400">{businessInfo.businessDescription}</p>
+          )}
+          {businessInfo.distributionChannels && businessInfo.distributionChannels.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">유통 채널</p>
+              <div className="flex flex-wrap gap-2">
+                {businessInfo.distributionChannels.map((channel, i) => (
+                  <span key={i} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-3 py-1 rounded-full text-sm">
+                    {channel}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -748,6 +805,116 @@ const CompanyProfile: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* 고용 & 복지 정보 */}
+        {employmentInfo && (
+          <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
+            <h3 className="font-bold text-lg mb-4 flex items-center">
+              <span className="material-icons-outlined text-cyan-600 mr-2">groups</span>
+              고용 & 복지 정보
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {employmentInfo.averageSalary && (
+                <div className="bg-cyan-50 dark:bg-cyan-900/30 p-4 rounded-lg text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">평균 연봉</p>
+                  <p className="text-xl font-bold text-cyan-700 dark:text-cyan-400">
+                    {formatCurrency(employmentInfo.averageSalary)}
+                  </p>
+                </div>
+              )}
+              {employmentInfo.creditRating && (
+                <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">신용등급</p>
+                  <span className="inline-block mt-1 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 px-3 py-1 rounded-full text-sm font-bold">
+                    {employmentInfo.creditRating}
+                  </span>
+                </div>
+              )}
+              {employmentInfo.reviewRating !== undefined && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">
+                    {employmentInfo.reviewSource || '리뷰'} 평점
+                  </p>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{employmentInfo.reviewRating}</span>
+                    <span className="text-gray-400">/5.0</span>
+                  </div>
+                  <div className="flex justify-center mt-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span key={star} className={`text-sm ${star <= Math.round(employmentInfo.reviewRating || 0) ? 'text-yellow-400' : 'text-gray-300'}`}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  {employmentInfo.reviewCount && (
+                    <p className="text-xs text-gray-400 mt-1">{employmentInfo.reviewCount}건</p>
+                  )}
+                </div>
+              )}
+              {employmentInfo.turnoverRate && (
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">이직률</p>
+                  <p className="text-lg font-bold mt-1">{employmentInfo.turnoverRate}</p>
+                </div>
+              )}
+            </div>
+            {employmentInfo.benefits && employmentInfo.benefits.length > 0 && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">복리후생</p>
+                <div className="flex flex-wrap gap-2">
+                  {employmentInfo.benefits.map((benefit, i) => (
+                    <span key={i} className="bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-3 py-1 rounded-full text-sm">
+                      {benefit}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 투자 현황 */}
+        {investmentInfo && (
+          <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
+            <h3 className="font-bold text-lg mb-4 flex items-center">
+              <span className="material-icons-outlined text-emerald-600 mr-2">account_balance</span>
+              투자 현황
+            </h3>
+            {investmentInfo.isBootstrapped ? (
+              <div className="flex items-center gap-3">
+                <span className="bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 px-4 py-2 rounded-full text-sm font-bold">
+                  Bootstrapped
+                </span>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  외부 VC 투자 없이 자체 매출로 성장한 기업입니다.
+                </p>
+              </div>
+            ) : (
+              <div>
+                {investmentInfo.totalRaised && (
+                  <div className="mb-4">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">누적 투자유치</p>
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{investmentInfo.totalRaised}</p>
+                  </div>
+                )}
+                {investmentInfo.fundingRounds && investmentInfo.fundingRounds.length > 0 && (
+                  <div className="space-y-3">
+                    {investmentInfo.fundingRounds.map((round, i) => (
+                      <div key={i} className="flex items-center gap-4 border-l-2 border-emerald-400 pl-4">
+                        <div>
+                          <p className="font-medium">{round.round}</p>
+                          <p className="text-sm text-gray-500">{round.date}</p>
+                        </div>
+                        <p className="font-bold text-emerald-600">{round.amount}</p>
+                        {round.investor && <p className="text-sm text-gray-400">{round.investor}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 시장 위치 */}
         {(marketPosition.competitors.length > 0 || marketPosition.uniqueSellingPoints.length > 0) && (
@@ -1025,8 +1192,37 @@ const CompanyProfile: React.FC = () => {
           </div>
         )}
 
-        {/* 출처 */}
-        {sources.length > 0 && (
+        {/* 데이터 출처 */}
+        {dataSources && dataSources.length > 0 && (
+          <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
+            <h3 className="font-bold text-lg mb-4 flex items-center">
+              <span className="material-icons-outlined text-gray-600 mr-2">source</span>
+              데이터 출처 ({dataSources.length}개)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {dataSources.map((ds, i) => (
+                <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-primary transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <a href={ds.url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
+                      {ds.name}
+                    </a>
+                    <span className="text-xs text-gray-400">{ds.lastUpdated}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {ds.dataTypes.map((dt, j) => (
+                      <span key={j} className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">
+                        {dt}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 출처 링크 */}
+        {sources && sources.length > 0 && (
           <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
             <h4 className="font-medium text-sm mb-2 flex items-center text-gray-600 dark:text-gray-400">
               <span className="material-icons-outlined text-sm mr-1">link</span>
@@ -1047,43 +1243,6 @@ const CompanyProfile: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
-    );
-  };
-
-  // 기존 기업 정보 표시 (저장된 데이터가 있을 때)
-  const renderExistingCompany = () => {
-    if (!company || !company.name || company.name === '신규 기업') return null;
-
-    return (
-      <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark mb-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="font-bold text-lg flex items-center">
-              <span className="material-icons-outlined text-green-600 mr-2">domain</span>
-              현재 등록된 기업
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">새 기업을 검색하면 기존 정보가 대체됩니다.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <p className="text-xs text-gray-500">기업명</p>
-            <p className="font-bold">{company.name}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">업종</p>
-            <p>{company.industry || '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">매출액</p>
-            <p className="text-blue-600 font-medium">{company.revenue ? formatCurrency(company.revenue) : '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">직원 수</p>
-            <p>{company.employees ? `${company.employees}명` : '-'}</p>
-          </div>
-        </div>
       </div>
     );
   };

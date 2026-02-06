@@ -4,7 +4,25 @@
       "Bash(npm run dev)",
       "Bash(npm install)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git pull:*)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:www.sankun.com)",
+      "WebFetch(domain:www.jobkorea.co.kr)",
+      "WebFetch(domain:www.saramin.co.kr)",
+      "WebFetch(domain:www.wanted.co.kr)",
+      "WebFetch(domain:platum.kr)",
+      "WebFetch(domain:outstanding.kr)",
+      "WebFetch(domain:www.moneys.co.kr)",
+      "WebFetch(domain:www.atfis.or.kr)",
+      "WebFetch(domain:www.sidae.com)",
+      "WebFetch(domain:brunch.co.kr)",
+      "WebFetch(domain:www.jobplanet.co.kr)",
+      "WebFetch(domain:zipbanchan.oopy.io)"
     ]
   }
 }
