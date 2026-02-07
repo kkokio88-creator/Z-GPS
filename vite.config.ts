@@ -9,13 +9,13 @@ export default defineConfig({
       proxy: {
         // 개발 환경: 로컬 백엔드 서버로 프록시
         '/api': {
-          target: 'http://localhost:3001',
+          target: 'http://localhost:5001',
           changeOrigin: true,
         },
       },
     },
     preview: {
-      port: 5174,
+      port: 5002,
       host: '0.0.0.0',
     },
     plugins: [react()],

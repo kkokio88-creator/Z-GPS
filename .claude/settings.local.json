@@ -22,7 +22,10 @@
       "WebFetch(domain:www.sidae.com)",
       "WebFetch(domain:brunch.co.kr)",
       "WebFetch(domain:www.jobplanet.co.kr)",
-      "WebFetch(domain:zipbanchan.oopy.io)"
+      "WebFetch(domain:zipbanchan.oopy.io)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -NoProfile -Command:*)"
     ]
   }
 }

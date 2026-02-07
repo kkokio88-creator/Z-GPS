@@ -12,7 +12,7 @@ const STEPS = [
     title: '기업 정보 등록',
     description: 'AI가 기업명으로 검색하여 기본 정보를 자동으로 채워줍니다.\nSWOT 분석, 재무 현황, 핵심 역량까지 한 번에 파악하세요.',
     action: '기업 등록하러 가기',
-    path: '/company',
+    path: '/settings',
     color: 'from-blue-500 to-indigo-600',
   },
   {

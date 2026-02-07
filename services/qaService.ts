@@ -20,7 +20,7 @@ export const INITIAL_QA_CHECKLIST: QATestItem[] = [
         id: 'TEST_02',
         category: 'DATA',
         name: 'Company Data Fetch',
-        path: '/company',
+        path: '/settings',
         action: 'FETCH_DART_DATA',
         status: 'PENDING',
         log: []

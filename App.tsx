@@ -4,10 +4,8 @@ import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation }
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ApplicationEditor from './components/ApplicationEditor';
-import CompanyProfile from './components/CompanyProfile';
 import CalendarView from './components/CalendarView';
 import ApplicationList from './components/ApplicationList';
-import ResearchHub from './components/ResearchHub';
 import Settings from './components/Settings';
 import GlobalSearch from './components/GlobalSearch';
 import ExpertMatch from './components/ExpertMatch';
@@ -230,10 +228,8 @@ const App: React.FC = () => {
         
         <Route path="/" element={<ProtectedRoute />}>
           <Route index element={<Dashboard />} />
-          <Route path="company" element={<CompanyProfile />} />
           <Route path="applications" element={<ApplicationList />} />
           <Route path="calendar" element={<CalendarView />} />
-          <Route path="research" element={<ResearchHub />} />
           <Route path="ai-board" element={<ExpertMatch />} />
           <Route path="execution" element={<ExecutionManager />} />
           <Route path="knowledge" element={<Community />} />

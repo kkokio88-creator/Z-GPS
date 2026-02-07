@@ -12,7 +12,9 @@
     "@google/genai": "^1.38.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

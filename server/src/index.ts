@@ -8,7 +8,7 @@ import dartRouter from './routes/dart.js';
 import geminiRouter from './routes/gemini.js';
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '3001', 10);
+const PORT = parseInt(process.env.PORT || '5001', 10);
 
 // Middleware
 app.use(createCorsMiddleware());

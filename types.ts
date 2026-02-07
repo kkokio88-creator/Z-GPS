@@ -105,7 +105,7 @@ export interface Application {
       detailUrl?: string; // New
   };
   companyId: string;
-  status: '작성 전' | '작성 중' | '제출 완료' | '서류 심사' | '발표 평가' | '최종 선정' | '탈락'; 
+  status: '작성 전' | '작성 중' | '제출 완료' | '서류 심사' | '발표 평가' | '최종 선정' | '탈락' | '포기';
   draftSections: {
     [key: string]: string; 
   };
