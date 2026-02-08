@@ -4,14 +4,15 @@ import matter from 'gray-matter';
 import fg from 'fast-glob';
 import crypto from 'crypto';
 
-// 볼트 루트: 프로젝트 루트 기준 ./vault/
-const VAULT_ROOT = path.resolve(process.cwd(), 'vault');
+// 볼트 루트: VAULT_PATH 환경변수 또는 프로젝트 루트 기준 ./vault/
+const VAULT_ROOT = path.resolve(process.env.VAULT_PATH || process.cwd(), 'vault');
 
 /** 볼트 디렉토리 구조 생성 */
 export async function ensureVaultStructure(): Promise<void> {
   const dirs = [
     '',
     'company',
+    'company/documents',
     'programs',
     'analysis',
     'applications',
@@ -145,4 +146,22 @@ export async function writeBinaryFile(filePath: string, data: Buffer): Promise<v
   const dir = path.dirname(fullPath);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(fullPath, data);
+}
+
+/** 바이너리 파일 삭제 */
+export async function deleteBinaryFile(filePath: string): Promise<void> {
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(VAULT_ROOT, filePath);
+  try {
+    await fs.unlink(fullPath);
+  } catch {
+    // 파일이 이미 없는 경우 무시
+  }
+}
+
+/** 디렉토리 내 모든 파일 목록 (md 외 바이너리 포함) */
+export async function listFiles(dirPath: string): Promise<string[]> {
+  const fullDir = path.isAbsolute(dirPath) ? dirPath : path.join(VAULT_ROOT, dirPath);
+  const pattern = fullDir.replace(/\\/g, '/') + '/**/*';
+  const files = await fg(pattern, { onlyFiles: true });
+  return files;
 }

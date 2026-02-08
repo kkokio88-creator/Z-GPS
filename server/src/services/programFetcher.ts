@@ -20,6 +20,21 @@ interface ServerSupportProgram {
   successProbability: string;
   detailUrl: string;
   source: string;
+  // 딥크롤 확장 필드 (모두 optional)
+  deepCrawled?: boolean;
+  department?: string;
+  supportScale?: string;
+  targetAudience?: string;
+  eligibilityCriteria?: string[];
+  applicationPeriod?: { start: string; end: string };
+  evaluationCriteria?: string[];
+  contactInfo?: string;
+  fullDescription?: string;
+  applicationMethod?: string;
+  specialNotes?: string[];
+  regions?: string[];
+  categories?: string[];
+  attachmentUrls?: string[];
 }
 
 const calculateInternalDeadline = (dateStr: string): string => {

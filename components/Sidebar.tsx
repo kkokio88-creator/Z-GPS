@@ -46,7 +46,6 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { path: '/', icon: 'dashboard', label: '대시보드' },
     { path: '/applications', icon: 'folder_shared', label: '나의 프로젝트' },
-{ path: '/execution', icon: 'engineering', label: '수행 및 일정' }, // Merged Calendar
   ];
 
   return (

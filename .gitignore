@@ -16,6 +16,9 @@ dist-ssr
 server/.env
 server/dist
 
+# Obsidian Vault (local data)
+vault/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

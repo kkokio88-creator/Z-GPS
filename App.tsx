@@ -9,7 +9,7 @@ import ApplicationList from './components/ApplicationList';
 import Settings from './components/Settings';
 import GlobalSearch from './components/GlobalSearch';
 import ExpertMatch from './components/ExpertMatch';
-import ExecutionManager from './components/ExecutionManager';
+// ExecutionManager removed - vault-based workflow
 import Community from './components/Community';
 import PitchTrainer from './components/PitchTrainer';
 import LoginPage from './components/LoginPage';
@@ -231,11 +231,12 @@ const App: React.FC = () => {
           <Route path="applications" element={<ApplicationList />} />
           <Route path="calendar" element={<CalendarView />} />
           <Route path="ai-board" element={<ExpertMatch />} />
-          <Route path="execution" element={<ExecutionManager />} />
+          {/* execution route removed - vault-based workflow */}
           <Route path="knowledge" element={<Community />} />
           <Route path="pitch" element={<PitchTrainer />} />
           <Route path="settings" element={<Settings />} />
           <Route path="editor/:programId/:companyId" element={<ApplicationEditor />} />
+          <Route path="editor/:slug" element={<ApplicationEditor />} />
         </Route>
       </Routes>
     </HashRouter>
