@@ -28,7 +28,17 @@ import {
   generateDraftSection,
   reviewDraft,
   checkConsistency,
+  analyzeSections,
+  generateDraftSectionV2,
+  generateStrategyDocument,
 } from '../services/analysisService.js';
+import type {
+  FitAnalysisResult,
+  FitDimensions,
+  EligibilityDetails,
+  StrategyDocument,
+} from '../services/analysisService.js';
+import { callGeminiDirect, cleanAndParseJSON } from '../services/geminiService.js';
 import {
   deepCrawlProgramFull,
   enrichFromApiOnly,
@@ -46,6 +56,134 @@ ensureVaultStructure().catch(e => console.error('[vault] Failed to ensure vault 
 /** slug 검증: 경로순회 방지 (영문/한글/숫자/하이픈/언더스코어만 허용) */
 function isValidSlug(slug: string): boolean {
   return /^[a-zA-Z0-9가-힣_-]+$/.test(slug) && !slug.includes('..');
+}
+
+/** 딥리서치 결과 → Obsidian 마크다운 */
+function generateResearchMarkdown(companyName: string, data: Record<string, unknown>): string {
+  const sa = data.strategicAnalysis as Record<string, unknown> | undefined;
+  const swot = sa?.swot as Record<string, string[]> | undefined;
+  const mp = data.marketPosition as Record<string, unknown> | undefined;
+  const ii = data.industryInsights as Record<string, unknown> | undefined;
+  const gf = data.governmentFundingFit as Record<string, unknown> | undefined;
+  const fi = data.financialInfo as Record<string, unknown> | undefined;
+  const ei = data.employmentInfo as Record<string, unknown> | undefined;
+  const inv = data.investmentInfo as Record<string, unknown> | undefined;
+
+  let md = `# ${data.name || companyName} 기업 리서치\n\n`;
+  md += `> 리서치 일시: ${new Date().toISOString().split('T')[0]}\n\n`;
+
+  // 기본 정보
+  md += `## 기본 정보\n`;
+  md += `| 항목 | 내용 |\n|------|------|\n`;
+  if (data.representative) md += `| 대표자 | ${data.representative} |\n`;
+  if (data.businessNumber) md += `| 사업자등록번호 | ${data.businessNumber} |\n`;
+  if (data.foundedDate) md += `| 설립일 | ${data.foundedDate} |\n`;
+  if (data.industry) md += `| 업종 | ${data.industry} |\n`;
+  if (data.address) md += `| 주소 | ${data.address} |\n`;
+  if (data.employees) md += `| 직원수 | ${data.employees}명 |\n`;
+  if (data.website) md += `| 홈페이지 | ${data.website} |\n`;
+  md += '\n';
+
+  if (data.description) md += `## 기업 소개\n${data.description}\n\n`;
+  if (data.history) md += `## 연혁\n${data.history}\n\n`;
+
+  // 주요 제품/서비스
+  const products = data.mainProducts as string[] | undefined;
+  if (products?.length) {
+    md += `## 주요 제품/서비스\n${products.map(p => `- ${p}`).join('\n')}\n\n`;
+  }
+
+  // 핵심역량
+  const comps = data.coreCompetencies as string[] | undefined;
+  if (comps?.length) {
+    md += `## 핵심 역량\n${comps.map(c => `- ${c}`).join('\n')}\n\n`;
+  }
+
+  // 인증
+  const certs = data.certifications as string[] | undefined;
+  if (certs?.length) {
+    md += `## 보유 인증\n${certs.map(c => `- ${c}`).join('\n')}\n\n`;
+  }
+
+  // SWOT 분석
+  if (swot) {
+    md += `## SWOT 분석\n\n`;
+    md += `| 강점 (S) | 약점 (W) |\n|----------|----------|\n`;
+    const maxSW = Math.max(swot.strengths?.length || 0, swot.weaknesses?.length || 0);
+    for (let i = 0; i < maxSW; i++) {
+      md += `| ${swot.strengths?.[i] || ''} | ${swot.weaknesses?.[i] || ''} |\n`;
+    }
+    md += `\n| 기회 (O) | 위협 (T) |\n|----------|----------|\n`;
+    const maxOT = Math.max(swot.opportunities?.length || 0, swot.threats?.length || 0);
+    for (let i = 0; i < maxOT; i++) {
+      md += `| ${swot.opportunities?.[i] || ''} | ${swot.threats?.[i] || ''} |\n`;
+    }
+    md += '\n';
+  }
+  if (sa?.competitiveAdvantage) md += `### 경쟁 우위\n${sa.competitiveAdvantage}\n\n`;
+  if (sa?.growthPotential) md += `### 성장 잠재력\n${sa.growthPotential}\n\n`;
+  const risks = sa?.riskFactors as string[] | undefined;
+  if (risks?.length) md += `### 리스크 요인\n${risks.map(r => `- ${r}`).join('\n')}\n\n`;
+
+  // 시장 분석
+  if (mp) {
+    md += `## 시장 분석\n`;
+    const comps2 = mp.competitors as string[] | undefined;
+    if (comps2?.length) md += `### 경쟁사\n${comps2.map(c => `- ${c}`).join('\n')}\n\n`;
+    if (mp.marketShare) md += `### 시장점유율\n${mp.marketShare}\n\n`;
+    const usp = mp.uniqueSellingPoints as string[] | undefined;
+    if (usp?.length) md += `### 차별화 포인트\n${usp.map(u => `- ${u}`).join('\n')}\n\n`;
+  }
+
+  // 산업 인사이트
+  if (ii) {
+    md += `## 산업 인사이트\n`;
+    const trends = ii.marketTrends as string[] | undefined;
+    if (trends?.length) md += `### 시장 트렌드\n${trends.map(t => `- ${t}`).join('\n')}\n\n`;
+    if (ii.industryOutlook) md += `### 산업 전망\n${ii.industryOutlook}\n\n`;
+    if (ii.regulatoryEnvironment) md += `### 규제 환경\n${ii.regulatoryEnvironment}\n\n`;
+    const tTrends = ii.technologyTrends as string[] | undefined;
+    if (tTrends?.length) md += `### 기술 트렌드\n${tTrends.map(t => `- ${t}`).join('\n')}\n\n`;
+  }
+
+  // 정부지원금 적합성
+  if (gf) {
+    md += `## 정부지원금 적합성\n`;
+    const recs = gf.recommendedPrograms as string[] | undefined;
+    if (recs?.length) md += `### 추천 지원사업\n${recs.map(r => `- ${r}`).join('\n')}\n\n`;
+    const strengths = gf.eligibilityStrengths as string[] | undefined;
+    if (strengths?.length) md += `### 자격 강점\n${strengths.map(s => `- ${s}`).join('\n')}\n\n`;
+    const challenges = gf.potentialChallenges as string[] | undefined;
+    if (challenges?.length) md += `### 도전과제\n${challenges.map(c => `- ${c}`).join('\n')}\n\n`;
+    if (gf.applicationTips) md += `### 지원 팁\n> ${gf.applicationTips}\n\n`;
+  }
+
+  // 재무/고용
+  if (fi?.recentRevenue) md += `## 재무 정보\n- 최근 매출: ${((fi.recentRevenue as number) / 100000000).toFixed(1)}억원\n- 성장률: ${fi.revenueGrowth || '정보 없음'}\n\n`;
+  if (ei) {
+    md += `## 고용 정보\n`;
+    if (ei.averageSalary) md += `- 평균 연봉: ${((ei.averageSalary as number) / 10000).toFixed(0)}만원\n`;
+    if (ei.creditRating) md += `- 신용등급: ${ei.creditRating}\n`;
+    const benefits = ei.benefits as string[] | undefined;
+    if (benefits?.length) md += `- 복리후생: ${benefits.join(', ')}\n`;
+    md += '\n';
+  }
+
+  // 투자 정보
+  if (inv && !inv.isBootstrapped) {
+    md += `## 투자 정보\n`;
+    if (inv.totalRaised) md += `- 총 투자유치: ${inv.totalRaised}\n`;
+    const rounds = inv.fundingRounds as { round: string; amount: string; date: string; investor?: string }[] | undefined;
+    if (rounds?.length) {
+      md += `\n| 라운드 | 금액 | 일시 | 투자자 |\n|--------|------|------|--------|\n`;
+      rounds.forEach(r => {
+        md += `| ${r.round} | ${r.amount} | ${r.date} | ${r.investor || ''} |\n`;
+      });
+    }
+    md += '\n';
+  }
+
+  return md;
 }
 
 function programToFrontmatter(
@@ -124,15 +262,23 @@ function programToMarkdown(
   const appMethod = deepCrawl?.applicationMethod || p.applicationMethod || '공고문 참조';
   const appUrl = deepCrawl?.applicationUrl || '';
 
+  const totalBudget = deepCrawl?.totalBudget || p.totalBudget || '';
+  const keywords = deepCrawl?.keywords || p.keywords || [];
+
   let md = `# ${p.programName}
 
 > [!info] 기본 정보
 > - **주관**: ${p.organizer}${dept ? ` / ${dept}` : ''}
-> - **지원 규모**: ${scale}${matching ? ` (${matching})` : ''}
+> - **지원 규모**: ${scale}${matching ? ` (${matching})` : ''}${totalBudget ? `\n> - **총 사업예산**: ${totalBudget}` : ''}
 > - **마감**: ${p.officialEndDate}
 > - **신청기간**: ${periodText}
 > - **신청방법**: ${appMethod}${appUrl ? ` ([온라인 신청](${appUrl}))` : ''}
 `;
+
+  // 지원 URL 바로가기 (별도 callout)
+  if (appUrl) {
+    md += `\n> [!tip] 온라인 신청\n> [신청 바로가기](${appUrl})\n`;
+  }
 
   // 사업 목적
   const objectives = deepCrawl?.objectives || [];
@@ -228,12 +374,113 @@ function programToMarkdown(
     md += `\n## 연락처\n(공고문 참조)\n`;
   }
 
+  // 키워드 태그
+  if (keywords.length > 0) {
+    md += `\n## 키워드\n${keywords.map(k => `\`${k}\``).join(' ')}\n`;
+  }
+
   // 데이터 품질 표시
   const quality = deepCrawl?.dataQualityScore || 0;
   const sources = deepCrawl?.dataSources || [p.source];
   md += `\n---\n*데이터 품질: ${quality}/100 | 소스: ${sources.join(', ')} | 수집일: ${new Date().toISOString().split('T')[0]}*\n`;
 
   return md;
+}
+
+/** 분석 결과로 프로그램 MD의 적합도 섹션 교체 */
+function buildFitSectionMarkdown(result: FitAnalysisResult, slug: string): string {
+  const dimLabels: { key: keyof FitDimensions; label: string }[] = [
+    { key: 'eligibilityMatch', label: '자격요건 부합' },
+    { key: 'industryRelevance', label: '업종/기술 관련' },
+    { key: 'scaleFit', label: '규모 적합성' },
+    { key: 'competitiveness', label: '경쟁력' },
+    { key: 'strategicAlignment', label: '전략적 부합' },
+  ];
+
+  let md = `\n## 적합도\n\n`;
+  md += `**종합 점수: ${result.fitScore}/100** (${result.eligibility})\n\n`;
+
+  // 차원별 점수 표
+  md += `| 차원 | 점수 | 바 |\n|------|-----:|-----|\n`;
+  for (const d of dimLabels) {
+    const score = result.dimensions[d.key];
+    const bar = '█'.repeat(Math.round(score / 5)) + '░'.repeat(20 - Math.round(score / 5));
+    md += `| ${d.label} | ${score} | ${bar} |\n`;
+  }
+
+  // 자격요건 상세
+  if (result.eligibilityDetails.met.length || result.eligibilityDetails.unmet.length || result.eligibilityDetails.unclear.length) {
+    md += `\n### 자격요건 매칭\n`;
+    if (result.eligibilityDetails.met.length) {
+      md += `**충족:**\n${result.eligibilityDetails.met.map(m => `- ✅ ${m}`).join('\n')}\n\n`;
+    }
+    if (result.eligibilityDetails.unmet.length) {
+      md += `**미충족:**\n${result.eligibilityDetails.unmet.map(m => `- ❌ ${m}`).join('\n')}\n\n`;
+    }
+    if (result.eligibilityDetails.unclear.length) {
+      md += `**확인 필요:**\n${result.eligibilityDetails.unclear.map(m => `- ❓ ${m}`).join('\n')}\n\n`;
+    }
+  }
+
+  // 강점/약점
+  if (result.strengths.length) {
+    md += `### 강점\n${result.strengths.map(s => `- ${s}`).join('\n')}\n\n`;
+  }
+  if (result.weaknesses.length) {
+    md += `### 약점\n${result.weaknesses.map(w => `- ${w}`).join('\n')}\n\n`;
+  }
+
+  // 전략 요약 + 링크
+  if (result.recommendedStrategy) {
+    md += `### 전략 요약\n${result.recommendedStrategy}\n\n`;
+  }
+
+  if (result.fitScore >= 80) {
+    md += `> [!tip] 전략 문서\n> 상세 전략 문서: [[전략-${slug}]]\n`;
+  }
+
+  return md;
+}
+
+/** 전략 문서를 Obsidian 마크다운으로 변환 */
+function strategyToMarkdown(
+  programName: string,
+  slug: string,
+  fitScore: number,
+  dimensions: FitDimensions,
+  strategy: StrategyDocument
+): { frontmatter: Record<string, unknown>; content: string } {
+  const frontmatter: Record<string, unknown> = {
+    type: 'strategy',
+    programSlug: slug,
+    programName,
+    fitScore,
+    dimensions,
+    generatedAt: new Date().toISOString(),
+  };
+
+  const content = `# 전략 문서: ${programName}
+
+> 적합도 **${fitScore}/100** | 생성일: ${new Date().toISOString().split('T')[0]}
+
+${strategy.programOverview}
+
+${strategy.fitAnalysisDetail}
+
+${strategy.applicationStrategy}
+
+${strategy.writingGuide}
+
+${strategy.documentChecklist}
+
+${strategy.executionTimeline}
+
+${strategy.expectedQnA}
+
+${strategy.risksAndNotes}
+`;
+
+  return { frontmatter, content };
 }
 
 const DRAFT_SECTION_TITLES = [
@@ -728,26 +975,46 @@ router.post('/analyze/:slug', async (req: Request, res: Response) => {
 
     const { frontmatter: programFm, content: programContent } = await readNote(programPath);
 
-    const result = await analyzeFit(
-      {
-        name: (company.name as string) || '미등록 기업',
-        industry: company.industry as string,
-        description: company.description as string,
-        revenue: company.revenue as number,
-        employees: company.employees as number,
-        address: company.address as string,
-        certifications: company.certifications as string[],
-        coreCompetencies: company.coreCompetencies as string[],
-      },
-      {
-        programName: programFm.programName as string,
-        organizer: programFm.organizer as string,
-        supportType: programFm.supportType as string,
-        description: (programFm.description as string) || programContent.substring(0, 500),
-        expectedGrant: programFm.expectedGrant as number,
-        officialEndDate: programFm.officialEndDate as string,
-      }
-    );
+    const companyInfo = {
+      name: (company.name as string) || '미등록 기업',
+      industry: company.industry as string,
+      description: company.description as string,
+      revenue: company.revenue as number,
+      employees: company.employees as number,
+      address: company.address as string,
+      certifications: company.certifications as string[],
+      coreCompetencies: company.coreCompetencies as string[],
+      ipList: company.ipList as string[],
+      history: company.history as string,
+      foundedYear: company.foundedYear as number,
+      businessType: company.businessType as string,
+      mainProducts: company.mainProducts as string[],
+      financialTrend: company.financialTrend as string,
+    };
+
+    const programInfo = {
+      programName: programFm.programName as string,
+      organizer: programFm.organizer as string,
+      supportType: programFm.supportType as string,
+      description: (programFm.fullDescription as string) || (programFm.description as string) || programContent.substring(0, 500),
+      expectedGrant: programFm.expectedGrant as number,
+      officialEndDate: programFm.officialEndDate as string,
+      eligibilityCriteria: programFm.eligibilityCriteria as string[],
+      exclusionCriteria: programFm.exclusionCriteria as string[],
+      targetAudience: programFm.targetAudience as string,
+      evaluationCriteria: programFm.evaluationCriteria as string[],
+      requiredDocuments: programFm.requiredDocuments as string[],
+      supportDetails: Array.isArray(programFm.supportDetails) ? (programFm.supportDetails as string[]).join('; ') : programFm.supportDetails as string,
+      selectionProcess: programFm.selectionProcess as string[],
+      totalBudget: programFm.totalBudget as string,
+      projectPeriod: programFm.projectPeriod as string,
+      objectives: Array.isArray(programFm.objectives) ? (programFm.objectives as string[]).join('; ') : programFm.objectives as string,
+      categories: programFm.categories as string[],
+      keywords: programFm.keywords as string[],
+      department: programFm.department as string,
+    };
+
+    const result = await analyzeFit(companyInfo, programInfo);
 
     const analysisPath = path.join('analysis', `${slug}-fit.md`);
     await writeNote(
@@ -757,35 +1024,43 @@ router.post('/analyze/:slug', async (req: Request, res: Response) => {
         programName: programFm.programName,
         fitScore: result.fitScore,
         eligibility: result.eligibility,
+        dimensions: result.dimensions,
         analyzedAt: new Date().toISOString(),
       },
-      `# 적합도 분석: ${programFm.programName}
+      `# 적합도 분석: ${programFm.programName}\n\n${buildFitSectionMarkdown(result, slug)}`
+    );
 
-## 점수: ${result.fitScore}/100
-
-## 판정: ${result.eligibility}
-
-## 강점
-${result.strengths.map(s => `- ${s}`).join('\n')}
-
-## 약점
-${result.weaknesses.map(w => `- ${w}`).join('\n')}
-
-## 전략적 조언
-${result.advice}
-
-## 추천 접근 전략
-${result.recommendedStrategy}
-`
+    // 프로그램 MD의 적합도 섹션 업데이트
+    const fitSection = buildFitSectionMarkdown(result, slug);
+    const updatedContent = programContent.replace(
+      /\n## 적합도\n[\s\S]*?(?=\n## |\n---|\n\*데이터|$)/,
+      fitSection
     );
 
     programFm.fitScore = result.fitScore;
     programFm.eligibility = result.eligibility;
+    programFm.dimensions = result.dimensions;
+    programFm.keyActions = result.keyActions;
     programFm.analyzedAt = new Date().toISOString();
     programFm.status = 'analyzed';
-    await writeNote(programPath, programFm, programContent);
+    await writeNote(programPath, programFm, updatedContent);
 
-    res.json({ success: true, result });
+    // fitScore >= 80이면 전략 문서 자동 생성
+    let strategyGenerated = false;
+    if (result.fitScore >= 80) {
+      try {
+        const strategy = await generateStrategyDocument(companyInfo, programInfo, result);
+        const { frontmatter: sFm, content: sContent } = strategyToMarkdown(
+          programFm.programName as string, slug, result.fitScore, result.dimensions, strategy
+        );
+        await writeNote(path.join('strategies', `전략-${slug}.md`), sFm, sContent);
+        strategyGenerated = true;
+      } catch (e) {
+        console.warn('[vault/analyze] 전략 문서 생성 실패:', e);
+      }
+    }
+
+    res.json({ success: true, result, strategyGenerated });
   } catch (error) {
     console.error('[vault/analyze] Error:', error);
     res.status(500).json({ error: '분석 실패', details: String(error) });
@@ -824,7 +1099,15 @@ router.post('/analyze-all', async (req: Request, res: Response) => {
       address: company.address as string,
       certifications: company.certifications as string[],
       coreCompetencies: company.coreCompetencies as string[],
+      ipList: company.ipList as string[],
+      history: company.history as string,
+      foundedYear: company.foundedYear as number,
+      businessType: company.businessType as string,
+      mainProducts: company.mainProducts as string[],
+      financialTrend: company.financialTrend as string,
     };
+
+    let strategiesGenerated = 0;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -838,17 +1121,29 @@ router.post('/analyze-all', async (req: Request, res: Response) => {
 
         if (useSSE) sendProgress(res, 'AI 분석 중', i + 1, total, pf.programName as string);
 
-        const result = await analyzeFit(
-          companyInfo,
-          {
-            programName: pf.programName as string,
-            organizer: pf.organizer as string,
-            supportType: pf.supportType as string,
-            description: (pf.description as string) || pc.substring(0, 500),
-            expectedGrant: pf.expectedGrant as number,
-            officialEndDate: pf.officialEndDate as string,
-          }
-        );
+        const programInfo = {
+          programName: pf.programName as string,
+          organizer: pf.organizer as string,
+          supportType: pf.supportType as string,
+          description: (pf.fullDescription as string) || (pf.description as string) || pc.substring(0, 500),
+          expectedGrant: pf.expectedGrant as number,
+          officialEndDate: pf.officialEndDate as string,
+          eligibilityCriteria: pf.eligibilityCriteria as string[],
+          exclusionCriteria: pf.exclusionCriteria as string[],
+          targetAudience: pf.targetAudience as string,
+          evaluationCriteria: pf.evaluationCriteria as string[],
+          requiredDocuments: pf.requiredDocuments as string[],
+          supportDetails: Array.isArray(pf.supportDetails) ? (pf.supportDetails as string[]).join('; ') : pf.supportDetails as string,
+          selectionProcess: pf.selectionProcess as string[],
+          totalBudget: pf.totalBudget as string,
+          projectPeriod: pf.projectPeriod as string,
+          objectives: Array.isArray(pf.objectives) ? (pf.objectives as string[]).join('; ') : pf.objectives as string,
+          categories: pf.categories as string[],
+          keywords: pf.keywords as string[],
+          department: pf.department as string,
+        };
+
+        const result = await analyzeFit(companyInfo, programInfo);
 
         const analysisPath = path.join('analysis', `${slug}-fit.md`);
         await writeNote(
@@ -858,18 +1153,44 @@ router.post('/analyze-all', async (req: Request, res: Response) => {
             programName: pf.programName,
             fitScore: result.fitScore,
             eligibility: result.eligibility,
+            dimensions: result.dimensions,
             analyzedAt: new Date().toISOString(),
           },
-          `# 적합도 분석: ${pf.programName}\n\n점수: ${result.fitScore}/100\n판정: ${result.eligibility}\n\n## 강점\n${result.strengths.map(s => `- ${s}`).join('\n')}\n\n## 약점\n${result.weaknesses.map(w => `- ${w}`).join('\n')}\n\n## 조언\n${result.advice}`
+          `# 적합도 분석: ${pf.programName}\n\n${buildFitSectionMarkdown(result, slug)}`
+        );
+
+        // 프로그램 MD 적합도 섹션 업데이트
+        const fitSection = buildFitSectionMarkdown(result, slug);
+        const updatedContent = pc.replace(
+          /\n## 적합도\n[\s\S]*?(?=\n## |\n---|\n\*데이터|$)/,
+          fitSection
         );
 
         pf.fitScore = result.fitScore;
         pf.eligibility = result.eligibility;
+        pf.dimensions = result.dimensions;
+        pf.keyActions = result.keyActions;
         pf.analyzedAt = new Date().toISOString();
         pf.status = 'analyzed';
-        await writeNote(file, pf, pc);
+        await writeNote(file, pf, updatedContent);
 
         results.push({ slug, fitScore: result.fitScore, eligibility: result.eligibility as string });
+
+        // fitScore >= 80이면 전략 문서 생성
+        if (result.fitScore >= 80) {
+          try {
+            if (useSSE) sendProgress(res, '전략 문서 생성 중', i + 1, total, pf.programName as string);
+            const strategy = await generateStrategyDocument(companyInfo, programInfo, result);
+            const { frontmatter: sFm, content: sContent } = strategyToMarkdown(
+              pf.programName as string, slug, result.fitScore, result.dimensions, strategy
+            );
+            await writeNote(path.join('strategies', `전략-${slug}.md`), sFm, sContent);
+            strategiesGenerated++;
+            await new Promise(r => setTimeout(r, 2000));
+          } catch (e) {
+            console.warn(`[vault/analyze-all] 전략 문서 생성 실패 (${slug}):`, e);
+          }
+        }
 
         await new Promise(r => setTimeout(r, 2000));
       } catch (e) {
@@ -878,7 +1199,7 @@ router.post('/analyze-all', async (req: Request, res: Response) => {
       }
     }
 
-    const resultData = { success: true, analyzed: results.length, errors, results };
+    const resultData = { success: true, analyzed: results.length, errors, strategiesGenerated, results };
 
     if (useSSE) {
       sendComplete(res, resultData);
@@ -980,8 +1301,81 @@ ${analysis.keyPoints.map(k => `- ${k}`).join('\n')}
 });
 
 /**
+ * POST /api/vault/analyze-sections/:slug
+ * 공고별 동적 섹션 스키마 분석
+ * 첨부파일 중 지원서 양식 PDF → 텍스트 추출 → AI 분석에 포함
+ */
+router.post('/analyze-sections/:slug', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
+    const programPath = path.join('programs', `${slug}.md`);
+
+    if (!(await noteExists(programPath))) {
+      res.status(404).json({ error: '프로그램을 찾을 수 없습니다.' });
+      return;
+    }
+
+    const { frontmatter: pf, content: pc } = await readNote(programPath);
+
+    // PDF 분석 결과 읽기
+    let pdfAnalysis = '';
+    const pdfAnalysisPath = path.join('attachments', 'pdf-analysis', `${slug}.md`);
+    if (await noteExists(pdfAnalysisPath)) {
+      const { content: pdc } = await readNote(pdfAnalysisPath);
+      pdfAnalysis = pdc;
+    }
+
+    // 첨부파일 중 지원서 양식 PDF 탐색 및 텍스트 추출
+    let applicationFormText = '';
+    const attachments = (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
+    const formPatterns = ['서식', '양식', '지원서', '신청서', '사업계획서', '작성', '신청양식', '제출서류'];
+    const formAttachments = attachments.filter(a =>
+      formPatterns.some(pattern => a.name.includes(pattern)) && a.path.endsWith('.pdf')
+    );
+
+    if (formAttachments.length > 0) {
+      const vaultRoot = getVaultRoot();
+      for (const att of formAttachments.slice(0, 2)) {
+        try {
+          const pdfPath = path.join(vaultRoot, att.path);
+          const pdfBuffer = await fs.readFile(pdfPath);
+          const base64 = pdfBuffer.toString('base64');
+          const analysis = await analyzePdf(base64, `${pf.programName} - ${att.name}`);
+          applicationFormText += `\n\n[지원서 양식: ${att.name}]\n${analysis.summary}\n필수 항목: ${analysis.qualifications.join(', ')}\n핵심 사항: ${analysis.keyPoints.join(', ')}`;
+        } catch (e) {
+          console.warn(`[vault/analyze-sections] 양식 PDF 분석 실패: ${att.name}`, e);
+        }
+      }
+    }
+
+    const combinedPdfAnalysis = [pdfAnalysis, applicationFormText].filter(Boolean).join('\n');
+
+    const result = await analyzeSections(
+      {
+        programName: pf.programName as string,
+        evaluationCriteria: pf.evaluationCriteria as string[] || [],
+        requiredDocuments: pf.requiredDocuments as string[] || [],
+        objectives: pf.objectives as string[] || [],
+        supportDetails: pf.supportDetails as string[] || [],
+        selectionProcess: pf.selectionProcess as string[] || [],
+        fullDescription: pf.fullDescription as string || pf.description as string || '',
+        targetAudience: pf.targetAudience as string || '',
+      },
+      combinedPdfAnalysis,
+      pc.substring(0, 3000)
+    );
+
+    res.json(result);
+  } catch (error) {
+    console.error('[vault/analyze-sections] Error:', error);
+    res.status(500).json({ error: '섹션 분석 실패', details: String(error) });
+  }
+});
+
+/**
  * POST /api/vault/generate-app/:slug
- * 지원서 자동 생성 (6섹션 + 리뷰 + 일관성)
+ * 지원서 자동 생성 (동적 섹션 + 리뷰 + 일관성)
  */
 router.post('/generate-app/:slug', async (req: Request, res: Response) => {
   try {
@@ -1039,16 +1433,39 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
       officialEndDate: pf.officialEndDate as string,
     };
 
+    // 동적 섹션 스키마 분석
+    const schemaResult = await analyzeSections(
+      {
+        programName: pf.programName as string,
+        evaluationCriteria: pf.evaluationCriteria as string[] || [],
+        requiredDocuments: pf.requiredDocuments as string[] || [],
+        objectives: pf.objectives as string[] || [],
+        supportDetails: pf.supportDetails as string[] || [],
+        selectionProcess: pf.selectionProcess as string[] || [],
+        fullDescription: pf.fullDescription as string || pf.description as string || '',
+        targetAudience: pf.targetAudience as string || '',
+      },
+      pdfContext,
+      pc.substring(0, 3000)
+    );
+
+    const sectionSchema = schemaResult.sections;
     const sections: Record<string, string> = {};
-    for (const title of DRAFT_SECTION_TITLES) {
-      const result = await generateDraftSection(companyInfo, programInfo, title, fullContext);
-      sections[title] = result.text;
+
+    for (const sec of sectionSchema) {
+      const result = await generateDraftSectionV2(companyInfo, programInfo, sec.title, fullContext, {
+        evaluationCriteria: pf.evaluationCriteria as string[] || [],
+        hints: sec.hints,
+        evaluationWeight: sec.evaluationWeight,
+        sectionDescription: sec.description,
+      });
+      sections[sec.id] = result.text;
       await new Promise(r => setTimeout(r, 2000));
     }
 
     const appDir = path.join('applications', slug);
-    const draftContent = Object.entries(sections)
-      .map(([title, text]) => `## ${title}\n\n${text}`)
+    const draftContent = sectionSchema
+      .map(sec => `## ${sec.title}\n\n${sections[sec.id] || ''}`)
       .join('\n\n---\n\n');
 
     await writeNote(
@@ -1058,13 +1475,25 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
         programName: pf.programName,
         generatedAt: new Date().toISOString(),
         status: 'draft',
-        sections: DRAFT_SECTION_TITLES,
+        sectionSchema: {
+          programSlug: slug,
+          sections: sectionSchema,
+          generatedAt: new Date().toISOString(),
+          source: schemaResult.source,
+        },
+        sections: sectionSchema.map(s => s.id),
       },
       `# 지원서 초안: ${pf.programName}\n\n${draftContent}`
     );
 
+    // 리뷰용: section ID → title 매핑
+    const reviewSections: Record<string, string> = {};
+    for (const sec of sectionSchema) {
+      reviewSections[sec.title] = sections[sec.id] || '';
+    }
+
     await new Promise(r => setTimeout(r, 2000));
-    const reviewResult = await reviewDraft(sections);
+    const reviewResult = await reviewDraft(reviewSections);
 
     await writeNote(
       path.join(appDir, 'review.md'),
@@ -1091,7 +1520,7 @@ ${reviewResult.feedback.map(f => `- ${f}`).join('\n')}
     );
 
     await new Promise(r => setTimeout(r, 2000));
-    const consistencyResult = await checkConsistency(sections);
+    const consistencyResult = await checkConsistency(reviewSections);
 
     await writeNote(
       path.join(appDir, 'consistency.md'),
@@ -1118,6 +1547,12 @@ ${consistencyResult.suggestion}
     res.json({
       success: true,
       sections,
+      sectionSchema: {
+        programSlug: slug,
+        sections: sectionSchema,
+        generatedAt: new Date().toISOString(),
+        source: schemaResult.source,
+      },
       review: reviewResult,
       consistency: consistencyResult,
     });
@@ -1315,7 +1750,10 @@ router.post('/company/research', async (req: Request, res: Response) => {
       return;
     }
 
-    const { callGeminiDirect, cleanAndParseJSON } = await import('../services/geminiService.js');
+    if (!process.env.GEMINI_API_KEY) {
+      res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다. 서버 환경 변수를 확인하세요.' });
+      return;
+    }
 
     const prompt = `당신은 한국 기업 정보 전문 리서처입니다.
 
@@ -1324,41 +1762,220 @@ router.post('/company/research', async (req: Request, res: Response) => {
 
 ## 규칙
 1. 정확히 확인된 정보만 포함. 추측은 하지 마세요.
-2. 모르는 필드는 빈 문자열 또는 빈 배열로 유지
+2. 모르는 필드는 빈 문자열, 빈 배열 또는 null로 유지
 3. 매출액은 원(KRW) 단위 숫자로 반환 (예: 10억 = 1000000000)
 4. 사업자등록번호는 "000-00-00000" 형식
 5. 핵심역량과 인증은 구체적으로 작성
+6. SWOT 분석은 각 항목 3~5개씩 구체적으로 작성
+7. 정부지원금 적합성은 해당 기업의 실제 강점을 기반으로 분석
 
 반드시 아래 JSON 형식만 반환하세요:
 {
   "name": "정식 법인명",
-  "brandName": "브랜드명 (있을 경우)",
+  "brandName": "브랜드명",
   "businessNumber": "사업자등록번호",
   "representative": "대표자명",
   "foundedDate": "설립일 (YYYY-MM-DD)",
   "industry": "업종 (업태/종목)",
   "address": "본사 주소",
-  "factoryAddress": "공장/생산시설 주소 (있을 경우)",
+  "factoryAddress": "공장/생산시설 주소",
   "revenue": 0,
   "employees": 0,
-  "description": "기업 소개 (3~5문장, 핵심 사업과 차별점 포함)",
+  "description": "기업 소개 (3~5문장)",
   "coreCompetencies": ["핵심역량1", "핵심역량2"],
   "certifications": ["인증1", "인증2"],
-  "mainProducts": ["주요 제품/서비스1", "주요 제품/서비스2"],
+  "mainProducts": ["주요 제품/서비스1"],
   "phone": "대표 전화번호",
   "email": "대표 이메일",
   "website": "홈페이지 URL",
   "vision": "기업 비전/미션",
-  "salesChannels": ["유통채널1", "유통채널2"]
+  "salesChannels": ["유통채널1"],
+  "history": "기업 연혁 요약 (설립배경, 주요 이정표)",
+  "strategicAnalysis": {
+    "swot": {
+      "strengths": ["강점1", "강점2", "강점3"],
+      "weaknesses": ["약점1", "약점2"],
+      "opportunities": ["기회1", "기회2"],
+      "threats": ["위협1", "위협2"]
+    },
+    "competitiveAdvantage": "핵심 경쟁우위 설명",
+    "growthPotential": "성장 잠재력 평가",
+    "riskFactors": ["리스크1", "리스크2"]
+  },
+  "marketPosition": {
+    "competitors": ["경쟁사1", "경쟁사2"],
+    "marketShare": "시장점유율 추정",
+    "uniqueSellingPoints": ["차별화 포인트1"]
+  },
+  "industryInsights": {
+    "marketTrends": ["시장 트렌드1"],
+    "industryOutlook": "산업 전망",
+    "regulatoryEnvironment": "규제 환경",
+    "technologyTrends": ["기술 트렌드1"]
+  },
+  "governmentFundingFit": {
+    "recommendedPrograms": ["추천 지원사업1", "추천 지원사업2"],
+    "eligibilityStrengths": ["지원 자격 강점1"],
+    "potentialChallenges": ["도전과제1"],
+    "applicationTips": "지원 시 조언"
+  },
+  "financialInfo": {
+    "recentRevenue": 0,
+    "revenueGrowth": "매출 성장률",
+    "financials": []
+  },
+  "employmentInfo": {
+    "averageSalary": 0,
+    "creditRating": "",
+    "benefits": ["복리후생1"],
+    "turnoverRate": ""
+  },
+  "investmentInfo": {
+    "totalRaised": "",
+    "fundingRounds": [],
+    "isBootstrapped": true
+  },
+  "ipList": []
 }`;
 
     const result = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
     const parsed = cleanAndParseJSON(result.text) as Record<string, unknown>;
 
+    // Vault에 리서치 결과 마크다운으로 저장
+    try {
+      const researchMd = generateResearchMarkdown(companyName.trim(), parsed);
+      const researchPath = path.join('company', 'research.md');
+      await writeNote(researchPath, {
+        type: 'company-research',
+        companyName: parsed.name || companyName.trim(),
+        researchedAt: new Date().toISOString(),
+      }, researchMd);
+    } catch (e) {
+      console.warn('[vault/company/research] Failed to save research markdown:', e);
+    }
+
     res.json({ success: true, company: parsed });
   } catch (error) {
-    console.error('[vault/company/research] Error:', error);
-    res.status(500).json({ error: '기업 리서치 실패', details: String(error) });
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('[vault/company/research] Error:', errMsg, error instanceof Error ? error.stack : '');
+    res.status(500).json({ error: '기업 리서치 실패', details: errMsg });
+  }
+});
+
+// ─── Strategy (전략 문서) ─────────────────────────────────────
+
+/**
+ * GET /api/vault/strategy/:slug
+ * 전략 문서 조회
+ */
+router.get('/strategy/:slug', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
+    const strategyPath = path.join('strategies', `전략-${slug}.md`);
+
+    if (!(await noteExists(strategyPath))) {
+      res.status(404).json({ error: '전략 문서를 찾을 수 없습니다.' });
+      return;
+    }
+
+    const { frontmatter, content } = await readNote(strategyPath);
+    res.json({ frontmatter, content });
+  } catch (error) {
+    console.error('[vault/strategy GET] Error:', error);
+    res.status(500).json({ error: '전략 문서 조회 실패' });
+  }
+});
+
+/**
+ * POST /api/vault/generate-strategy/:slug
+ * 수동 전략 문서 생성
+ */
+router.post('/generate-strategy/:slug', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
+    const programPath = path.join('programs', `${slug}.md`);
+
+    if (!(await noteExists(programPath))) {
+      res.status(404).json({ error: '프로그램을 찾을 수 없습니다.' });
+      return;
+    }
+
+    const companyPath = path.join('company', 'profile.md');
+    let company: Record<string, unknown> = {};
+    if (await noteExists(companyPath)) {
+      const { frontmatter: cf } = await readNote(companyPath);
+      company = cf;
+    }
+
+    const { frontmatter: pf } = await readNote(programPath);
+
+    if (!pf.fitScore || Number(pf.fitScore) === 0) {
+      res.status(400).json({ error: '먼저 적합도 분석을 실행하세요.' });
+      return;
+    }
+
+    const companyInfo = {
+      name: (company.name as string) || '미등록 기업',
+      industry: company.industry as string,
+      description: company.description as string,
+      revenue: company.revenue as number,
+      employees: company.employees as number,
+      address: company.address as string,
+      certifications: company.certifications as string[],
+      coreCompetencies: company.coreCompetencies as string[],
+      ipList: company.ipList as string[],
+      mainProducts: company.mainProducts as string[],
+    };
+
+    const programInfo = {
+      programName: pf.programName as string,
+      organizer: pf.organizer as string,
+      supportType: pf.supportType as string,
+      description: (pf.fullDescription as string) || (pf.description as string) || '',
+      expectedGrant: pf.expectedGrant as number,
+      officialEndDate: pf.officialEndDate as string,
+      eligibilityCriteria: pf.eligibilityCriteria as string[],
+      exclusionCriteria: pf.exclusionCriteria as string[],
+      targetAudience: pf.targetAudience as string,
+      evaluationCriteria: pf.evaluationCriteria as string[],
+      requiredDocuments: pf.requiredDocuments as string[],
+      supportDetails: Array.isArray(pf.supportDetails) ? (pf.supportDetails as string[]).join('; ') : pf.supportDetails as string,
+      selectionProcess: pf.selectionProcess as string[],
+      department: pf.department as string,
+    };
+
+    // fitAnalysis 결과 재구성 (frontmatter에서)
+    const dims = (pf.dimensions || {}) as Record<string, number>;
+    const fitAnalysis: FitAnalysisResult = {
+      fitScore: Number(pf.fitScore) || 0,
+      eligibility: (pf.eligibility as string) || '검토 필요',
+      dimensions: {
+        eligibilityMatch: dims.eligibilityMatch || 0,
+        industryRelevance: dims.industryRelevance || 0,
+        scaleFit: dims.scaleFit || 0,
+        competitiveness: dims.competitiveness || 0,
+        strategicAlignment: dims.strategicAlignment || 0,
+      },
+      eligibilityDetails: { met: [], unmet: [], unclear: [] },
+      strengths: (pf.strengths as string[]) || [],
+      weaknesses: (pf.weaknesses as string[]) || [],
+      advice: '',
+      recommendedStrategy: '',
+      keyActions: (pf.keyActions as string[]) || [],
+    };
+
+    const strategy = await generateStrategyDocument(companyInfo, programInfo, fitAnalysis);
+    const { frontmatter: sFm, content: sContent } = strategyToMarkdown(
+      pf.programName as string, slug, fitAnalysis.fitScore, fitAnalysis.dimensions, strategy
+    );
+    await writeNote(path.join('strategies', `전략-${slug}.md`), sFm, sContent);
+
+    res.json({ success: true, strategy });
+  } catch (error) {
+    console.error('[vault/generate-strategy] Error:', error);
+    res.status(500).json({ error: '전략 문서 생성 실패', details: String(error) });
   }
 });
 

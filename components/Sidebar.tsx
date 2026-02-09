@@ -45,6 +45,7 @@ const Sidebar: React.FC = () => {
   // v2.0 Consolidated Menu Structure
   const menuItems = [
     { path: '/', icon: 'dashboard', label: '대시보드' },
+    { path: '/explore', icon: 'travel_explore', label: '공고 탐색' },
     { path: '/applications', icon: 'folder_shared', label: '나의 프로젝트' },
   ];
 

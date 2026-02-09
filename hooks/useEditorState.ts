@@ -2,9 +2,10 @@
  * 지원서 편집기 핵심 state 관리
  */
 import React, { useState, useEffect } from 'react';
-import { INITIAL_APPLICATION } from '../constants';
+import { INITIAL_APPLICATION, DEFAULT_SECTION_SCHEMA } from '../constants';
 import { getStoredCompany, getApplicationByProgramId, getTeamMembers } from '../services/storageService';
-import { SupportProgram, DraftSnapshot, DraftComment, Company, EligibilityStatus } from '../types';
+import { SupportProgram, DraftSnapshot, DraftComment, Company, EligibilityStatus, SectionSchema, ApplicationSectionSchema } from '../types';
+import { vaultService } from '../services/vaultService';
 
 interface GapAnalysisData {
   strengths: string[];
@@ -33,6 +34,9 @@ export interface EditorState {
   showContextPanel: boolean;
   sectionAssignees: { [key: string]: string };
   teamMembers: TeamMember[];
+  sectionSchema: SectionSchema[];
+  isLoadingSchema: boolean;
+  sectionSchemaSource: 'ai_analyzed' | 'default_fallback' | 'saved';
 }
 
 export interface EditorActions {
@@ -62,6 +66,9 @@ export function useEditorState(programId: string | undefined): EditorState & Edi
   const [referenceContext, setReferenceContext] = useState<string>('');
   const [showContextPanel, setShowContextPanel] = useState(true);
   const [sectionAssignees, setSectionAssignees] = useState<{ [key: string]: string }>({});
+  const [sectionSchema, setSectionSchema] = useState<SectionSchema[]>(DEFAULT_SECTION_SCHEMA);
+  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
+  const [sectionSchemaSource, setSectionSchemaSource] = useState<'ai_analyzed' | 'default_fallback' | 'saved'>('default_fallback');
 
   useEffect(() => {
     if (!programId) return;
@@ -74,6 +81,12 @@ export function useEditorState(programId: string | undefined): EditorState & Edi
       setIsCalendarSynced(!!savedApp.isCalendarSynced);
       setSnapshots(savedApp.snapshots || []);
       setComments(savedApp.comments || []);
+
+      // 저장된 sectionSchema 복원
+      if (savedApp.sectionSchema?.sections?.length) {
+        setSectionSchema(savedApp.sectionSchema.sections);
+        setSectionSchemaSource('saved');
+      }
 
       if (savedApp.gapAnalysis) {
         setGapAnalysisData(savedApp.gapAnalysis);
@@ -114,7 +127,80 @@ export function useEditorState(programId: string | undefined): EditorState & Edi
           detailUrl: '',
         });
       }
+    } else if (programId) {
+      // savedApp이 없을 때 vault에서 program 정보 조회 (slug 기반 진입)
+      vaultService.getProgram(programId)
+        .then(detail => {
+          if (detail?.frontmatter) {
+            const fm = detail.frontmatter;
+            setProgram({
+              id: programId,
+              programName: (fm.programName as string) || programId,
+              organizer: (fm.organizer as string) || '',
+              officialEndDate: (fm.officialEndDate as string) || '',
+              internalDeadline: (fm.internalDeadline as string) || (fm.officialEndDate as string) || '',
+              expectedGrant: (fm.expectedGrant as number) || 0,
+              supportType: (fm.supportType as string) || '',
+              description: (fm.fullDescription as string) || (fm.description as string) || '',
+              requiredDocuments: (fm.requiredDocuments as string[]) || [],
+              fitScore: (fm.fitScore as number) || 0,
+              eligibility: EligibilityStatus.POSSIBLE,
+              priorityRank: 0,
+              eligibilityReason: (fm.eligibility as string) || '',
+              detailUrl: (fm.detailUrl as string) || '',
+            });
+          }
+        })
+        .catch(() => {
+          // vault 조회 실패 시 기본값 설정
+          setProgram({
+            id: programId,
+            programName: programId,
+            organizer: '정보 없음',
+            supportType: '기타',
+            officialEndDate: '',
+            internalDeadline: '',
+            expectedGrant: 0,
+            fitScore: 0,
+            eligibility: EligibilityStatus.POSSIBLE,
+            priorityRank: 0,
+            eligibilityReason: '',
+            requiredDocuments: [],
+            detailUrl: '',
+          });
+        });
     }
+  }, [programId]);
+
+  // 동적 섹션 스키마 로딩 (slug 기반 진입 시)
+  useEffect(() => {
+    if (!programId) return;
+    // 이미 저장된 스키마가 있으면 재분석하지 않음
+    const savedApp = getApplicationByProgramId(programId);
+    if (savedApp?.sectionSchema?.sections?.length) return;
+
+    // vault slug인 경우 서버에서 섹션 분석
+    const slug = programId;
+    setIsLoadingSchema(true);
+    vaultService.analyzeSections(slug)
+      .then(result => {
+        setSectionSchema(result.sections);
+        setSectionSchemaSource(result.source);
+        // 새 스키마에 맞는 빈 draftSections 초기화
+        setDraftSections(prev => {
+          const hasContent = Object.values(prev).some(v => typeof v === 'string' && v.trim().length > 0);
+          if (hasContent) return prev; // 기존 내용이 있으면 유지
+          const newSections: Record<string, string> = {};
+          result.sections.forEach(s => { newSections[s.id] = ''; });
+          return newSections;
+        });
+      })
+      .catch(() => {
+        // 실패 시 기본 스키마 유지
+        setSectionSchema(DEFAULT_SECTION_SCHEMA);
+        setSectionSchemaSource('default_fallback');
+      })
+      .finally(() => setIsLoadingSchema(false));
   }, [programId]);
 
   return {
@@ -131,6 +217,9 @@ export function useEditorState(programId: string | undefined): EditorState & Edi
     showContextPanel,
     sectionAssignees,
     teamMembers,
+    sectionSchema,
+    isLoadingSchema,
+    sectionSchemaSource,
     setProgram,
     setDraftSections,
     setDocumentStatus,

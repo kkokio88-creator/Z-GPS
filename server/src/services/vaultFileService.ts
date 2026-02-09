@@ -18,6 +18,7 @@ export async function ensureVaultStructure(): Promise<void> {
     'applications',
     'attachments/pdfs',
     'attachments/pdf-analysis',
+    'strategies',
     'templates',
   ];
 

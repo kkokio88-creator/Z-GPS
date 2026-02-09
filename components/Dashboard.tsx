@@ -435,10 +435,16 @@ const Dashboard: React.FC = () => {
                         <span className={`font-bold ${area.textColor}`}>{formatKRW(area.totalGrant)}</span>
                       </div>
                       {area.bestProgram ? (
-                        <div className={`${area.bgLight} ${area.bgDark} rounded-lg p-3`}>
+                        <div
+                          onClick={() => area.bestProgram?.slug && navigate(`/editor/${area.bestProgram.slug}`)}
+                          className={`${area.bgLight} ${area.bgDark} rounded-lg p-3 cursor-pointer hover:shadow-sm transition-shadow`}
+                        >
                           <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase mb-1">최적합 프로그램</p>
                           <p className="text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-1">{area.bestProgram.programName}</p>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">적합도 {area.bestProgram.fitScore}%</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">적합도 {area.bestProgram.fitScore}%</p>
+                            <span className="text-[10px] text-indigo-500 hover:underline">지원서 작성</span>
+                          </div>
                         </div>
                       ) : (
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
@@ -516,10 +522,11 @@ const Dashboard: React.FC = () => {
                     return (
                       <div
                         key={p.id || i}
-                        className={`flex items-center p-3 rounded-lg border transition-colors ${
+                        onClick={() => p.slug && navigate(`/editor/${p.slug}`)}
+                        className={`flex items-center p-3 rounded-lg border transition-colors cursor-pointer hover:shadow-md ${
                           isUrgent
-                            ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
-                            : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700'
+                            ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 hover:border-red-300'
+                            : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 hover:border-indigo-300'
                         }`}
                       >
                         <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -551,7 +558,21 @@ const Dashboard: React.FC = () => {
               <span className="material-icons-outlined text-primary mr-2">bolt</span>
               빠른 실행
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate('/explore')}
+                className="group flex items-center p-5 bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700 transition-all"
+              >
+                <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors flex-shrink-0">
+                  <span className="material-icons-outlined text-2xl">travel_explore</span>
+                </div>
+                <div className="ml-4 text-left">
+                  <p className="font-bold text-sm text-gray-800 dark:text-gray-200">공고 탐색</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">적합 공고 탐색 및 지원서 작성</p>
+                </div>
+                <span className="material-icons-outlined text-gray-300 dark:text-gray-600 ml-auto group-hover:text-purple-400 transition-colors">arrow_forward</span>
+              </button>
+
               <button
                 onClick={() => navigate('/applications')}
                 className="group flex items-center p-5 bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all"

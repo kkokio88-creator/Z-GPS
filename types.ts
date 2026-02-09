@@ -114,8 +114,9 @@ export interface Application {
   };
   updatedAt: string;
   isCalendarSynced?: boolean;
-  snapshots?: DraftSnapshot[]; 
-  comments?: DraftComment[]; 
+  snapshots?: DraftSnapshot[];
+  comments?: DraftComment[];
+  sectionSchema?: ApplicationSectionSchema;
   // v1.5 Strategy Inheritance
   gapAnalysis?: {
       strengths: string[];
@@ -320,6 +321,25 @@ export interface WorkflowTemplate {
     agentRoles: AgentRole[];
     tasks: Omit<AgentTask, 'id' | 'createdAt' | 'updatedAt'>[];
   }[];
+}
+
+// ===== Section Schema Types (Dynamic Sections) =====
+
+export interface SectionSchema {
+  id: string;              // "sec_project_overview"
+  title: string;           // "사업 개요 및 추진 배경"
+  description: string;     // 작성 가이드
+  order: number;
+  required: boolean;
+  evaluationWeight?: string; // "기술성 30점"
+  hints?: string[];
+}
+
+export interface ApplicationSectionSchema {
+  programSlug: string;
+  sections: SectionSchema[];
+  generatedAt: string;
+  source: 'ai_analyzed' | 'default_fallback';
 }
 
 // ===== Application Entity Types (Repository Pattern) =====

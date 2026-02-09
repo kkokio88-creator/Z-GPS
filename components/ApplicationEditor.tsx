@@ -1,6 +1,5 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DRAFT_SECTIONS } from '../constants';
 import {
     draftAgent, refinementAgent, budgetAgent,
     interviewAgent, scheduleAgent, consistencyAgent, dueDiligenceAgent
@@ -19,10 +18,11 @@ import { useAITools } from '../hooks/useAITools';
 import { getGoogleCalendarUrlForProgram } from '../services/calendarService';
 
 const ApplicationEditor: React.FC = () => {
-  const { programId } = useParams();
+  const { programId, slug } = useParams();
   const navigate = useNavigate();
+  const editorKey = slug || programId;
 
-  const editor = useEditorState(programId);
+  const editor = useEditorState(editorKey);
   const modals = useModalState();
   const ai = useAITools();
 
@@ -55,12 +55,18 @@ const ApplicationEditor: React.FC = () => {
       snapshots: editor.snapshots,
       comments: editor.comments,
       gapAnalysis: editor.gapAnalysisData,
+      sectionSchema: {
+        programSlug: program.id,
+        sections: editor.sectionSchema,
+        generatedAt: new Date().toISOString(),
+        source: editor.sectionSchemaSource === 'saved' ? 'ai_analyzed' : editor.sectionSchemaSource,
+      },
     });
     alert('저장되었습니다.');
   };
 
   const scrollToSection = (sectionTitle: string) => {
-    const targetSection = DRAFT_SECTIONS.find(s => sectionTitle.includes(s.title) || s.title.includes(sectionTitle));
+    const targetSection = editor.sectionSchema.find(s => sectionTitle.includes(s.title) || s.title.includes(sectionTitle));
     if (targetSection && ai.sectionRefs.current[targetSection.id]) {
       ai.sectionRefs.current[targetSection.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       const el = ai.sectionRefs.current[targetSection.id];
@@ -157,7 +163,14 @@ const ApplicationEditor: React.FC = () => {
   const handleGenerateGantt = async () => {
     modals.setIsGanttLoading(true);
     modals.setShowGanttModal(true);
-    const data = await scheduleAgent.generateGanttData(editor.draftSections['section5'] || '');
+    // 동적 섹션에서 일정/예산 관련 섹션 찾기
+    const scheduleSection = editor.sectionSchema.find(s =>
+      s.title.includes('일정') || s.title.includes('예산') || s.title.includes('추진') || s.id.includes('schedule') || s.id.includes('budget')
+    );
+    const scheduleContent = scheduleSection
+      ? (editor.draftSections[scheduleSection.id] || '')
+      : Object.values(editor.draftSections).join('\n');
+    const data = await scheduleAgent.generateGanttData(scheduleContent);
     modals.setGanttData(data);
     modals.setIsGanttLoading(false);
   };
@@ -208,25 +221,40 @@ const ApplicationEditor: React.FC = () => {
               </button>
             </div>
 
-            {DRAFT_SECTIONS.map((section) => (
-              <SectionCard
-                key={section.id}
-                ref={(el) => { ai.sectionRefs.current[section.id] = el; }}
-                section={section}
-                content={editor.draftSections[section.id] || ''}
-                isGenerating={ai.isGenerating === section.id}
-                isAnyGenerating={!!ai.isGenerating}
-                onGenerateAI={() => handleGenerateAI(section.id, section.title)}
-                onTextChange={(text) => editor.setDraftSections(prev => ({ ...prev, [section.id]: text }))}
-                onTextSelect={(e) => handleTextSelect(e, section.id)}
-                magicToolbar={ai.showMagicToolbar && ai.activeSectionForToolbar === section.id ? {
-                  show: true,
-                  instruction: ai.magicInstruction,
-                  onInstructionChange: ai.setMagicInstruction,
-                  onRewrite: handleMagicRewrite,
-                } : undefined}
-              />
-            ))}
+            {editor.isLoadingSchema ? (
+              <div className="flex flex-col items-center justify-center py-16 space-y-3">
+                <span className="animate-spin material-icons-outlined text-4xl text-primary">autorenew</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">공고 맞춤 섹션 분석 중...</p>
+              </div>
+            ) : (
+              <>
+                {editor.sectionSchemaSource === 'ai_analyzed' && (
+                  <div className="flex items-center px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-xs text-indigo-700 dark:text-indigo-400 mb-2">
+                    <span className="material-icons-outlined text-sm mr-1.5">auto_awesome</span>
+                    공고 요구사항 기반 AI 맞춤 섹션 ({editor.sectionSchema.length}개)
+                  </div>
+                )}
+                {editor.sectionSchema.map((section) => (
+                  <SectionCard
+                    key={section.id}
+                    ref={(el) => { ai.sectionRefs.current[section.id] = el; }}
+                    section={section}
+                    content={editor.draftSections[section.id] || ''}
+                    isGenerating={ai.isGenerating === section.id}
+                    isAnyGenerating={!!ai.isGenerating}
+                    onGenerateAI={() => handleGenerateAI(section.id, section.title)}
+                    onTextChange={(text) => editor.setDraftSections(prev => ({ ...prev, [section.id]: text }))}
+                    onTextSelect={(e) => handleTextSelect(e, section.id)}
+                    magicToolbar={ai.showMagicToolbar && ai.activeSectionForToolbar === section.id ? {
+                      show: true,
+                      instruction: ai.magicInstruction,
+                      onInstructionChange: ai.setMagicInstruction,
+                      onRewrite: handleMagicRewrite,
+                    } : undefined}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </div>
       </main>
@@ -254,6 +282,7 @@ const ApplicationEditor: React.FC = () => {
           company={company}
           program={program}
           draftSections={editor.draftSections}
+          sections={editor.sectionSchema}
           onClose={() => modals.setShowExportModal(false)}
         />
       )}

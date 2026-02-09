@@ -200,6 +200,8 @@ const Settings: React.FC = () => {
   const [researchQuery, setResearchQuery] = useState('');
   const [researching, setResearching] = useState(false);
   const [researchError, setResearchError] = useState('');
+  const [deepResearchData, setDeepResearchData] = useState<Record<string, unknown> | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   // Company Documents
   const [documents, setDocuments] = useState<VaultDocumentMeta[]>([]);
@@ -372,6 +374,9 @@ const Settings: React.FC = () => {
           coreCompetencies: (c.coreCompetencies as string[]) || prev.coreCompetencies,
           certifications: (c.certifications as string[]) || prev.certifications,
         }));
+        // 딥리서치 전체 데이터 저장
+        setDeepResearchData(c);
+        setExpandedSections(new Set(['swot', 'funding'])); // 기본 펼침
         setResearchQuery('');
       }
     } catch (e) {
@@ -379,6 +384,15 @@ const Settings: React.FC = () => {
     } finally {
       setResearching(false);
     }
+  };
+
+  const toggleSection = (key: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const handleSaveCompany = async () => {
@@ -693,6 +707,155 @@ const Settings: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 딥리서치 결과 */}
+      {deepResearchData && (() => {
+        const sa = deepResearchData.strategicAnalysis as Record<string, unknown> | undefined;
+        const swot = sa?.swot as Record<string, string[]> | undefined;
+        const mp = deepResearchData.marketPosition as Record<string, unknown> | undefined;
+        const ii = deepResearchData.industryInsights as Record<string, unknown> | undefined;
+        const gf = deepResearchData.governmentFundingFit as Record<string, unknown> | undefined;
+        const ei = deepResearchData.employmentInfo as Record<string, unknown> | undefined;
+        const inv = deepResearchData.investmentInfo as Record<string, unknown> | undefined;
+
+        const AccordionSection: React.FC<{ id: string; icon: string; title: string; children: React.ReactNode }> = ({ id, icon, title, children }) => (
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleSection(id)}
+              className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <span className="flex items-center gap-2 font-medium text-sm">
+                <span className="material-icons-outlined text-base">{icon}</span>
+                {title}
+              </span>
+              <span className={`material-icons-outlined text-sm transition-transform ${expandedSections.has(id) ? 'rotate-180' : ''}`}>expand_more</span>
+            </button>
+            {expandedSections.has(id) && (
+              <div className="p-3 text-sm space-y-2">{children}</div>
+            )}
+          </div>
+        );
+
+        return (
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <span className="material-icons-outlined text-indigo-600">insights</span>
+                AI 딥리서치 결과
+              </h3>
+              <button onClick={() => setDeepResearchData(null)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
+            </div>
+            <div className="space-y-2">
+
+              {/* SWOT */}
+              {swot && (
+                <AccordionSection id="swot" icon="grid_view" title="SWOT 전략 분석">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2.5 border border-green-200 dark:border-green-800">
+                      <p className="text-xs font-bold text-green-700 dark:text-green-400 mb-1">강점 (S)</p>
+                      {(swot.strengths || []).map((s, i) => <p key={i} className="text-xs text-green-600 dark:text-green-300">- {s}</p>)}
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-2.5 border border-red-200 dark:border-red-800">
+                      <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1">약점 (W)</p>
+                      {(swot.weaknesses || []).map((w, i) => <p key={i} className="text-xs text-red-600 dark:text-red-300">- {w}</p>)}
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2.5 border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">기회 (O)</p>
+                      {(swot.opportunities || []).map((o, i) => <p key={i} className="text-xs text-blue-600 dark:text-blue-300">- {o}</p>)}
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-2.5 border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">위협 (T)</p>
+                      {(swot.threats || []).map((t, i) => <p key={i} className="text-xs text-amber-600 dark:text-amber-300">- {t}</p>)}
+                    </div>
+                  </div>
+                  {sa?.competitiveAdvantage && <p className="mt-2 text-xs"><strong>경쟁우위:</strong> {sa.competitiveAdvantage as string}</p>}
+                  {sa?.growthPotential && <p className="text-xs"><strong>성장잠재력:</strong> {sa.growthPotential as string}</p>}
+                </AccordionSection>
+              )}
+
+              {/* 시장 분석 */}
+              {mp && (
+                <AccordionSection id="market" icon="analytics" title="시장 분석">
+                  {(mp.competitors as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">경쟁사</p>{(mp.competitors as string[]).map((c, i) => <span key={i} className="inline-block mr-1.5 mb-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">{c}</span>)}</div>
+                  ) : null}
+                  {mp.marketShare && <p className="text-xs"><strong>시장점유율:</strong> {mp.marketShare as string}</p>}
+                  {(mp.uniqueSellingPoints as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">차별화 포인트</p>{(mp.uniqueSellingPoints as string[]).map((u, i) => <p key={i} className="text-xs text-gray-600 dark:text-gray-400">- {u}</p>)}</div>
+                  ) : null}
+                </AccordionSection>
+              )}
+
+              {/* 산업 인사이트 */}
+              {ii && (
+                <AccordionSection id="industry" icon="trending_up" title="산업 인사이트">
+                  {(ii.marketTrends as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">시장 트렌드</p>{(ii.marketTrends as string[]).map((t, i) => <p key={i} className="text-xs text-gray-600 dark:text-gray-400">- {t}</p>)}</div>
+                  ) : null}
+                  {ii.industryOutlook && <p className="text-xs"><strong>산업 전망:</strong> {ii.industryOutlook as string}</p>}
+                  {ii.regulatoryEnvironment && <p className="text-xs"><strong>규제 환경:</strong> {ii.regulatoryEnvironment as string}</p>}
+                </AccordionSection>
+              )}
+
+              {/* 정부지원 적합성 */}
+              {gf && (
+                <AccordionSection id="funding" icon="account_balance" title="정부지원금 적합성">
+                  {(gf.recommendedPrograms as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">추천 지원사업</p>{(gf.recommendedPrograms as string[]).map((r, i) => <p key={i} className="text-xs text-indigo-600 dark:text-indigo-400">- {r}</p>)}</div>
+                  ) : null}
+                  {(gf.eligibilityStrengths as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">자격 강점</p>{(gf.eligibilityStrengths as string[]).map((s, i) => <p key={i} className="text-xs text-green-600 dark:text-green-400">- {s}</p>)}</div>
+                  ) : null}
+                  {(gf.potentialChallenges as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">도전과제</p>{(gf.potentialChallenges as string[]).map((c, i) => <p key={i} className="text-xs text-amber-600 dark:text-amber-400">- {c}</p>)}</div>
+                  ) : null}
+                  {gf.applicationTips && (
+                    <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded p-2 text-xs text-indigo-700 dark:text-indigo-300">
+                      <strong>지원 팁:</strong> {gf.applicationTips as string}
+                    </div>
+                  )}
+                </AccordionSection>
+              )}
+
+              {/* 고용 정보 */}
+              {ei && (
+                <AccordionSection id="employment" icon="people" title="고용/재무 정보">
+                  {(ei.averageSalary as number) > 0 && <p className="text-xs"><strong>평균 연봉:</strong> {((ei.averageSalary as number) / 10000).toFixed(0)}만원</p>}
+                  {ei.creditRating && <p className="text-xs"><strong>신용등급:</strong> {ei.creditRating as string}</p>}
+                  {(ei.benefits as string[] | undefined)?.length ? (
+                    <p className="text-xs"><strong>복리후생:</strong> {(ei.benefits as string[]).join(', ')}</p>
+                  ) : null}
+                </AccordionSection>
+              )}
+
+              {/* 투자 정보 */}
+              {inv && !(inv.isBootstrapped) && (
+                <AccordionSection id="investment" icon="payments" title="투자 정보">
+                  {inv.totalRaised && <p className="text-xs"><strong>총 투자유치:</strong> {inv.totalRaised as string}</p>}
+                  {(inv.fundingRounds as { round: string; amount: string; date: string; investor?: string }[] | undefined)?.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead><tr className="bg-gray-50 dark:bg-gray-800"><th className="p-1.5 text-left">라운드</th><th className="p-1.5 text-left">금액</th><th className="p-1.5 text-left">일시</th><th className="p-1.5 text-left">투자자</th></tr></thead>
+                        <tbody>
+                          {(inv.fundingRounds as { round: string; amount: string; date: string; investor?: string }[]).map((r, i) => (
+                            <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                              <td className="p-1.5">{r.round}</td>
+                              <td className="p-1.5">{r.amount}</td>
+                              <td className="p-1.5">{r.date}</td>
+                              <td className="p-1.5">{r.investor || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                </AccordionSection>
+              )}
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 기업 정보 */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">

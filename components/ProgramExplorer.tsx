@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { vaultService, VaultProgram } from '../services/vaultService';
+import { vaultService, VaultProgram, FitDimensions } from '../services/vaultService';
 import {
   getStoredCompany,
   getStoredApplications,
@@ -25,9 +25,9 @@ const vaultToSupportProgram = (vp: VaultProgram): SupportProgram => ({
   eligibility: EligibilityStatus.POSSIBLE,
   priorityRank: 0,
   eligibilityReason: vp.eligibility || '',
-  requiredDocuments: [],
+  requiredDocuments: vp.requiredDocuments || [],
   detailUrl: vp.detailUrl,
-  description: '',
+  description: vp.fullDescription || '',
 });
 
 type SwipeCategory = 'interested' | 'rejected' | 'none';
@@ -57,15 +57,15 @@ const summarizeText = (text: string, maxLength = 200): string => {
   return cleaned.slice(0, maxLength).trim() + '...';
 };
 
-// 하트 이모지 파티클 컴포넌트
-const HeartParticles: React.FC<{ show: boolean }> = ({ show }) => {
+// 하트 이모지 파티클 컴포넌트 (최적화: 8개로 축소)
+const HeartParticles: React.FC<{ show: boolean }> = React.memo(({ show }) => {
   if (!show) return null;
 
   const hearts = ['❤️', '💕', '💖', '💗', '💓', '🩷'];
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {Array.from({ length: 15 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
           className="absolute text-3xl animate-heart-burst"
@@ -84,7 +84,7 @@ const HeartParticles: React.FC<{ show: boolean }> = ({ show }) => {
       ))}
     </div>
   );
-};
+});
 
 // 쓰레기통 애니메이션 컴포넌트
 const TrashAnimation: React.FC<{ show: boolean }> = ({ show }) => {
@@ -109,20 +109,25 @@ const ProgramExplorer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-  const [dragX, setDragX] = useState(0);
+  const dragXRef = useRef(0);
+  const [dragOverlay, setDragOverlay] = useState<'left' | 'right' | null>(null); // 오버레이 상태만 state
   const [isDragging, setIsDragging] = useState(false);
   const [showHearts, setShowHearts] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false); // 스와이프 중복 방지
+  const isAnimatingRef = useRef(false); // useRef로 변경 (리렌더 방지)
 
   const cardRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
 
-  const [activeTab, setActiveTab] = useState<'all' | 'interested' | 'rejected'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'recommended' | 'interested' | 'rejected'>('all');
+  const [strategyModal, setStrategyModal] = useState<{ slug: string; content: string } | null>(null);
+  const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   const [viewMode, setViewMode] = useState<'swipe' | 'list'>('swipe');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   const [sortBy, setSortBy] = useState<'fitScore' | 'deadline' | 'grant'>('fitScore');
+  // VaultProgram 원본 데이터 (상세 패널 추가 정보용)
+  const vaultDataRef = useRef<Map<string, VaultProgram>>(new Map());
 
   // 프로그램 로드 (Vault API 사용)
   const loadPrograms = useCallback(async () => {
@@ -130,6 +135,11 @@ const ProgramExplorer: React.FC = () => {
     setLoadError(null);
     try {
       const vaultPrograms = await vaultService.getPrograms();
+      // VaultProgram 원본 저장
+      const vMap = new Map<string, VaultProgram>();
+      vaultPrograms.forEach(vp => vMap.set(vp.slug || vp.id, vp));
+      vaultDataRef.current = vMap;
+
       const data = vaultPrograms.map(vaultToSupportProgram);
 
       const storedCategories = getStoredProgramCategories();
@@ -173,6 +183,7 @@ const ProgramExplorer: React.FC = () => {
   const filteredPrograms = allPrograms
     .filter(p => {
       if (activeTab === 'all') return p.category === 'none';
+      if (activeTab === 'recommended') return p.fitScore >= 80;
       return p.category === activeTab;
     })
     .filter(p => {
@@ -238,11 +249,12 @@ const ProgramExplorer: React.FC = () => {
   // 스와이프 처리 (중복 방지)
   const handleSwipe = useCallback((direction: 'left' | 'right') => {
     // 이미 애니메이션 중이거나 프로그램이 없으면 무시
-    if (!currentProgram || isAnimating) return;
+    if (!currentProgram || isAnimatingRef.current) return;
 
     // 애니메이션 시작 - 락 걸기
-    setIsAnimating(true);
+    isAnimatingRef.current = true;
     setSwipeDirection(direction);
+    setDragOverlay(null);
 
     if (direction === 'right') {
       setShowHearts(true);
@@ -271,7 +283,10 @@ const ProgramExplorer: React.FC = () => {
       ));
 
       setSwipeDirection(null);
-      setDragX(0);
+      dragXRef.current = 0;
+      if (cardRef.current) {
+        cardRef.current.style.transform = 'none';
+      }
 
       const nextFiltered = filteredPrograms.filter(p => p.id !== currentProgram.id);
       if (nextFiltered.length > 0) {
@@ -282,36 +297,57 @@ const ProgramExplorer: React.FC = () => {
       }
 
       // 애니메이션 완료 - 락 해제
-      setTimeout(() => setIsAnimating(false), 100);
+      setTimeout(() => { isAnimatingRef.current = false; }, 100);
     }, 500);
-  }, [currentProgram, currentIndex, filteredPrograms, isAnimating]);
+  }, [currentProgram, currentIndex, filteredPrograms, autoCreateDraft]);
 
-  // 마우스/터치 드래그 핸들러 (부드러운 처리)
+  // 마우스/터치 드래그 핸들러 (DOM 직접 조작으로 최적화)
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!cardRef.current) return;
     setIsDragging(true);
     startXRef.current = e.clientX;
+    dragXRef.current = 0;
     cardRef.current.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging) return;
     const deltaX = e.clientX - startXRef.current;
-    setDragX(deltaX);
+    dragXRef.current = deltaX;
+
+    // DOM 직접 조작 (리렌더 없이 transform 적용)
+    if (cardRef.current) {
+      cardRef.current.style.transform = `translateX(${deltaX}px) rotate(${deltaX / 25}deg)`;
+    }
+
+    // 오버레이 표시는 threshold 기준으로만 state 변경
+    const newOverlay = deltaX > 80 ? 'right' : deltaX < -80 ? 'left' : null;
+    if (newOverlay !== dragOverlay) {
+      setDragOverlay(newOverlay);
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (!isDragging) return;
     setIsDragging(false);
+    setDragOverlay(null);
 
     if (cardRef.current) {
       cardRef.current.releasePointerCapture(e.pointerId);
     }
 
-    if (Math.abs(dragX) > 120) {
-      handleSwipe(dragX > 0 ? 'right' : 'left');
+    const dx = dragXRef.current;
+    if (Math.abs(dx) > 120) {
+      handleSwipe(dx > 0 ? 'right' : 'left');
     } else {
-      setDragX(0);
+      dragXRef.current = 0;
+      if (cardRef.current) {
+        cardRef.current.style.transform = 'none';
+        cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        setTimeout(() => {
+          if (cardRef.current) cardRef.current.style.transition = '';
+        }, 300);
+      }
     }
   };
 
@@ -385,10 +421,33 @@ const ProgramExplorer: React.FC = () => {
     return { label: `D-${diff}`, color: 'bg-gray-100 text-gray-600', urgent: false };
   };
 
+  // 전략 보기
+  const handleViewStrategy = async (slug: string) => {
+    setIsLoadingStrategy(true);
+    try {
+      const result = await vaultService.getStrategy(slug);
+      if (result) {
+        setStrategyModal({ slug, content: result.content });
+      } else {
+        // 전략 문서 없으면 생성 시도
+        await vaultService.generateStrategy(slug);
+        const retry = await vaultService.getStrategy(slug);
+        if (retry) {
+          setStrategyModal({ slug, content: retry.content });
+        }
+      }
+    } catch {
+      // 무시
+    } finally {
+      setIsLoadingStrategy(false);
+    }
+  };
+
   // 통계
   const stats = {
     total: allPrograms.length,
     remaining: allPrograms.filter(p => p.category === 'none').length,
+    recommended: allPrograms.filter(p => p.fitScore >= 80).length,
     interested: allPrograms.filter(p => p.category === 'interested').length,
     rejected: allPrograms.filter(p => p.category === 'rejected').length
   };
@@ -445,6 +504,10 @@ const ProgramExplorer: React.FC = () => {
                 <p className="text-[10px] sm:text-xs text-gray-400">미분류</p>
               </div>
               <div className="text-center px-2 sm:px-3 flex-shrink-0">
+                <p className="text-lg sm:text-2xl font-bold text-amber-500 dark:text-amber-400">{stats.recommended}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400">추천</p>
+              </div>
+              <div className="text-center px-2 sm:px-3 flex-shrink-0">
                 <p className="text-lg sm:text-2xl font-bold text-primary dark:text-green-400">{stats.interested}</p>
                 <p className="text-[10px] sm:text-xs text-gray-400">관심</p>
               </div>
@@ -465,17 +528,17 @@ const ProgramExplorer: React.FC = () => {
 
           {/* 탭 + 뷰 전환 */}
           <div className="flex items-center gap-2 overflow-x-auto">
-            {(['all', 'interested', 'rejected'] as const).map(tab => (
+            {(['all', 'recommended', 'interested', 'rejected'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setCurrentIndex(0); }}
                 className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-shrink-0 ${
                   activeTab === tab
-                    ? 'bg-primary text-white'
+                    ? tab === 'recommended' ? 'bg-amber-500 text-white' : 'bg-primary text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {tab === 'all' ? '미분류' : tab === 'interested' ? '관심' : '부적합'}
+                {tab === 'all' ? '미분류' : tab === 'recommended' ? `추천 ${stats.recommended}` : tab === 'interested' ? '관심' : '부적합'}
               </button>
             ))}
             <div className="flex-1" />
@@ -555,8 +618,13 @@ const ProgramExplorer: React.FC = () => {
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${dDay.color}`}>
                               {dDay.label}
                             </span>
-                            {program.fitScore >= 85 && (
-                              <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded font-medium">
+                            {program.fitScore >= 90 && (
+                              <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded font-bold">
+                                ★ 강력추천
+                              </span>
+                            )}
+                            {program.fitScore >= 80 && program.fitScore < 90 && (
+                              <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-medium">
                                 추천
                               </span>
                             )}
@@ -595,6 +663,15 @@ const ProgramExplorer: React.FC = () => {
                               </button>
                             </div>
                           )}
+                          {activeTab === 'recommended' && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewStrategy(program.id); }}
+                              disabled={isLoadingStrategy}
+                              className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors"
+                            >
+                              전략
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCreateApplication(program); }}
                             className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-green-600 transition-colors"
@@ -603,6 +680,39 @@ const ProgramExplorer: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                      {/* 추천 탭: dimensions 미니 바 차트 */}
+                      {activeTab === 'recommended' && (() => {
+                        const vd = vaultDataRef.current.get(program.id);
+                        const dims = vd?.dimensions;
+                        if (!dims) return null;
+                        const dimEntries: { label: string; value: number }[] = [
+                          { label: '자격', value: dims.eligibilityMatch },
+                          { label: '업종', value: dims.industryRelevance },
+                          { label: '규모', value: dims.scaleFit },
+                          { label: '경쟁력', value: dims.competitiveness },
+                          { label: '전략', value: dims.strategicAlignment },
+                        ];
+                        return (
+                          <div className="flex gap-1 mt-2">
+                            {dimEntries.map(d => (
+                              <div key={d.label} className="flex-1">
+                                <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
+                                  <span>{d.label}</span>
+                                  <span>{d.value}</span>
+                                </div>
+                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                                  <div
+                                    className={`h-1.5 rounded-full ${
+                                      d.value >= 80 ? 'bg-green-500' : d.value >= 60 ? 'bg-amber-500' : 'bg-gray-400'
+                                    }`}
+                                    style={{ width: `${d.value}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })
@@ -616,14 +726,17 @@ const ProgramExplorer: React.FC = () => {
             {filteredPrograms.length === 0 ? (
               <div className="text-center">
                 <span className="material-icons-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4">
-                  {activeTab === 'all' ? 'check_circle' : activeTab === 'interested' ? 'favorite_border' : 'delete_outline'}
+                  {activeTab === 'all' ? 'check_circle' : activeTab === 'recommended' ? 'star_border' : activeTab === 'interested' ? 'favorite_border' : 'delete_outline'}
                 </span>
                 <p className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-1">
                   {activeTab === 'all' ? '모든 공고를 분류했습니다' :
+                   activeTab === 'recommended' ? '추천 공고가 없습니다' :
                    activeTab === 'interested' ? '아직 관심 공고가 없습니다' : '부적합 공고가 없습니다'}
                 </p>
                 <p className="text-sm text-gray-400">
-                  {activeTab === 'all' ? '관심 공고 탭에서 확인하세요' : '공고를 탐색하고 분류해보세요'}
+                  {activeTab === 'all' ? '관심 공고 탭에서 확인하세요' :
+                   activeTab === 'recommended' ? '적합도 분석을 실행하면 80점 이상 공고가 여기 표시됩니다' :
+                   '공고를 탐색하고 분류해보세요'}
                 </p>
               </div>
             ) : currentProgram && (
@@ -648,7 +761,6 @@ const ProgramExplorer: React.FC = () => {
                     swipeDirection === 'right' ? 'animate-swipe-right' : ''
                   }`}
                   style={{
-                    transform: isDragging ? `translateX(${dragX}px) rotate(${dragX / 25}deg)` : 'none',
                     transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
                   }}
                   onPointerDown={handlePointerDown}
@@ -657,7 +769,7 @@ const ProgramExplorer: React.FC = () => {
                   onPointerCancel={handlePointerUp}
                 >
                   {/* 스와이프 오버레이 */}
-                  {dragX > 80 && (
+                  {dragOverlay === 'right' && (
                     <div className="absolute inset-0 bg-primary/10 rounded-2xl flex items-center justify-center z-10 pointer-events-none border-2 border-primary">
                       <div className="text-center">
                         <span className="material-icons-outlined text-4xl text-primary mb-1">favorite</span>
@@ -665,7 +777,7 @@ const ProgramExplorer: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  {dragX < -80 && (
+                  {dragOverlay === 'left' && (
                     <div className="absolute inset-0 bg-gray-500/10 rounded-2xl flex items-center justify-center z-10 pointer-events-none border-2 border-gray-400">
                       <div className="text-center">
                         <span className="material-icons-outlined text-4xl text-gray-500 mb-1">delete</span>
@@ -729,18 +841,25 @@ const ProgramExplorer: React.FC = () => {
 
                 {/* 액션 버튼 */}
                 {activeTab === 'all' && (
-                  <div className="flex gap-6 mt-6">
+                  <div className="flex gap-5 mt-6 items-center">
                     <button
                       onClick={() => handleSwipe('left')}
-                      className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-gray-200 dark:border-gray-700"
+                      className="group w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-gray-200 dark:border-gray-700"
                     >
-                      <span className="text-2xl">🗑️</span>
+                      <span className="text-xl">🗑️</span>
+                    </button>
+                    <button
+                      onClick={() => currentProgram && handleCreateApplication(currentProgram)}
+                      className="group w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+                      title="지원서 작성"
+                    >
+                      <span className="material-icons-outlined text-white text-xl">edit_note</span>
                     </button>
                     <button
                       onClick={() => handleSwipe('right')}
-                      className="group w-16 h-16 rounded-full bg-primary hover:bg-green-600 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+                      className="group w-14 h-14 rounded-full bg-primary hover:bg-green-600 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
                     >
-                      <span className="text-2xl">❤️</span>
+                      <span className="text-xl">❤️</span>
                     </button>
                   </div>
                 )}
@@ -761,7 +880,9 @@ const ProgramExplorer: React.FC = () => {
 
           {/* 우측: 세부 정보 패널 */}
           <div className="w-full lg:w-[380px] bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden flex flex-col border border-gray-100 dark:border-gray-700 max-h-[50vh] lg:max-h-none">
-            {selectedProgram ? (
+            {selectedProgram ? (() => {
+              const vd = vaultDataRef.current.get(selectedProgram.id);
+              return (
               <>
                 <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                   <h3 className="font-bold text-sm text-gray-700 dark:text-gray-200 mb-1">공고 상세</h3>
@@ -777,6 +898,12 @@ const ProgramExplorer: React.FC = () => {
                         <span className="text-gray-500">주관기관</span>
                         <span className="font-medium text-gray-800 dark:text-gray-200 text-right max-w-[180px] truncate">{selectedProgram.organizer}</span>
                       </div>
+                      {vd?.department && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500">담당부서</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-200 text-right max-w-[180px] truncate">{vd.department}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-gray-500">지원유형</span>
                         <span className="font-medium text-gray-800 dark:text-gray-200">{selectedProgram.supportType}</span>
@@ -785,6 +912,12 @@ const ProgramExplorer: React.FC = () => {
                         <span className="text-gray-500">예상 지원금</span>
                         <span className="font-bold text-primary dark:text-green-400">{(selectedProgram.expectedGrant / 100000000).toFixed(1)}억원</span>
                       </div>
+                      {vd?.supportScale && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500">지원규모</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-200 text-right max-w-[180px] truncate">{vd.supportScale}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-gray-500">마감일</span>
                         <span className={`font-medium text-xs px-2 py-0.5 rounded ${getDDay(selectedProgram.officialEndDate).color}`}>
@@ -794,32 +927,111 @@ const ProgramExplorer: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* 지원 대상 */}
+                  {vd?.targetAudience && (
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">지원 대상</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{vd.targetAudience}</p>
+                    </div>
+                  )}
+
                   {/* AI 적합도 */}
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">AI 분석</h4>
-                    <div className="flex items-center gap-3">
-                      <div className={`text-3xl font-bold ${
-                        selectedProgram.fitScore >= 85 ? 'text-primary dark:text-green-400' :
-                        selectedProgram.fitScore >= 70 ? 'text-amber-500' : 'text-gray-500'
-                      }`}>
-                        {selectedProgram.fitScore}%
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="text-center">
+                        <div className={`text-3xl font-bold ${
+                          selectedProgram.fitScore >= 90 ? 'text-amber-500' :
+                          selectedProgram.fitScore >= 80 ? 'text-primary dark:text-green-400' :
+                          selectedProgram.fitScore >= 70 ? 'text-amber-500' : 'text-gray-500'
+                        }`}>
+                          {selectedProgram.fitScore}%
+                        </div>
+                        {selectedProgram.fitScore >= 90 && (
+                          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">★ 강력추천</span>
+                        )}
+                        {selectedProgram.fitScore >= 80 && selectedProgram.fitScore < 90 && (
+                          <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">추천</span>
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full transition-all ${
-                              selectedProgram.fitScore >= 85 ? 'bg-primary' :
+                              selectedProgram.fitScore >= 80 ? 'bg-primary' :
                               selectedProgram.fitScore >= 70 ? 'bg-amber-500' : 'bg-gray-400'
                             }`}
                             style={{ width: `${selectedProgram.fitScore}%` }}
                           />
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {selectedProgram.fitScore >= 85 ? '높은 적합도' :
-                           selectedProgram.fitScore >= 70 ? '보통 적합도' : '낮은 적합도'}
-                        </p>
                       </div>
                     </div>
+
+                    {/* 5차원 점수 바 차트 */}
+                    {(() => {
+                      const dims = vd?.dimensions;
+                      if (!dims) return null;
+                      const dimEntries: { label: string; key: keyof FitDimensions; weight: string }[] = [
+                        { label: '자격요건 부합', key: 'eligibilityMatch', weight: '35%' },
+                        { label: '업종/기술 관련', key: 'industryRelevance', weight: '25%' },
+                        { label: '규모 적합성', key: 'scaleFit', weight: '15%' },
+                        { label: '경쟁력', key: 'competitiveness', weight: '15%' },
+                        { label: '전략적 부합', key: 'strategicAlignment', weight: '10%' },
+                      ];
+                      return (
+                        <div className="space-y-1.5 mt-2">
+                          {dimEntries.map(d => (
+                            <div key={d.key}>
+                              <div className="flex justify-between text-[10px] mb-0.5">
+                                <span className="text-gray-500">{d.label} <span className="text-gray-400">({d.weight})</span></span>
+                                <span className={`font-bold ${dims[d.key] >= 80 ? 'text-green-600' : dims[d.key] >= 60 ? 'text-amber-600' : 'text-gray-500'}`}>
+                                  {dims[d.key]}
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    dims[d.key] >= 80 ? 'bg-green-500' : dims[d.key] >= 60 ? 'bg-amber-500' : 'bg-gray-400'
+                                  }`}
+                                  style={{ width: `${dims[d.key]}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
+                    {/* keyActions */}
+                    {vd?.keyActions && vd.keyActions.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase mb-1">핵심 액션</p>
+                        <ul className="space-y-1">
+                          {vd.keyActions.slice(0, 3).map((action, i) => (
+                            <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                              <span className="text-primary mt-0.5 flex-shrink-0">▸</span>
+                              <span className="line-clamp-2">{action}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 전략 문서 버튼 */}
+                    {selectedProgram.fitScore >= 80 && (
+                      <button
+                        onClick={() => handleViewStrategy(selectedProgram.id)}
+                        disabled={isLoadingStrategy}
+                        className="mt-3 w-full py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 font-medium text-xs hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        {isLoadingStrategy ? (
+                          <span className="animate-spin">⏳</span>
+                        ) : (
+                          <span className="material-icons-outlined text-sm">description</span>
+                        )}
+                        전체 전략 문서 보기
+                      </button>
+                    )}
                   </div>
 
                   {/* 사업 설명 */}
@@ -873,7 +1085,8 @@ const ProgramExplorer: React.FC = () => {
                   </button>
                 </div>
               </>
-            ) : (
+              );
+            })() : (
               <div className="flex-1 flex items-center justify-center text-gray-400">
                 <div className="text-center">
                   <span className="material-icons-outlined text-4xl mb-2 text-gray-300">description</span>
@@ -884,6 +1097,44 @@ const ProgramExplorer: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* 전략 문서 모달 */}
+      {strategyModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setStrategyModal(null)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
+                <span className="material-icons-outlined text-amber-500">auto_awesome</span>
+                전략 문서
+              </h2>
+              <button
+                onClick={() => setStrategyModal(null)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <span className="material-icons-outlined text-gray-500">close</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                {strategyModal.content.split('\n').map((line, i) => {
+                  if (line.startsWith('# ')) return <h1 key={i} className="text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2">{line.slice(2)}</h1>;
+                  if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-bold text-gray-800 dark:text-gray-200 mt-6 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">{line.slice(3)}</h2>;
+                  if (line.startsWith('### ')) return <h3 key={i} className="text-base font-semibold text-gray-700 dark:text-gray-300 mt-4 mb-1">{line.slice(4)}</h3>;
+                  if (line.startsWith('> ')) return <blockquote key={i} className="border-l-4 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-400 bg-amber-50 dark:bg-amber-900/10 rounded-r-lg my-2">{line.slice(2)}</blockquote>;
+                  if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="text-sm text-gray-600 dark:text-gray-400 ml-4 my-0.5">{line.slice(2)}</li>;
+                  if (line.match(/^\d+\. /)) return <li key={i} className="text-sm text-gray-600 dark:text-gray-400 ml-4 my-0.5 list-decimal">{line.replace(/^\d+\. /, '')}</li>;
+                  if (line.startsWith('**') && line.endsWith('**')) return <p key={i} className="font-bold text-sm text-gray-700 dark:text-gray-300 my-1">{line.replace(/\*\*/g, '')}</p>;
+                  if (line.trim() === '') return <div key={i} className="h-2" />;
+                  return <p key={i} className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed my-1">{line}</p>;
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

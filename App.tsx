@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation }
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ApplicationEditor from './components/ApplicationEditor';
+import ProgramExplorer from './components/ProgramExplorer';
 import CalendarView from './components/CalendarView';
 import ApplicationList from './components/ApplicationList';
 import Settings from './components/Settings';
@@ -228,6 +229,7 @@ const App: React.FC = () => {
         
         <Route path="/" element={<ProtectedRoute />}>
           <Route index element={<Dashboard />} />
+          <Route path="explore" element={<ProgramExplorer />} />
           <Route path="applications" element={<ApplicationList />} />
           <Route path="calendar" element={<CalendarView />} />
           <Route path="ai-board" element={<ExpertMatch />} />

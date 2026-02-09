@@ -1,15 +1,18 @@
 import React from 'react';
-import { DRAFT_SECTIONS } from '../../constants';
-import { Company, SupportProgram } from '../../types';
+import { DEFAULT_SECTION_SCHEMA } from '../../constants';
+import { Company, SupportProgram, SectionSchema } from '../../types';
 
 interface ExportModalProps {
   company: Company;
   program: SupportProgram;
   draftSections: Record<string, string>;
+  sections?: SectionSchema[];
   onClose: () => void;
 }
 
-const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSections, onClose }) => {
+const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSections, sections, onClose }) => {
+  const sectionList = sections && sections.length > 0 ? sections : DEFAULT_SECTION_SCHEMA;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden animate-fade-in-up h-[95vh] flex flex-col">
@@ -48,7 +51,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
             </table>
 
             {/* Content Body */}
-            {DRAFT_SECTIONS.map((section, idx) => (
+            {sectionList.map((section, idx) => (
               <div key={section.id} className="mb-8">
                 <div className="flex items-center mb-3">
                   <div className="w-6 h-6 rounded-full border-2 border-black flex items-center justify-center font-bold text-sm mr-2">{idx + 1}</div>

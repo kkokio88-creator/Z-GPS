@@ -5,6 +5,7 @@
 
 import { apiClient } from './apiClient';
 import { connectSSE, SSEProgressEvent } from './sseClient';
+import type { SectionSchema, ApplicationSectionSchema } from '../types';
 
 export interface VaultProgram {
   id: string;
@@ -23,6 +24,21 @@ export interface VaultProgram {
   analyzedAt: string;
   status: string;
   tags: string[];
+  // 세부 정보 필드
+  requiredDocuments?: string[];
+  fullDescription?: string;
+  targetAudience?: string;
+  department?: string;
+  supportScale?: string;
+  evaluationCriteria?: string[];
+  contactPhone?: string;
+  contactEmail?: string;
+  applicationUrl?: string;
+  // 적합도 분석 확장 필드
+  dimensions?: FitDimensions;
+  keyActions?: string[];
+  eligibilityCriteria?: string[];
+  exclusionCriteria?: string[];
 }
 
 export interface VaultProgramDetail {
@@ -30,13 +46,30 @@ export interface VaultProgramDetail {
   content: string;
 }
 
+export interface FitDimensions {
+  eligibilityMatch: number;
+  industryRelevance: number;
+  scaleFit: number;
+  competitiveness: number;
+  strategicAlignment: number;
+}
+
+export interface EligibilityDetails {
+  met: string[];
+  unmet: string[];
+  unclear: string[];
+}
+
 export interface FitAnalysisResult {
   fitScore: number;
   eligibility: string;
+  dimensions: FitDimensions;
+  eligibilityDetails: EligibilityDetails;
   strengths: string[];
   weaknesses: string[];
   advice: string;
   recommendedStrategy: string;
+  keyActions: string[];
 }
 
 export interface VaultApplication {
@@ -313,6 +346,36 @@ export const vaultService = {
   async deleteCompanyDocument(docId: string): Promise<{ success: boolean }> {
     const { data } = await apiClient.delete<{ success: boolean }>(
       `/api/vault/company/documents/${docId}`
+    );
+    return data;
+  },
+
+  /** 전략 문서 조회 */
+  async getStrategy(slug: string): Promise<{ frontmatter: Record<string, unknown>; content: string } | null> {
+    try {
+      const { data } = await apiClient.get<{ frontmatter: Record<string, unknown>; content: string }>(
+        `/api/vault/strategy/${encodeURIComponent(slug)}`
+      );
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
+  /** 수동 전략 문서 생성 */
+  async generateStrategy(slug: string): Promise<{ success: boolean }> {
+    const { data } = await apiClient.post<{ success: boolean }>(
+      `/api/vault/generate-strategy/${encodeURIComponent(slug)}`,
+      {}
+    );
+    return data;
+  },
+
+  /** 공고별 동적 섹션 스키마 분석 */
+  async analyzeSections(slug: string): Promise<{ sections: SectionSchema[]; source: 'ai_analyzed' | 'default_fallback' }> {
+    const { data } = await apiClient.post<{ sections: SectionSchema[]; source: 'ai_analyzed' | 'default_fallback' }>(
+      `/api/vault/analyze-sections/${encodeURIComponent(slug)}`,
+      {}
     );
     return data;
   },
