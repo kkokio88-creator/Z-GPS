@@ -3,9 +3,27 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { getStoredApplications, getStoredCompany, saveStoredApplication } from '../services/storageService';
-import { Application, Company, SupportProgram } from '../types';
-import { fetchAllSupportPrograms } from '../services/apiService';
+import { Application, Company, SupportProgram, EligibilityStatus } from '../types';
+import { vaultService, VaultProgram } from '../services/vaultService';
 import { draftAgent, labNoteAgent } from '../services/geminiAgents';
+
+/** VaultProgram → SupportProgram 변환 */
+const vaultToSupportProgram = (vp: VaultProgram): SupportProgram => ({
+  id: vp.slug || vp.id,
+  organizer: vp.organizer,
+  programName: vp.programName,
+  supportType: vp.supportType,
+  officialEndDate: vp.officialEndDate,
+  internalDeadline: vp.internalDeadline || vp.officialEndDate,
+  expectedGrant: vp.expectedGrant,
+  fitScore: vp.fitScore || 0,
+  eligibility: EligibilityStatus.POSSIBLE,
+  priorityRank: 0,
+  eligibilityReason: vp.eligibility || '',
+  requiredDocuments: [],
+  detailUrl: vp.detailUrl,
+  description: '',
+});
 
 import {
   DndContext,
@@ -396,7 +414,13 @@ const ApplicationList: React.FC = () => {
       } else {
         setWonApps(won);
       }
-      setPrograms(await fetchAllSupportPrograms());
+      try {
+        const vaultPrograms = await vaultService.getPrograms();
+        setPrograms(vaultPrograms.map(vaultToSupportProgram));
+      } catch {
+        // Vault 연결 실패 시 빈 배열
+        setPrograms([]);
+      }
     };
     loadData();
   }, []);

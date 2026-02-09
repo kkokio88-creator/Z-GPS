@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from './apiClient';
+import { connectSSE, SSEProgressEvent } from './sseClient';
 
 export interface VaultProgram {
   id: string;
@@ -171,6 +172,56 @@ export const vaultService = {
   async analyzeAll(): Promise<AnalyzeAllResult> {
     const { data } = await apiClient.post<AnalyzeAllResult>('/api/vault/analyze-all', {});
     return data;
+  },
+
+  /** SSE: 동기화 + 실시간 진행률 */
+  syncProgramsWithProgress(
+    deepCrawl: boolean,
+    onProgress: (event: SSEProgressEvent) => void
+  ): { promise: Promise<SyncResult>; abort: () => void } {
+    const url = deepCrawl ? '/api/vault/sync?deepCrawl=true' : '/api/vault/sync';
+    let resolvePromise: (value: SyncResult) => void;
+    let rejectPromise: (reason: Error) => void;
+
+    const promise = new Promise<SyncResult>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+
+    const controller = connectSSE(url, {
+      onProgress,
+      onComplete: (data) => resolvePromise!(data as unknown as SyncResult),
+      onError: (error) => rejectPromise!(new Error(error)),
+    });
+
+    return {
+      promise,
+      abort: () => controller.abort(),
+    };
+  },
+
+  /** SSE: 일괄 분석 + 실시간 진행률 */
+  analyzeAllWithProgress(
+    onProgress: (event: SSEProgressEvent) => void
+  ): { promise: Promise<AnalyzeAllResult>; abort: () => void } {
+    let resolvePromise: (value: AnalyzeAllResult) => void;
+    let rejectPromise: (reason: Error) => void;
+
+    const promise = new Promise<AnalyzeAllResult>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+
+    const controller = connectSSE('/api/vault/analyze-all', {
+      onProgress,
+      onComplete: (data) => resolvePromise!(data as unknown as AnalyzeAllResult),
+      onError: (error) => rejectPromise!(new Error(error)),
+    });
+
+    return {
+      promise,
+      abort: () => controller.abort(),
+    };
   },
 
   /** PDF 다운로드 + AI 분석 */

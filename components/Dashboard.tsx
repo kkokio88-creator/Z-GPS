@@ -1,9 +1,10 @@
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
 import { getStoredCompany } from '../services/storageService';
 import { Company } from '../types';
+import type { SSEProgressEvent } from '../services/sseClient';
 import Header from './Header';
 
 // --- Helper Functions ---
@@ -83,7 +84,7 @@ const matchProgramToFocus = (program: VaultProgram, keywords: string[]): boolean
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [company] = useState<Company>(getStoredCompany());
+  const [company, setCompany] = useState<Company>(getStoredCompany());
   const [programs, setPrograms] = useState<VaultProgram[]>([]);
   const [myApplications, setMyApplications] = useState<VaultApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,13 +95,18 @@ const Dashboard: React.FC = () => {
   const [syncResult, setSyncResult] = useState<string>('');
   const [analyzeResult, setAnalyzeResult] = useState<string>('');
   const [lastSyncedAt, setLastSyncedAt] = useState<string>('');
+  const [syncProgress, setSyncProgress] = useState<SSEProgressEvent | null>(null);
+  const [analyzeProgress, setAnalyzeProgress] = useState<SSEProgressEvent | null>(null);
+  const syncAbortRef = useRef<(() => void) | null>(null);
+  const analyzeAbortRef = useRef<(() => void) | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [progs, apps] = await Promise.allSettled([
+      const [progs, apps, companyResult] = await Promise.allSettled([
         vaultService.getPrograms(),
         vaultService.getApplications(),
+        vaultService.getCompany(),
       ]);
 
       if (progs.status === 'fulfilled') {
@@ -113,6 +119,21 @@ const Dashboard: React.FC = () => {
       }
       if (apps.status === 'fulfilled') {
         setMyApplications(apps.value);
+      }
+      // Vault의 기업 정보를 우선 사용
+      if (companyResult.status === 'fulfilled' && companyResult.value.company) {
+        const c = companyResult.value.company;
+        setCompany(prev => ({
+          ...prev,
+          name: (c.name as string) || prev.name,
+          industry: (c.industry as string) || prev.industry,
+          employees: (c.employees as number) || prev.employees,
+          address: (c.address as string) || prev.address,
+          revenue: (c.revenue as number) || prev.revenue,
+          description: (c.description as string) || prev.description,
+          businessNumber: (c.businessNumber as string) || prev.businessNumber,
+          isVerified: prev.isVerified,
+        }));
       }
     } catch (e) {
       if (import.meta.env.DEV) console.warn('[Dashboard] Load error:', e);
@@ -129,8 +150,14 @@ const Dashboard: React.FC = () => {
   const handleSync = async () => {
     setIsSyncing(true);
     setSyncResult('');
+    setSyncProgress(null);
     try {
-      const result = await vaultService.syncPrograms();
+      const { promise, abort } = vaultService.syncProgramsWithProgress(
+        false,
+        (event) => setSyncProgress(event)
+      );
+      syncAbortRef.current = abort;
+      const result = await promise;
       setSyncResult(`${result.totalFetched}건 수집 (신규 ${result.created}, 갱신 ${result.updated})`);
       setLastSyncedAt(result.syncedAt);
       await loadData();
@@ -138,19 +165,28 @@ const Dashboard: React.FC = () => {
       setSyncResult('동기화 실패: ' + String(e));
     }
     setIsSyncing(false);
+    setSyncProgress(null);
+    syncAbortRef.current = null;
   };
 
   const handleAnalyzeAll = async () => {
     setIsAnalyzing(true);
-    setAnalyzeResult('분석 진행 중...');
+    setAnalyzeResult('');
+    setAnalyzeProgress(null);
     try {
-      const result = await vaultService.analyzeAll();
+      const { promise, abort } = vaultService.analyzeAllWithProgress(
+        (event) => setAnalyzeProgress(event)
+      );
+      analyzeAbortRef.current = abort;
+      const result = await promise;
       setAnalyzeResult(`${result.analyzed}건 분석 완료 (오류 ${result.errors}건)`);
       await loadData();
     } catch (e) {
       setAnalyzeResult('분석 실패: ' + String(e));
     }
     setIsAnalyzing(false);
+    setAnalyzeProgress(null);
+    analyzeAbortRef.current = null;
   };
 
   // --- Derived Data (Memoized) ---
@@ -284,6 +320,36 @@ const Dashboard: React.FC = () => {
                 기업 정보
               </button>
             </div>
+
+            {/* SSE 진행률 */}
+            {(syncProgress || analyzeProgress) && (
+              <div className="mt-3 space-y-2">
+                {syncProgress && (
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 mb-1">
+                      <span>{syncProgress.stage}</span>
+                      <span className="font-mono">{syncProgress.current}/{syncProgress.total} ({syncProgress.percent}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${syncProgress.percent}%` }} />
+                    </div>
+                    {syncProgress.programName && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{syncProgress.programName}</p>}
+                  </div>
+                )}
+                {analyzeProgress && (
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 mb-1">
+                      <span>{analyzeProgress.stage}</span>
+                      <span className="font-mono">{analyzeProgress.current}/{analyzeProgress.total} ({analyzeProgress.percent}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${analyzeProgress.percent}%` }} />
+                    </div>
+                    {analyzeProgress.programName && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{analyzeProgress.programName}</p>}
+                  </div>
+                )}
+              </div>
+            )}
 
             {(syncResult || analyzeResult) && (
               <div className="mt-3 flex flex-wrap gap-2">

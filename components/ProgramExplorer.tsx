@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchAllSupportPrograms, refreshSupportPrograms } from '../services/apiService';
+import { vaultService, VaultProgram } from '../services/vaultService';
 import {
   getStoredCompany,
   getStoredApplications,
@@ -9,8 +9,26 @@ import {
   saveProgramCategory,
   removeProgramCategory
 } from '../services/storageService';
-import { Company, SupportProgram, Application } from '../types';
+import { Company, SupportProgram, Application, EligibilityStatus } from '../types';
 import Header from './Header';
+
+/** VaultProgram → SupportProgram 변환 */
+const vaultToSupportProgram = (vp: VaultProgram): SupportProgram => ({
+  id: vp.slug || vp.id,
+  organizer: vp.organizer,
+  programName: vp.programName,
+  supportType: vp.supportType,
+  officialEndDate: vp.officialEndDate,
+  internalDeadline: vp.internalDeadline || vp.officialEndDate,
+  expectedGrant: vp.expectedGrant,
+  fitScore: vp.fitScore || 0,
+  eligibility: EligibilityStatus.POSSIBLE,
+  priorityRank: 0,
+  eligibilityReason: vp.eligibility || '',
+  requiredDocuments: [],
+  detailUrl: vp.detailUrl,
+  description: '',
+});
 
 type SwipeCategory = 'interested' | 'rejected' | 'none';
 
@@ -106,14 +124,13 @@ const ProgramExplorer: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('');
   const [sortBy, setSortBy] = useState<'fitScore' | 'deadline' | 'grant'>('fitScore');
 
-  // 프로그램 로드
-  const loadPrograms = useCallback(async (forceRefresh = false) => {
+  // 프로그램 로드 (Vault API 사용)
+  const loadPrograms = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const data = forceRefresh
-        ? await refreshSupportPrograms()
-        : await fetchAllSupportPrograms();
+      const vaultPrograms = await vaultService.getPrograms();
+      const data = vaultPrograms.map(vaultToSupportProgram);
 
       const storedCategories = getStoredProgramCategories();
       const categoryMap = new Map(storedCategories.map(c => [c.programId, c.category]));
@@ -128,7 +145,7 @@ const ProgramExplorer: React.FC = () => {
       setAllPrograms(sorted);
 
       if (data.length === 0) {
-        setLoadError('공고 데이터를 불러오지 못했습니다.');
+        setLoadError('공고 데이터가 없습니다. 설정에서 동기화를 실행하세요.');
       }
 
       const uncategorized = sorted.filter(p => p.category === 'none');
@@ -139,7 +156,7 @@ const ProgramExplorer: React.FC = () => {
         setSelectedProgram(sorted[0]);
       }
     } catch (e) {
-      setLoadError('API 연결 중 오류가 발생했습니다.');
+      setLoadError('Vault 연결 중 오류가 발생했습니다. 서버가 실행 중인지 확인하세요.');
     } finally {
       setIsLoading(false);
     }
@@ -405,7 +422,7 @@ const ProgramExplorer: React.FC = () => {
             <span className="text-2xl">⚠️</span>
             <p className="flex-1 text-sm text-amber-700 dark:text-amber-300">{loadError}</p>
             <button
-              onClick={() => loadPrograms(true)}
+              onClick={() => loadPrograms()}
               disabled={isLoading}
               className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600"
             >
@@ -437,7 +454,7 @@ const ProgramExplorer: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => loadPrograms(true)}
+              onClick={() => loadPrograms()}
               disabled={isLoading}
               className="ml-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
               title="새로고침"

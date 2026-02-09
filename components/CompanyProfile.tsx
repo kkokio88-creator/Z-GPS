@@ -6,6 +6,7 @@ import { getStoredCompany, saveStoredCompany, getStoredDeepResearch, saveStoredD
 import { Company, CompanySearchResult, DeepResearchResult, ResearchProgress } from '../types';
 import { companyResearchAgent } from '../services/geminiAgents';
 import { getQAState } from '../services/qaService';
+import { vaultService } from '../services/vaultService';
 
 type SearchMode = 'INPUT' | 'RESULTS' | 'RESEARCHING' | 'COMPLETE';
 
@@ -367,6 +368,18 @@ const CompanyProfile: React.FC = () => {
     saveStoredCompany(newCompany);
     saveStoredDeepResearch(deepResearchData);
     setCompany(newCompany);
+    // Vault에도 동기화
+    vaultService.saveCompany({
+      name: newCompany.name,
+      businessNumber: newCompany.businessNumber,
+      industry: newCompany.industry,
+      address: newCompany.address,
+      revenue: newCompany.revenue,
+      employees: newCompany.employees,
+      description: newCompany.description,
+      coreCompetencies: newCompany.coreCompetencies,
+      certifications: newCompany.certifications,
+    }).catch(() => { /* Vault 저장 실패 시 무시 - localStorage에 이미 저장됨 */ });
     alert('기업 정보가 저장되었습니다!');
   };
 

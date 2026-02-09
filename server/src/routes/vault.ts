@@ -34,6 +34,7 @@ import {
   enrichFromApiOnly,
   type DeepCrawlResult,
 } from '../services/deepCrawler.js';
+import { initSSE, sendProgress, sendComplete, sendError } from '../utils/sse.js';
 
 const router = Router();
 
@@ -327,8 +328,13 @@ router.get('/stats', async (_req: Request, res: Response) => {
  * ?deepCrawl=true → 각 프로그램 상세페이지 딥크롤 포함
  */
 router.post('/sync', async (req: Request, res: Response) => {
+  // SSE 모드 확인
+  const useSSE = req.headers.accept === 'text/event-stream';
+
   try {
     await ensureVaultStructure();
+
+    if (useSSE) initSSE(res);
 
     // 회사 주소 읽기 (지역 필터용)
     let companyAddress = '';
@@ -340,10 +346,15 @@ router.post('/sync', async (req: Request, res: Response) => {
       }
     } catch { /* company 정보 없으면 무시 */ }
 
+    if (useSSE) sendProgress(res, 'API 데이터 수집 중', 0, 1);
+
     const { programs, filterStats } = await fetchAllProgramsServerSide({
       companyAddress,
     });
     const deepCrawlMode = req.query.deepCrawl === 'true';
+    const total = programs.length;
+
+    if (useSSE) sendProgress(res, 'API 수집 완료', 1, 1);
 
     let created = 0;
     let updated = 0;
@@ -351,10 +362,13 @@ router.post('/sync', async (req: Request, res: Response) => {
     let enriched = 0;
     let attachmentsDownloaded = 0;
 
-    for (const p of programs) {
+    for (let i = 0; i < programs.length; i++) {
+      const p = programs[i];
       const slug = generateSlug(p.programName, p.id);
       const filePath = path.join('programs', `${slug}.md`);
       const exists = await noteExists(filePath);
+
+      if (useSSE) sendProgress(res, '프로그램 저장 중', i + 1, total, p.programName);
 
       if (exists) {
         const existing = await readNote(filePath);
@@ -364,6 +378,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       } else {
         if (deepCrawlMode && p.detailUrl) {
           try {
+            if (useSSE) sendProgress(res, '딥크롤 중', i + 1, total, p.programName);
             const { crawlResult, attachments } = await deepCrawlProgramFull(
               p.detailUrl,
               p.programName,
@@ -406,6 +421,8 @@ router.post('/sync', async (req: Request, res: Response) => {
     }
 
     // ─── 기존 노트 클린업 (중복/창업/지역 필터 소급 적용) ────────────
+    if (useSSE) sendProgress(res, '중복/필터 클린업 중', 0, 1);
+
     const companyRegion = extractRegionFromAddress(companyAddress);
     let cleanedStartup = 0;
     let cleanedRegion = 0;
@@ -479,7 +496,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       console.warn('[vault/sync] 클린업 중 에러:', e);
     }
 
-    res.json({
+    const resultData = {
       success: true,
       totalFetched: filterStats.totalFetched,
       afterFiltering: filterStats.finalCount,
@@ -494,10 +511,20 @@ router.post('/sync', async (req: Request, res: Response) => {
       cleanedStartup,
       cleanedRegion,
       syncedAt: new Date().toISOString(),
-    });
+    };
+
+    if (useSSE) {
+      sendComplete(res, resultData);
+    } else {
+      res.json(resultData);
+    }
   } catch (error) {
     console.error('[vault/sync] Error:', error);
-    res.status(500).json({ error: '동기화 실패', details: String(error) });
+    if (useSSE) {
+      sendError(res, `동기화 실패: ${String(error)}`);
+    } else {
+      res.status(500).json({ error: '동기화 실패', details: String(error) });
+    }
   }
 });
 
@@ -769,39 +796,50 @@ ${result.recommendedStrategy}
  * POST /api/vault/analyze-all
  * 전체 프로그램 일괄 분석 (순차, 2초 간격)
  */
-router.post('/analyze-all', async (_req: Request, res: Response) => {
+router.post('/analyze-all', async (req: Request, res: Response) => {
+  const useSSE = req.headers.accept === 'text/event-stream';
+
   try {
+    if (useSSE) initSSE(res);
+
     const files = await listNotes(path.join(getVaultRoot(), 'programs'));
+    const total = files.length;
     const results: { slug: string; fitScore: number; eligibility: string }[] = [];
     let errors = 0;
 
-    for (const file of files) {
+    // 기업 정보 1회만 로드
+    const companyPath = path.join('company', 'profile.md');
+    let company: Record<string, unknown> = {};
+    if (await noteExists(companyPath)) {
+      const { frontmatter: cf } = await readNote(companyPath);
+      company = cf;
+    }
+
+    const companyInfo = {
+      name: (company.name as string) || '미등록 기업',
+      industry: company.industry as string,
+      description: company.description as string,
+      revenue: company.revenue as number,
+      employees: company.employees as number,
+      address: company.address as string,
+      certifications: company.certifications as string[],
+      coreCompetencies: company.coreCompetencies as string[],
+    };
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       try {
         const { frontmatter } = await readNote(file);
         const slug = frontmatter.slug as string;
 
         if (!slug) continue;
 
-        const companyPath = path.join('company', 'profile.md');
-        let company: Record<string, unknown> = {};
-        if (await noteExists(companyPath)) {
-          const { frontmatter: cf } = await readNote(companyPath);
-          company = cf;
-        }
-
         const { frontmatter: pf, content: pc } = await readNote(file);
 
+        if (useSSE) sendProgress(res, 'AI 분석 중', i + 1, total, pf.programName as string);
+
         const result = await analyzeFit(
-          {
-            name: (company.name as string) || '미등록 기업',
-            industry: company.industry as string,
-            description: company.description as string,
-            revenue: company.revenue as number,
-            employees: company.employees as number,
-            address: company.address as string,
-            certifications: company.certifications as string[],
-            coreCompetencies: company.coreCompetencies as string[],
-          },
+          companyInfo,
           {
             programName: pf.programName as string,
             organizer: pf.organizer as string,
@@ -840,10 +878,20 @@ router.post('/analyze-all', async (_req: Request, res: Response) => {
       }
     }
 
-    res.json({ success: true, analyzed: results.length, errors, results });
+    const resultData = { success: true, analyzed: results.length, errors, results };
+
+    if (useSSE) {
+      sendComplete(res, resultData);
+    } else {
+      res.json(resultData);
+    }
   } catch (error) {
     console.error('[vault/analyze-all] Error:', error);
-    res.status(500).json({ error: '일괄 분석 실패' });
+    if (useSSE) {
+      sendError(res, `일괄 분석 실패: ${String(error)}`);
+    } else {
+      res.status(500).json({ error: '일괄 분석 실패' });
+    }
   }
 });
 

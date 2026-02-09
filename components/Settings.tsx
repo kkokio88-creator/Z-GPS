@@ -14,6 +14,7 @@ import {
 } from '../services/storageService';
 import { Company } from '../types';
 import { startQA, resetQA, getQAState } from '../services/qaService';
+import type { SSEProgressEvent } from '../services/sseClient';
 
 type TabId = 'vault' | 'company' | 'api' | 'crawling' | 'system';
 
@@ -84,17 +85,37 @@ const StatCard: React.FC<{ label: string; value: number | string; icon: string }
   </div>
 );
 
-const ProgressBar: React.FC<{ active: boolean; label: string }> = ({ active, label }) => {
+const ProgressBar: React.FC<{
+  active: boolean;
+  label: string;
+  progress?: SSEProgressEvent | null;
+}> = ({ active, label, progress }) => {
   if (!active) return null;
+  const percent = progress?.percent ?? 0;
+  const hasProgress = progress && progress.total > 0;
+
   return (
     <div className="mt-3">
-      <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 mb-1">
-        <span className="material-icons-outlined text-sm animate-spin">refresh</span>
-        {label}
+      <div className="flex items-center justify-between text-sm text-indigo-600 dark:text-indigo-400 mb-1">
+        <div className="flex items-center gap-2">
+          <span className="material-icons-outlined text-sm animate-spin">refresh</span>
+          {hasProgress ? progress.stage : label}
+        </div>
+        {hasProgress && (
+          <span className="text-xs font-mono">
+            {progress.current}/{progress.total} ({percent}%)
+          </span>
+        )}
       </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-        <div className="bg-indigo-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+        <div
+          className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
+          style={{ width: hasProgress ? `${percent}%` : '100%' }}
+        />
       </div>
+      {hasProgress && progress.programName && (
+        <p className="text-xs text-gray-400 mt-1 truncate">{progress.programName}</p>
+      )}
     </div>
   );
 };
@@ -167,6 +188,10 @@ const Settings: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [syncResult, setSyncResult] = useState<string>('');
   const [analyzeResult, setAnalyzeResult] = useState<string>('');
+  const [syncProgress, setSyncProgress] = useState<SSEProgressEvent | null>(null);
+  const [analyzeProgress, setAnalyzeProgress] = useState<SSEProgressEvent | null>(null);
+  const syncAbortRef = useRef<(() => void) | null>(null);
+  const analyzeAbortRef = useRef<(() => void) | null>(null);
 
   // Company
   const [company, setCompany] = useState<Company>(getStoredCompany());
@@ -283,8 +308,14 @@ const Settings: React.FC = () => {
   const handleSync = async (deepCrawl: boolean) => {
     setSyncing(true);
     setSyncResult('');
+    setSyncProgress(null);
     try {
-      const result = await vaultService.syncPrograms(deepCrawl);
+      const { promise, abort } = vaultService.syncProgramsWithProgress(
+        deepCrawl,
+        (event) => setSyncProgress(event)
+      );
+      syncAbortRef.current = abort;
+      const result = await promise;
       setSyncResult(
         `동기화 완료: ${result.totalFetched}건 수집, ${result.created}건 생성, ${result.updated}건 갱신` +
         (result.deepCrawled ? `, ${result.deepCrawled}건 딥크롤` : '') +
@@ -295,20 +326,29 @@ const Settings: React.FC = () => {
       setSyncResult(`동기화 실패: ${String(e)}`);
     } finally {
       setSyncing(false);
+      setSyncProgress(null);
+      syncAbortRef.current = null;
     }
   };
 
   const handleAnalyzeAll = async () => {
     setAnalyzing(true);
     setAnalyzeResult('');
+    setAnalyzeProgress(null);
     try {
-      const result = await vaultService.analyzeAll();
+      const { promise, abort } = vaultService.analyzeAllWithProgress(
+        (event) => setAnalyzeProgress(event)
+      );
+      analyzeAbortRef.current = abort;
+      const result = await promise;
       setAnalyzeResult(`분석 완료: ${result.analyzed}건 성공, ${result.errors}건 실패`);
       loadVaultStats();
     } catch (e) {
       setAnalyzeResult(`분석 실패: ${String(e)}`);
     } finally {
       setAnalyzing(false);
+      setAnalyzeProgress(null);
+      analyzeAbortRef.current = null;
     }
   };
 
@@ -568,7 +608,7 @@ const Settings: React.FC = () => {
             딥크롤 동기화
           </button>
         </div>
-        <ProgressBar active={syncing} label="동기화 진행 중..." />
+        <ProgressBar active={syncing} label="동기화 진행 중..." progress={syncProgress} />
         {syncResult && (
           <p className={`mt-3 text-sm ${syncResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
             {syncResult}
@@ -594,7 +634,7 @@ const Settings: React.FC = () => {
           <span className="material-icons-outlined text-sm">auto_awesome</span>
           전체 분석 실행
         </button>
-        <ProgressBar active={analyzing} label="AI 분석 진행 중..." />
+        <ProgressBar active={analyzing} label="AI 분석 진행 중..." progress={analyzeProgress} />
         {analyzeResult && (
           <p className={`mt-3 text-sm ${analyzeResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
             {analyzeResult}
