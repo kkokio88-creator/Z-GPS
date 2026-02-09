@@ -421,6 +421,8 @@ ${attachmentSummary ? `### 4. 첨부파일 텍스트:\n${attachmentSummary}` : '
 5. 목록 항목은 각각 완전한 문장으로 작성
 6. fullDescription은 원문의 핵심 내용을 3~5문단으로 풍부하게 정리
 7. 없는 정보는 빈 문자열 또는 빈 배열로 유지
+8. categories와 keywords는 반드시 이 공고 사업의 분류에 해당하는 것만 포함. 사이트 메뉴, 네비게이션 항목(업무계획, 기관소개, 연혁, MI소개, 정보공개 등)은 절대 포함하지 말 것
+9. regions는 실제 사업 대상 지역만 포함 (전국, 서울, 인천 등)
 
 반드시 아래 JSON 형식만 반환하세요:
 {
@@ -554,11 +556,18 @@ ${attachmentSummary ? `### 4. 첨부파일 텍스트:\n${attachmentSummary}` : '
 }
 
 /** API 데이터만으로 AI 재가공 (크롤링 실패 시 폴백) */
-async function enrichFromApiOnly(
+export async function enrichFromApiOnly(
   apiData: Partial<ServerSupportProgram>
 ): Promise<DeepCrawlResult> {
-  // API에 이미 풍부한 데이터가 있으면 AI 없이 직접 매핑
-  if (apiData.fullDescription && apiData.fullDescription.length > 200) {
+  // 핵심 구조화 필드가 채워져 있는지 확인
+  const hasStructuredData = (
+    (apiData.eligibilityCriteria?.length ?? 0) > 0 ||
+    (apiData.requiredDocuments?.length ?? 0) > 0 ||
+    (apiData.evaluationCriteria?.length ?? 0) > 0
+  );
+
+  // API에 풍부한 설명 + 구조화 필드도 있으면 AI 없이 직접 매핑
+  if (apiData.fullDescription && apiData.fullDescription.length > 200 && hasStructuredData) {
     return {
       department: apiData.department || '',
       supportScale: apiData.supportScale || '',
@@ -591,8 +600,10 @@ async function enrichFromApiOnly(
     };
   }
 
-  // API 데이터를 AI로 보강
-  return enrichWithAI(apiData, '', {}, []);
+  // 구조화 필드가 비어있으면 AI로 비구조화 텍스트에서 추출
+  // fullDescription을 crawledText로 전달하여 AI가 파싱할 수 있게 함
+  const textForAI = apiData.fullDescription || apiData.description || '';
+  return enrichWithAI(apiData, textForAI, {}, []);
 }
 
 function createEmptyResult(): DeepCrawlResult {

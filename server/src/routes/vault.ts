@@ -26,6 +26,7 @@ import {
 } from '../services/analysisService.js';
 import {
   deepCrawlProgramFull,
+  enrichFromApiOnly,
   type DeepCrawlResult,
 } from '../services/deepCrawler.js';
 
@@ -128,15 +129,17 @@ function programToMarkdown(
     md += `\n## 사업 목적\n${objectives.map(o => `- ${o}`).join('\n')}\n`;
   }
 
+  const detailLink = p.detailUrl ? `[공고문 원문 확인](${p.detailUrl})` : '공고문 참조';
+
   // 지원 대상
   const target = deepCrawl?.targetAudience || p.targetAudience || '';
-  md += `\n## 지원 대상\n${target || '(정보 수집 중)'}\n`;
+  md += `\n## 지원 대상\n${target || detailLink}\n`;
 
   // 자격요건
   const criteria = deepCrawl?.eligibilityCriteria || p.eligibilityCriteria || [];
   md += `\n## 자격요건\n${criteria.length
     ? criteria.map(c => `- ${c}`).join('\n')
-    : '(정보 수집 중)'}\n`;
+    : detailLink}\n`;
 
   // 참여 제한 대상
   const exclusion = deepCrawl?.exclusionCriteria || [];
@@ -164,13 +167,13 @@ function programToMarkdown(
   const docs = deepCrawl?.requiredDocuments || p.requiredDocuments || [];
   md += `\n## 필수 제출 서류\n${docs.length
     ? docs.map(d => `- [ ] ${d}`).join('\n')
-    : '(정보 수집 중)'}\n`;
+    : detailLink}\n`;
 
   // 평가기준
   const evalCriteria = deepCrawl?.evaluationCriteria || p.evaluationCriteria || [];
   md += `\n## 평가 기준\n${evalCriteria.length
     ? evalCriteria.map(e => `- ${e}`).join('\n')
-    : '(정보 수집 중)'}\n`;
+    : detailLink}\n`;
 
   // 주요 일정 테이블
   const announcementDate = deepCrawl?.announcementDate || p.announcementDate || '';
@@ -316,10 +319,12 @@ router.post('/sync', async (req: Request, res: Response) => {
     await ensureVaultStructure();
     const programs = await fetchAllProgramsServerSide();
     const deepCrawlMode = req.query.deepCrawl === 'true';
+    const enrichMode = req.query.enrich === 'true';
 
     let created = 0;
     let updated = 0;
     let deepCrawled = 0;
+    let enriched = 0;
     let attachmentsDownloaded = 0;
 
     for (const p of programs) {
@@ -358,11 +363,22 @@ router.post('/sync', async (req: Request, res: Response) => {
             const content = programToMarkdown(p);
             await writeNote(filePath, frontmatter, content);
           }
-        } else if (hasRichApiData) {
-          // 딥크롤 없이도 API 데이터가 풍부하면 그대로 활용
-          const frontmatter = programToFrontmatter(p, slug);
-          const content = programToMarkdown(p);
-          await writeNote(filePath, frontmatter, content);
+        } else if (enrichMode && hasRichApiData) {
+          // enrich 모드: 크롤링 없이 API 텍스트 데이터만 AI에 전달
+          try {
+            const crawlResult = await enrichFromApiOnly(p);
+            const frontmatter = programToFrontmatter(p, slug, crawlResult);
+            const content = programToMarkdown(p, crawlResult);
+            await writeNote(filePath, frontmatter, content);
+            enriched++;
+            // Gemini rate limit 방지: 2초 딜레이
+            await new Promise(r => setTimeout(r, 2000));
+          } catch (e) {
+            console.warn(`[vault/sync] Enrich failed for ${p.programName}:`, e);
+            const frontmatter = programToFrontmatter(p, slug);
+            const content = programToMarkdown(p);
+            await writeNote(filePath, frontmatter, content);
+          }
         } else {
           const frontmatter = programToFrontmatter(p, slug);
           const content = programToMarkdown(p);
@@ -378,6 +394,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       created,
       updated,
       deepCrawled,
+      enriched,
       attachmentsDownloaded,
       syncedAt: new Date().toISOString(),
     });
@@ -443,22 +460,37 @@ router.post('/deep-crawl/:slug', async (req: Request, res: Response) => {
       type: 'program',
       department: crawlResult.department || pf.department || '',
       supportScale: crawlResult.supportScale || pf.supportScale || '',
-      targetAudience: crawlResult.targetAudience || '',
-      applicationStart: crawlResult.applicationPeriod?.start || '',
+      targetAudience: crawlResult.targetAudience || pf.targetAudience || '',
+      applicationStart: crawlResult.applicationPeriod?.start || pf.applicationStart || '',
       deepCrawledAt: new Date().toISOString(),
       status: pf.status === 'analyzed' ? 'analyzed' : 'deep_crawled',
-      regions: crawlResult.regions || [],
-      categories: crawlResult.categories || [],
-      tags: ['program', pf.supportType as string, ...(crawlResult.categories || [])],
-      requiredDocuments: crawlResult.requiredDocuments || [],
-      evaluationCriteria: crawlResult.evaluationCriteria || [],
-      applicationMethod: crawlResult.applicationMethod || '',
-      contactInfo: crawlResult.contactInfo || '',
+      regions: crawlResult.regions || pf.regions as string[] || [],
+      categories: crawlResult.categories || pf.categories as string[] || [],
+      tags: ['program', pf.supportType as string, ...(crawlResult.categories || pf.categories as string[] || [])],
+      requiredDocuments: crawlResult.requiredDocuments || pf.requiredDocuments as string[] || [],
+      evaluationCriteria: crawlResult.evaluationCriteria || pf.evaluationCriteria as string[] || [],
+      applicationMethod: crawlResult.applicationMethod || pf.applicationMethod || '',
+      contactInfo: crawlResult.contactInfo || pf.contactInfo || '',
       attachments: attachments.map(a => ({
         path: a.path,
         name: a.name,
         analyzed: a.analyzed,
       })),
+      // 고도화 추가 필드 (sync와 동일하게)
+      matchingRatio: crawlResult.matchingRatio || pf.matchingRatio || '',
+      totalBudget: crawlResult.totalBudget || pf.totalBudget || '',
+      projectPeriod: crawlResult.projectPeriod || pf.projectPeriod || '',
+      selectionDate: crawlResult.selectionDate || pf.selectionDate || '',
+      announcementDate: crawlResult.announcementDate || pf.announcementDate || '',
+      applicationUrl: crawlResult.applicationUrl || pf.applicationUrl || '',
+      contactPhone: crawlResult.contactPhone || pf.contactPhone || '',
+      contactEmail: crawlResult.contactEmail || pf.contactEmail || '',
+      keywords: crawlResult.keywords || pf.keywords as string[] || [],
+      dataQualityScore: crawlResult.dataQualityScore || 0,
+      dataSources: crawlResult.dataSources || [pf.source],
+      exclusionCriteria: crawlResult.exclusionCriteria || pf.exclusionCriteria as string[] || [],
+      specialNotes: crawlResult.specialNotes || pf.specialNotes as string[] || [],
+      fullDescription: crawlResult.fullDescription || pf.fullDescription || pf.description || '',
     };
 
     // 마크다운 재생성
@@ -1115,6 +1147,66 @@ router.get('/company', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('[vault/company GET] Error:', error);
     res.status(500).json({ error: '기업 정보 조회 실패' });
+  }
+});
+
+/**
+ * POST /api/vault/company/research
+ * 기업명으로 AI 딥리서치 → 기업 정보 자동 입력
+ */
+router.post('/company/research', async (req: Request, res: Response) => {
+  try {
+    const { companyName } = req.body as { companyName: string };
+
+    if (!companyName || companyName.trim().length < 2) {
+      res.status(400).json({ error: '기업명을 입력해주세요 (2글자 이상).' });
+      return;
+    }
+
+    const { callGeminiDirect, cleanAndParseJSON } = await import('../services/geminiService.js');
+
+    const prompt = `당신은 한국 기업 정보 전문 리서처입니다.
+
+## 작업
+"${companyName.trim()}" 기업에 대해 알고 있는 모든 정보를 아래 JSON 형식으로 정리하세요.
+
+## 규칙
+1. 정확히 확인된 정보만 포함. 추측은 하지 마세요.
+2. 모르는 필드는 빈 문자열 또는 빈 배열로 유지
+3. 매출액은 원(KRW) 단위 숫자로 반환 (예: 10억 = 1000000000)
+4. 사업자등록번호는 "000-00-00000" 형식
+5. 핵심역량과 인증은 구체적으로 작성
+
+반드시 아래 JSON 형식만 반환하세요:
+{
+  "name": "정식 법인명",
+  "brandName": "브랜드명 (있을 경우)",
+  "businessNumber": "사업자등록번호",
+  "representative": "대표자명",
+  "foundedDate": "설립일 (YYYY-MM-DD)",
+  "industry": "업종 (업태/종목)",
+  "address": "본사 주소",
+  "factoryAddress": "공장/생산시설 주소 (있을 경우)",
+  "revenue": 0,
+  "employees": 0,
+  "description": "기업 소개 (3~5문장, 핵심 사업과 차별점 포함)",
+  "coreCompetencies": ["핵심역량1", "핵심역량2"],
+  "certifications": ["인증1", "인증2"],
+  "mainProducts": ["주요 제품/서비스1", "주요 제품/서비스2"],
+  "phone": "대표 전화번호",
+  "email": "대표 이메일",
+  "website": "홈페이지 URL",
+  "vision": "기업 비전/미션",
+  "salesChannels": ["유통채널1", "유통채널2"]
+}`;
+
+    const result = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+    const parsed = cleanAndParseJSON(result.text) as Record<string, unknown>;
+
+    res.json({ success: true, company: parsed });
+  } catch (error) {
+    console.error('[vault/company/research] Error:', error);
+    res.status(500).json({ error: '기업 리서치 실패', details: String(error) });
   }
 });
 

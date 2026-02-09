@@ -136,7 +136,7 @@ export const vaultService = {
   /** 단일 프로그램 딥크롤 */
   async deepCrawlProgram(slug: string): Promise<DeepCrawlResult> {
     const { data } = await apiClient.post<DeepCrawlResult>(
-      `/api/vault/deep-crawl/${slug}`,
+      `/api/vault/deep-crawl/${encodeURIComponent(slug)}`,
       {}
     );
     return data;
@@ -153,7 +153,7 @@ export const vaultService = {
   /** 프로그램 상세 */
   async getProgram(slug: string): Promise<VaultProgramDetail> {
     const { data } = await apiClient.get<VaultProgramDetail>(
-      `/api/vault/program/${slug}`
+      `/api/vault/program/${encodeURIComponent(slug)}`
     );
     return data;
   },
@@ -161,7 +161,7 @@ export const vaultService = {
   /** 단일 프로그램 적합도 분석 */
   async analyzeProgram(slug: string): Promise<FitAnalysisResult> {
     const { data } = await apiClient.post<{ success: boolean; result: FitAnalysisResult }>(
-      `/api/vault/analyze/${slug}`,
+      `/api/vault/analyze/${encodeURIComponent(slug)}`,
       {}
     );
     return data.result;
@@ -176,7 +176,7 @@ export const vaultService = {
   /** PDF 다운로드 + AI 분석 */
   async downloadPdf(slug: string): Promise<Record<string, unknown>> {
     const { data } = await apiClient.post<Record<string, unknown>>(
-      `/api/vault/download-pdf/${slug}`,
+      `/api/vault/download-pdf/${encodeURIComponent(slug)}`,
       {}
     );
     return data;
@@ -185,7 +185,7 @@ export const vaultService = {
   /** 지원서 자동 생성 */
   async generateApp(slug: string): Promise<GenerateAppResult> {
     const { data } = await apiClient.post<GenerateAppResult>(
-      `/api/vault/generate-app/${slug}`,
+      `/api/vault/generate-app/${encodeURIComponent(slug)}`,
       {}
     );
     return data;
@@ -202,7 +202,7 @@ export const vaultService = {
   /** 지원서 상세 */
   async getApplication(slug: string): Promise<VaultApplicationDetail> {
     const { data } = await apiClient.get<VaultApplicationDetail>(
-      `/api/vault/application/${slug}`
+      `/api/vault/application/${encodeURIComponent(slug)}`
     );
     return data;
   },
@@ -213,7 +213,7 @@ export const vaultService = {
     sections: Record<string, string>
   ): Promise<{ success: boolean; updatedAt: string }> {
     const { data } = await apiClient.put<{ success: boolean; updatedAt: string }>(
-      `/api/vault/application/${slug}`,
+      `/api/vault/application/${encodeURIComponent(slug)}`,
       { sections }
     );
     return data;
@@ -262,6 +262,15 @@ export const vaultService = {
   async deleteCompanyDocument(docId: string): Promise<{ success: boolean }> {
     const { data } = await apiClient.delete<{ success: boolean }>(
       `/api/vault/company/documents/${docId}`
+    );
+    return data;
+  },
+
+  /** 기업명 AI 딥리서치 */
+  async researchCompany(companyName: string): Promise<{ success: boolean; company: Record<string, unknown> }> {
+    const { data } = await apiClient.post<{ success: boolean; company: Record<string, unknown> }>(
+      '/api/vault/company/research',
+      { companyName }
     );
     return data;
   },

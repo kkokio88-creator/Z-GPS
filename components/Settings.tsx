@@ -172,6 +172,9 @@ const Settings: React.FC = () => {
   const [company, setCompany] = useState<Company>(getStoredCompany());
   const [companySaved, setCompanySaved] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(false);
+  const [researchQuery, setResearchQuery] = useState('');
+  const [researching, setResearching] = useState(false);
+  const [researchError, setResearchError] = useState('');
 
   // Company Documents
   const [documents, setDocuments] = useState<VaultDocumentMeta[]>([]);
@@ -306,6 +309,35 @@ const Settings: React.FC = () => {
       setAnalyzeResult(`분석 실패: ${String(e)}`);
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleResearchCompany = async () => {
+    if (!researchQuery.trim() || researchQuery.trim().length < 2) return;
+    setResearching(true);
+    setResearchError('');
+    try {
+      const result = await vaultService.researchCompany(researchQuery.trim());
+      if (result.success && result.company) {
+        const c = result.company;
+        setCompany(prev => ({
+          ...prev,
+          name: (c.name as string) || prev.name,
+          businessNumber: (c.businessNumber as string) || prev.businessNumber,
+          industry: (c.industry as string) || prev.industry,
+          address: (c.address as string) || prev.address,
+          revenue: (c.revenue as number) || prev.revenue,
+          employees: (c.employees as number) || prev.employees,
+          description: (c.description as string) || prev.description,
+          coreCompetencies: (c.coreCompetencies as string[]) || prev.coreCompetencies,
+          certifications: (c.certifications as string[]) || prev.certifications,
+        }));
+        setResearchQuery('');
+      }
+    } catch (e) {
+      setResearchError(`리서치 실패: ${String(e)}`);
+    } finally {
+      setResearching(false);
     }
   };
 
@@ -574,6 +606,54 @@ const Settings: React.FC = () => {
 
   const renderCompanyTab = () => (
     <div className="space-y-6">
+      {/* AI 기업 검색 */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800 p-5">
+        <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+          <span className="material-icons-outlined text-indigo-600">travel_explore</span>
+          AI 기업 리서치
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          기업명을 입력하면 AI가 공개 정보를 검색하여 자동으로 기업 프로필을 채워줍니다.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={researchQuery}
+            onChange={e => setResearchQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleResearchCompany()}
+            placeholder="기업명 입력 (예: 산너머남촌)"
+            disabled={researching}
+            className="flex-1 border border-indigo-300 dark:border-indigo-700 rounded-lg p-2.5 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          <button
+            onClick={handleResearchCompany}
+            disabled={researching || researchQuery.trim().length < 2}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
+          >
+            {researching ? (
+              <>
+                <span className="material-icons-outlined text-sm animate-spin">refresh</span>
+                리서치 중...
+              </>
+            ) : (
+              <>
+                <span className="material-icons-outlined text-sm">search</span>
+                검색
+              </>
+            )}
+          </button>
+        </div>
+        {researchError && (
+          <p className="mt-2 text-sm text-red-500">{researchError}</p>
+        )}
+        {researching && (
+          <div className="mt-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg p-3 text-sm text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+            <span className="material-icons-outlined animate-spin text-sm">autorenew</span>
+            AI가 기업 정보를 수집하고 있습니다. 약 10~15초 소요됩니다...
+          </div>
+        )}
+      </div>
+
       {/* 기업 정보 */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <div className="flex items-center justify-between mb-5">

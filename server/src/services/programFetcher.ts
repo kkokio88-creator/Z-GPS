@@ -276,12 +276,16 @@ async function fetchMssBiz(): Promise<ServerSupportProgram[]> {
       // 지원금 추정
       const grantAmount = parseAmount(totCnt) || (Math.floor(Math.random() * 25) + 5) * 10000000;
 
-      // 필수서류 추출 (본문에서)
+      // 필수서류 추출 (본문에서) - "참조" 등 안내 문구 제외
       const requiredDocs: string[] = [];
       const docMatches = description.match(/(?:제출서류|필수서류|구비서류)[:\s]*([^\n]+(?:\n[-·•]\s*[^\n]+)*)/);
       if (docMatches?.[1]) {
-        const docs = docMatches[1].split(/[-·•\n]/).map(s => s.trim()).filter(s => s.length > 2);
-        requiredDocs.push(...docs);
+        const docText = docMatches[1];
+        // "참조", "확인", "홈페이지" 등이 포함된 안내 문구는 서류 목록이 아님
+        if (!/(?:참조|확인|홈페이지|누리집)/.test(docText)) {
+          const docs = docText.split(/[-·•\n]/).map(s => s.trim()).filter(s => s.length > 2);
+          requiredDocs.push(...docs);
+        }
       }
 
       // 카테고리/키워드
@@ -405,9 +409,46 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
       const trgtAge = String(item.biz_trgt_age || ''); // 연령 조건
       const prfnMatr = String(item.prfn_matr || ''); // 우대 사항
 
+      // 지원 내용을 supportDetails 배열로 매핑
+      const supportDetails: string[] = [];
+      if (bizSuptCtnt && bizSuptCtnt.length > 5) {
+        const lines = bizSuptCtnt.split(/\n/).map(s => s.trim()).filter(s => s.length > 5);
+        supportDetails.push(...lines);
+      }
+
       // 상세 설명 통합
       const fullParts = [pbancCtnt, bizSuptCtnt].filter(s => s.length > 10);
       const fullDescription = fullParts.join('\n\n') || '';
+
+      // pbanc_ctnt 본문에서 자격요건/서류/평가기준 파싱 시도
+      const eligibilityCriteria: string[] = [];
+      const requiredDocuments: string[] = [];
+      const evaluationCriteria: string[] = [];
+
+      if (pbancCtnt.length > 50) {
+        // 자격요건 추출
+        const eligMatch = pbancCtnt.match(/(?:자격\s*요건|신청\s*자격|지원\s*자격|참여\s*자격)[:\s]*([^\n]*(?:\n[-·•○◦▪▸]\s*[^\n]*)*)/i);
+        if (eligMatch?.[1]) {
+          const items = eligMatch[1].split(/[-·•○◦▪▸\n]/).map(s => s.trim()).filter(s => s.length > 5);
+          eligibilityCriteria.push(...items);
+        }
+
+        // 제출서류 추출
+        const docMatch = pbancCtnt.match(/(?:제출\s*서류|구비\s*서류|필수\s*서류|신청\s*서류)[:\s]*([^\n]*(?:\n[-·•○◦▪▸]\s*[^\n]*)*)/i);
+        if (docMatch?.[1]) {
+          const items = docMatch[1].split(/[-·•○◦▪▸\n]/).map(s => s.trim()).filter(s => s.length > 3);
+          if (!/(?:참조|확인|홈페이지|누리집)/.test(docMatch[1])) {
+            requiredDocuments.push(...items);
+          }
+        }
+
+        // 평가기준 추출
+        const evalMatch = pbancCtnt.match(/(?:평가\s*기준|심사\s*기준|선정\s*기준|배점)[:\s]*([^\n]*(?:\n[-·•○◦▪▸]\s*[^\n]*)*)/i);
+        if (evalMatch?.[1]) {
+          const items = evalMatch[1].split(/[-·•○◦▪▸\n]/).map(s => s.trim()).filter(s => s.length > 3);
+          evaluationCriteria.push(...items);
+        }
+      }
 
       // 신청 대상과 방법
       const targetAudience = aplyTrgtCtnt || undefined;
@@ -437,7 +478,7 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
         eligibility: '검토 필요',
         priorityRank: 99,
         eligibilityReason: 'AI 분석 대기',
-        requiredDocuments: [],
+        requiredDocuments,
         description: pbancCtnt || '상세 내용은 공고문을 참조하세요.',
         successProbability: 'Unknown',
         detailUrl,
@@ -452,6 +493,9 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
         contactInfo: contactNo ? `${deptName} (${contactNo})` : deptName || undefined,
         contactPhone: contactNo || undefined,
         exclusionCriteria: exclusionCriteria.length > 0 ? exclusionCriteria : undefined,
+        eligibilityCriteria: eligibilityCriteria.length > 0 ? eligibilityCriteria : undefined,
+        evaluationCriteria: evaluationCriteria.length > 0 ? evaluationCriteria : undefined,
+        supportDetails: supportDetails.length > 0 ? supportDetails : undefined,
         regions,
         categories,
         keywords: categories,
