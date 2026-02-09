@@ -50,9 +50,9 @@ Z-GPS/
 - ✅ **타입 정의 필수** - `vite-env.d.ts`에 타입 선언
 
 **예시:**
-```typescript
-// ✅ 올바른 사용
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+```typescript 
+// ✅ 올바른 사용 
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
 
 // ❌ 잘못된 사용
 const apiKey = process.env.VITE_GEMINI_API_KEY; // Vite에서 작동 안 함!
