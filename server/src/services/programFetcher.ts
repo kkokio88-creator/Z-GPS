@@ -125,6 +125,247 @@ const filterActivePrograms = (programs: ServerSupportProgram[]): ServerSupportPr
   });
 };
 
+// ─── 지역 필터 ─────────────────────────────────────────────
+
+/** 한국 17개 광역자치단체 매핑 */
+const REGION_MAP: Record<string, string> = {
+  '서울특별시': '서울', '서울시': '서울', '서울': '서울',
+  '부산광역시': '부산', '부산시': '부산', '부산': '부산',
+  '대구광역시': '대구', '대구시': '대구', '대구': '대구',
+  '인천광역시': '인천', '인천시': '인천', '인천': '인천',
+  '광주광역시': '광주', '광주시': '광주', '광주': '광주',
+  '대전광역시': '대전', '대전시': '대전', '대전': '대전',
+  '울산광역시': '울산', '울산시': '울산', '울산': '울산',
+  '세종특별자치시': '세종', '세종시': '세종', '세종': '세종',
+  '경기도': '경기', '경기': '경기',
+  '강원특별자치도': '강원', '강원도': '강원', '강원': '강원',
+  '충청북도': '충북', '충북': '충북',
+  '충청남도': '충남', '충남': '충남',
+  '전북특별자치도': '전북', '전라북도': '전북', '전북': '전북',
+  '전라남도': '전남', '전남': '전남',
+  '경상북도': '경북', '경북': '경북',
+  '경상남도': '경남', '경남': '경남',
+  '제주특별자치도': '제주', '제주도': '제주', '제주': '제주',
+};
+
+/** 시/구 → 광역시/도 매핑 (프로그램명에서 지역 감지용) */
+const CITY_TO_REGION: Record<string, string> = {
+  // 서울 자치구
+  '강남구': '서울', '강동구': '서울', '강북구': '서울', '강서구': '서울',
+  '관악구': '서울', '광진구': '서울', '구로구': '서울', '금천구': '서울',
+  '노원구': '서울', '도봉구': '서울', '동대문구': '서울', '동작구': '서울',
+  '마포구': '서울', '서대문구': '서울', '서초구': '서울', '성동구': '서울',
+  '성북구': '서울', '송파구': '서울', '양천구': '서울', '영등포구': '서울',
+  '용산구': '서울', '은평구': '서울', '종로구': '서울', '중랑구': '서울',
+  // 경기 시
+  '수원시': '경기', '성남시': '경기', '과천시': '경기', '양주시': '경기',
+  '군포시': '경기', '부천시': '경기', '고양시': '경기', '안양시': '경기',
+  '안산시': '경기', '용인시': '경기', '화성시': '경기', '평택시': '경기',
+  '파주시': '경기', '광명시': '경기', '시흥시': '경기', '하남시': '경기',
+  // 부산 자치구
+  '해운대구': '부산', '해운대': '부산', '사하구': '부산',
+  // 대구 자치구
+  '수성구': '대구', '달서구': '대구',
+  // 대전 자치구
+  '유성구': '대전', '대덕구': '대전',
+  // 경북 시
+  '구미시': '경북', '구미': '경북', '포항시': '경북', '경주시': '경북',
+  // 경남 시
+  '김해시': '경남', '김해': '경남', '창원시': '경남', '거제시': '경남',
+  // 전북 시
+  '전주시': '전북', '전주': '전북', '군산시': '전북', '익산시': '전북',
+  // 충남 시
+  '천안시': '충남', '아산시': '충남',
+  // 충북 시
+  '청주시': '충북', '충주시': '충북',
+};
+
+/** 주소에서 시/도 수준 지역 추출 */
+function extractRegionFromAddress(address: string): string {
+  if (!address) return '';
+  const trimmed = address.trim();
+  for (const [pattern, region] of Object.entries(REGION_MAP)) {
+    if (trimmed.startsWith(pattern) || trimmed.includes(pattern)) {
+      return region;
+    }
+  }
+  return '';
+}
+
+/** 프로그램명/주관기관에서 지역 키워드 감지 */
+function detectRegionFromName(programName: string): string {
+  // 광역시/도 직접 매칭 (서울, 부산, 대구, 인천, 광주, 대전, 울산, 세종, 경기, 강원, 충북, 충남, 전북, 전남, 경북, 경남, 제주)
+  const regionNames = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종',
+    '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
+  for (const r of regionNames) {
+    if (programName.includes(r)) return r;
+  }
+  // 시/구 수준 매칭
+  for (const [city, region] of Object.entries(CITY_TO_REGION)) {
+    if (programName.includes(city)) return region;
+  }
+  return '';
+}
+
+/** 지역 기반 필터링: 회사 지역과 공고 대상 지역 매칭 */
+function filterByRegion(
+  programs: ServerSupportProgram[],
+  companyRegion: string
+): { filtered: ServerSupportProgram[]; removedCount: number } {
+  if (!companyRegion) {
+    return { filtered: programs, removedCount: 0 };
+  }
+
+  const before = programs.length;
+  const filtered = programs.filter(p => {
+    const regions = p.regions || [];
+
+    // 1. regions 필드에 데이터가 있으면 사용
+    if (regions.length > 0) {
+      if (regions.some(r => r === '전국' || r === '전체' || r === '해당없음')) return true;
+      return regions.some(r => {
+        const normalized = REGION_MAP[r] || r;
+        return normalized === companyRegion;
+      });
+    }
+
+    // 2. regions가 비어있으면 프로그램명에서 지역 감지
+    const nameRegion = detectRegionFromName(p.programName);
+    if (nameRegion && nameRegion !== companyRegion) {
+      return false; // 다른 지역 프로그램이므로 제외
+    }
+
+    // 3. 지역 정보 없음 → 전국으로 간주
+    return true;
+  });
+
+  return { filtered, removedCount: before - filtered.length };
+}
+
+// ─── 창업 필터 ─────────────────────────────────────────────
+
+/** 사업명 기준 hard exclude 패턴 (Tier 1) */
+const STARTUP_EXCLUDE_PATTERNS = [
+  /예비\s*창업/,
+  /초기\s*창업/,
+  /창업\s*도약/,
+  /청년\s*창업/,
+  /스타트\s*업/i,
+  /start[\s-]*up/i,
+  /창업\s*사관\s*학교/,
+  /창업\s*보육/,
+  /엑셀러레이팅/,
+  /액셀러레이팅/,
+  /엑셀러레이터/,
+  /액셀러레이터/,
+  /창업\s*인큐베이팅/,
+  /창업\s*캠프/,
+  /창업\s*경진/,
+  /창업\s*아이디어/,
+  /창업\s*교육/,
+  /예비\s*?창업자/,
+  // Phase 2 추가: 더 많은 창업 생태계 패턴
+  /창업\s*패키지/,
+  /창업\s*지원\s*센터/,
+  /창업\s*지원\s*사업/,
+  /창업\s*허브/,
+  /창업\s*혁신\s*공간/,
+  /창업\s*마루/,
+  /창업\s*아카데미/,
+  /창업\s*스쿨/,
+  /창업\s*멘토링/,
+  /창업\s*성공\s*패키지/,
+  /창업\s*부트\s*캠프/,
+  /로컬\s*창업/,
+  /모의\s*창업/,
+  /1인\s*창조\s*기업/,
+  /여성\s*(?:예비\s*)?창업/,
+  /재도전\s*사관학교/,
+  /창업\s*융합/,
+  /벤처\s*포럼/,
+  /벤처\s*스튜디오/,
+  /IR\s*피칭/i,
+  /팁스\s*타운/,
+  /\bTIPS\b/,
+  /팁스\s*(?:프로그램|사업)/,
+  /입교\s*(?:생|기업)/,
+  /창업BuS/i,
+];
+
+/** 기존 기업 대상임을 나타내는 지표 */
+const EXISTING_BIZ_INDICATORS = [
+  /기창업\s*기업/,
+  /창업\s*3년\s*이상/,
+  /창업\s*5년\s*이상/,
+  /창업\s*7년\s*이상/,
+  /기존\s*기업/,
+  /중소기업/,
+  /중견기업/,
+  /소상공인/,
+  /제조업/,
+  /제조\s*기업/,
+];
+
+/** 스타트업 전용 공고를 나타내는 지표 (Tier 2) */
+const STARTUP_ONLY_INDICATORS = [
+  /창업\s*3년\s*이내/,
+  /창업\s*2년\s*이내/,
+  /창업\s*1년\s*이내/,
+  /예비\s*?창업자/,
+  /창업\s*준비/,
+  /창업\s*희망/,
+  /창업을\s*준비/,
+];
+
+/** 창업 관련 공고 필터링 */
+function filterStartupPrograms(
+  programs: ServerSupportProgram[]
+): { filtered: ServerSupportProgram[]; removedCount: number } {
+  const before = programs.length;
+
+  const filtered = programs.filter(p => {
+    const name = p.programName;
+
+    // Tier 1: 사업명에 확실한 창업 전용 키워드가 있으면 제외
+    const isHardExclude = STARTUP_EXCLUDE_PATTERNS.some(pattern => pattern.test(name));
+
+    if (isHardExclude) {
+      // 단, 사업명에 "창업"이 있더라도 본문에서 기존 기업 대상 지표가 있으면 유지
+      const fullText = `${name} ${p.description || ''} ${p.targetAudience || ''}`;
+      const hasExistingBizIndicator = EXISTING_BIZ_INDICATORS.some(pattern =>
+        pattern.test(fullText)
+      );
+      if (hasExistingBizIndicator) {
+        return true; // 기존 기업 대상이므로 유지
+      }
+      return false; // 창업 전용이므로 제외
+    }
+
+    // Tier 2: 사업명에 "창업"이 포함되어 있으면 context-aware 판단
+    if (/창업/.test(name)) {
+      const fullText = `${name} ${p.description || ''} ${p.targetAudience || ''}`;
+      const hasExistingBizIndicator = EXISTING_BIZ_INDICATORS.some(pattern =>
+        pattern.test(fullText)
+      );
+      const hasStartupOnlyIndicator = STARTUP_ONLY_INDICATORS.some(pattern =>
+        pattern.test(fullText)
+      );
+
+      // 기존기업 지표가 있으면 유지
+      if (hasExistingBizIndicator) return true;
+      // 스타트업 전용 지표가 있으면 제외
+      if (hasStartupOnlyIndicator) return false;
+      // "창업"이 있으나 기존기업 지표도 없으면 제외 (보수적 접근)
+      return false;
+    }
+
+    // "창업" 키워드 없으면 유지
+    return true;
+  });
+
+  return { filtered, removedCount: before - filtered.length };
+}
+
 // ─── API 수집기 ────────────────────────────────────────────
 
 /** 인천 bizok (ODCLOUD) API 호출 */
@@ -176,7 +417,7 @@ async function fetchIncheonBizOK(): Promise<ServerSupportProgram[]> {
       }
 
       const grantStr = String(record['지원금액'] || record['지원규모'] || '');
-      const grant = parseAmount(grantStr) || (Math.floor(Math.random() * 17) + 3) * 10000000;
+      const grant = parseAmount(grantStr);
 
       return {
         id: `incheon_${record['번호'] || index}_${Date.now()}`,
@@ -273,19 +514,35 @@ async function fetchMssBiz(): Promise<ServerSupportProgram[]> {
       const fileName = getText('fileName') || '';
       const fileUrl = getText('fileUrl') || '';
 
-      // 지원금 추정
-      const grantAmount = parseAmount(totCnt) || (Math.floor(Math.random() * 25) + 5) * 10000000;
+      // 지원금 파싱 (확인 불가 시 0)
+      const grantAmount = parseAmount(totCnt);
 
       // 필수서류 추출 (본문에서) - "참조" 등 안내 문구 제외
       const requiredDocs: string[] = [];
-      const docMatches = description.match(/(?:제출서류|필수서류|구비서류)[:\s]*([^\n]+(?:\n[-·•]\s*[^\n]+)*)/);
+      const docMatches = description.match(/(?:제출\s*서류|필수\s*서류|구비\s*서류|신청\s*서류|첨부\s*서류|제출서류\s*목록)[:\s]*([^\n]+(?:\n[-·•○◦▪▸►◈①②③④⑤⑥⑦⑧⑨⑩가나다라]\s*[^\n]+)*)/);
       if (docMatches?.[1]) {
         const docText = docMatches[1];
         // "참조", "확인", "홈페이지" 등이 포함된 안내 문구는 서류 목록이 아님
         if (!/(?:참조|확인|홈페이지|누리집)/.test(docText)) {
-          const docs = docText.split(/[-·•\n]/).map(s => s.trim()).filter(s => s.length > 2);
+          const docs = docText.split(/[-·•○◦▪▸►◈\n]/).map(s => s.trim()).filter(s => s.length > 2);
           requiredDocs.push(...docs);
         }
+      }
+
+      // 자격요건 추출 (MSS)
+      const mssEligCriteria: string[] = [];
+      const mssEligMatch = description.match(/(?:지원\s*대상|신청\s*자격|참여\s*자격|자격\s*요건|지원\s*자격)[:\s]*([^\n]*(?:\n[-·•○◦▪▸►◈①②③]\s*[^\n]*)*)/i);
+      if (mssEligMatch?.[1]) {
+        const items = mssEligMatch[1].split(/[-·•○◦▪▸►◈\n]/).map(s => s.trim()).filter(s => s.length > 5);
+        mssEligCriteria.push(...items);
+      }
+
+      // 평가기준 추출 (MSS)
+      const mssEvalCriteria: string[] = [];
+      const mssEvalMatch = description.match(/(?:평가\s*기준|심사\s*기준|선정\s*기준|배점\s*기준|심사\s*항목)[:\s]*([^\n]*(?:\n[-·•○◦▪▸►◈①②③]\s*[^\n]*)*)/i);
+      if (mssEvalMatch?.[1]) {
+        const items = mssEvalMatch[1].split(/[-·•○◦▪▸►◈\n]/).map(s => s.trim()).filter(s => s.length > 3);
+        mssEvalCriteria.push(...items);
       }
 
       // 카테고리/키워드
@@ -319,6 +576,8 @@ async function fetchMssBiz(): Promise<ServerSupportProgram[]> {
         supportScale: totCnt || undefined,
         fullDescription: description.length > 100 ? description : undefined,
         announcementDate: announcementDate || undefined,
+        eligibilityCriteria: mssEligCriteria.length > 0 ? mssEligCriteria : undefined,
+        evaluationCriteria: mssEvalCriteria.length > 0 ? mssEvalCriteria : undefined,
         regions,
         categories,
         keywords: categories,
@@ -391,7 +650,7 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
 
       // 지원 규모
       const suptScl = String(item.supt_scl || '');
-      const grant = parseAmount(suptScl) || (Math.floor(Math.random() * 17) + 3) * 10000000;
+      const grant = parseAmount(suptScl);
 
       // 지역/카테고리
       const rgnNm = String(item.rgn_nm || item.supt_regin || '');
@@ -425,28 +684,47 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
       const requiredDocuments: string[] = [];
       const evaluationCriteria: string[] = [];
 
+      // 확장된 리스트 마커 패턴 (한국 공고문 다양한 마커)
+      const LIST_SPLIT = /[-·•○◦▪▸►◈※①②③④⑤⑥⑦⑧⑨⑩\n]/;
+      const selectionProcess: string[] = [];
+
       if (pbancCtnt.length > 50) {
-        // 자격요건 추출
-        const eligMatch = pbancCtnt.match(/(?:자격\s*요건|신청\s*자격|지원\s*자격|참여\s*자격)[:\s]*([^\n]*(?:\n[-·•○◦▪▸]\s*[^\n]*)*)/i);
+        // 자격요건 추출 (확장된 헤더 변형)
+        const eligMatch = pbancCtnt.match(
+          /(?:자격\s*요건|신청\s*자격|지원\s*자격|참여\s*자격|참여\s*대상|지원\s*대상\s*자격|응모\s*자격|신청\s*대상)[:\s]*([^\n]*(?:\n(?:[ \t]*(?:[-·•○◦▪▸►◈※①②③④⑤⑥⑦⑧⑨⑩]|\d+[.)]\s*|[가-힣][.)]\s*)\s*[^\n]*))*)/i
+        );
         if (eligMatch?.[1]) {
-          const items = eligMatch[1].split(/[-·•○◦▪▸\n]/).map(s => s.trim()).filter(s => s.length > 5);
+          const items = eligMatch[1].split(LIST_SPLIT).map(s => s.replace(/^\s*\d+[.)]\s*/, '').replace(/^[가-힣][.)]\s*/, '').trim()).filter(s => s.length > 5);
           eligibilityCriteria.push(...items);
         }
 
-        // 제출서류 추출
-        const docMatch = pbancCtnt.match(/(?:제출\s*서류|구비\s*서류|필수\s*서류|신청\s*서류)[:\s]*([^\n]*(?:\n[-·•○◦▪▸]\s*[^\n]*)*)/i);
+        // 제출서류 추출 (확장된 헤더 변형)
+        const docMatch = pbancCtnt.match(
+          /(?:제출\s*서류|구비\s*서류|필수\s*서류|신청\s*서류|첨부\s*서류|제출서류\s*목록|구비\s*서류\s*목록)[:\s]*([^\n]*(?:\n(?:[ \t]*(?:[-·•○◦▪▸►◈※①②③④⑤⑥⑦⑧⑨⑩]|\d+[.)]\s*|[가-힣][.)]\s*)\s*[^\n]*))*)/i
+        );
         if (docMatch?.[1]) {
-          const items = docMatch[1].split(/[-·•○◦▪▸\n]/).map(s => s.trim()).filter(s => s.length > 3);
           if (!/(?:참조|확인|홈페이지|누리집)/.test(docMatch[1])) {
+            const items = docMatch[1].split(LIST_SPLIT).map(s => s.replace(/^\s*\d+[.)]\s*/, '').replace(/^[가-힣][.)]\s*/, '').trim()).filter(s => s.length > 3);
             requiredDocuments.push(...items);
           }
         }
 
-        // 평가기준 추출
-        const evalMatch = pbancCtnt.match(/(?:평가\s*기준|심사\s*기준|선정\s*기준|배점)[:\s]*([^\n]*(?:\n[-·•○◦▪▸]\s*[^\n]*)*)/i);
+        // 평가기준 추출 (확장된 헤더 변형)
+        const evalMatch = pbancCtnt.match(
+          /(?:평가\s*기준|심사\s*기준|선정\s*기준|배점\s*기준|심사\s*항목|평가\s*항목|선정\s*방법)[:\s]*([^\n]*(?:\n(?:[ \t]*(?:[-·•○◦▪▸►◈※①②③④⑤⑥⑦⑧⑨⑩]|\d+[.)]\s*|[가-힣][.)]\s*)\s*[^\n]*))*)/i
+        );
         if (evalMatch?.[1]) {
-          const items = evalMatch[1].split(/[-·•○◦▪▸\n]/).map(s => s.trim()).filter(s => s.length > 3);
+          const items = evalMatch[1].split(LIST_SPLIT).map(s => s.replace(/^\s*\d+[.)]\s*/, '').replace(/^[가-힣][.)]\s*/, '').trim()).filter(s => s.length > 3);
           evaluationCriteria.push(...items);
+        }
+
+        // 선정절차 추출 (신규)
+        const selMatch = pbancCtnt.match(
+          /(?:선정\s*절차|심사\s*절차|선발\s*절차|선정\s*과정|심사\s*과정)[:\s]*([^\n]*(?:\n(?:[ \t]*(?:[-·•○◦▪▸►◈※①②③④⑤⑥⑦⑧⑨⑩→▶]|\d+[.)]\s*)\s*[^\n]*))*)/i
+        );
+        if (selMatch?.[1]) {
+          const items = selMatch[1].split(/[-·•○◦▪▸►◈→▶\n]/).map(s => s.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(s => s.length > 3);
+          selectionProcess.push(...items);
         }
       }
 
@@ -496,6 +774,7 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
         eligibilityCriteria: eligibilityCriteria.length > 0 ? eligibilityCriteria : undefined,
         evaluationCriteria: evaluationCriteria.length > 0 ? evaluationCriteria : undefined,
         supportDetails: supportDetails.length > 0 ? supportDetails : undefined,
+        selectionProcess: selectionProcess.length > 0 ? selectionProcess : undefined,
         regions,
         categories,
         keywords: categories,
@@ -509,8 +788,20 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
   }
 }
 
-/** 3개 API 병렬 호출 + 중복 제거 + 활성 프로그램 필터링 */
-export async function fetchAllProgramsServerSide(): Promise<ServerSupportProgram[]> {
+/** 필터링 통계 */
+export interface FilterStats {
+  totalFetched: number;
+  afterDedup: number;
+  afterActive: number;
+  filteredByRegion: number;
+  filteredByStartup: number;
+  finalCount: number;
+}
+
+/** 3개 API 병렬 호출 + 중복 제거 + 활성 프로그램 + 지역/창업 필터링 */
+export async function fetchAllProgramsServerSide(
+  options?: { companyAddress?: string }
+): Promise<{ programs: ServerSupportProgram[]; filterStats: FilterStats }> {
   console.log('[programFetcher] 서버 측 통합 조회 시작...');
 
   const results = await Promise.allSettled([
@@ -534,7 +825,18 @@ export async function fetchAllProgramsServerSide(): Promise<ServerSupportProgram
 
   if (allPrograms.length === 0) {
     console.log('[programFetcher] 모든 API 실패, 시뮬레이션 데이터 사용');
-    return getSimulatedData();
+    const simData = getSimulatedData();
+    return {
+      programs: simData,
+      filterStats: {
+        totalFetched: 0,
+        afterDedup: 0,
+        afterActive: simData.length,
+        filteredByRegion: 0,
+        filteredByStartup: 0,
+        finalCount: simData.length,
+      },
+    };
   }
 
   // 중복 제거 (programName 기준)
@@ -545,13 +847,35 @@ export async function fetchAllProgramsServerSide(): Promise<ServerSupportProgram
 
   const activePrograms = filterActivePrograms(uniquePrograms);
 
+  // 지역 필터
+  const companyRegion = extractRegionFromAddress(options?.companyAddress || '');
+  const regionResult = filterByRegion(activePrograms, companyRegion);
+
+  // 창업 필터
+  const startupResult = filterStartupPrograms(regionResult.filtered);
+
+  const finalPrograms = startupResult.filtered;
+
+  const filterStats: FilterStats = {
+    totalFetched: allPrograms.length,
+    afterDedup: uniquePrograms.length,
+    afterActive: activePrograms.length,
+    filteredByRegion: regionResult.removedCount,
+    filteredByStartup: startupResult.removedCount,
+    finalCount: finalPrograms.length,
+  };
+
   // API 데이터 풍부도 로그
-  const richCount = activePrograms.filter(p => p.fullDescription && p.fullDescription.length > 100).length;
+  const richCount = finalPrograms.filter(p => p.fullDescription && p.fullDescription.length > 100).length;
   console.log(
-    `[programFetcher] 총 ${uniquePrograms.length}개 중 ${activePrograms.length}개 유효 (상세정보 ${richCount}개)`
+    `[programFetcher] 총 ${allPrograms.length}건 → 중복제거 ${uniquePrograms.length} → 활성 ${activePrograms.length} → 지역필터 -${regionResult.removedCount} → 창업필터 -${startupResult.removedCount} → 최종 ${finalPrograms.length}건 (상세정보 ${richCount}개)`
   );
 
-  return activePrograms;
+  if (companyRegion) {
+    console.log(`[programFetcher] 회사 지역: ${companyRegion}`);
+  }
+
+  return { programs: finalPrograms, filterStats };
 }
 
 /** 시뮬레이션 데이터 (API 실패 시 폴백) */
@@ -650,4 +974,53 @@ function getSimulatedData(): ServerSupportProgram[] {
   }));
 }
 
+/** 프로그램명 기준 창업 관련 여부 판단 (vault 클린업용) */
+export function isLikelyStartupProgram(
+  programName: string,
+  description: string,
+  targetAudience: string
+): boolean {
+  const name = programName || '';
+  const fullText = `${name} ${description || ''} ${targetAudience || ''}`;
+
+  // Tier 1: hard exclude
+  if (STARTUP_EXCLUDE_PATTERNS.some(p => p.test(name))) {
+    // 기존 기업 대상 지표가 있으면 유지
+    if (EXISTING_BIZ_INDICATORS.some(p => p.test(fullText))) return false;
+    return true;
+  }
+
+  // Tier 2: "창업" 포함
+  if (/창업/.test(name)) {
+    if (EXISTING_BIZ_INDICATORS.some(p => p.test(fullText))) return false;
+    if (STARTUP_ONLY_INDICATORS.some(p => p.test(fullText))) return true;
+    return true; // 창업 키워드 있으나 기존기업 지표 없으면 제외
+  }
+
+  return false;
+}
+
+/** 프로그램의 지역 불일치 판단 (vault 클린업용) */
+export function isRegionMismatch(
+  programName: string,
+  regions: string[],
+  companyRegion: string
+): boolean {
+  if (!companyRegion) return false;
+
+  // regions 필드 체크
+  if (regions && regions.length > 0) {
+    if (regions.some(r => r === '전국' || r === '전체' || r === '해당없음')) return false;
+    const matches = regions.some(r => (REGION_MAP[r] || r) === companyRegion);
+    return !matches;
+  }
+
+  // 프로그램명에서 지역 감지
+  const nameRegion = detectRegionFromName(programName);
+  if (nameRegion && nameRegion !== companyRegion) return true;
+
+  return false;
+}
+
+export { extractRegionFromAddress };
 export type { ServerSupportProgram };

@@ -15,7 +15,12 @@ import {
   deleteBinaryFile,
   listFiles,
 } from '../services/vaultFileService.js';
-import { fetchAllProgramsServerSide } from '../services/programFetcher.js';
+import {
+  fetchAllProgramsServerSide,
+  isLikelyStartupProgram,
+  isRegionMismatch,
+  extractRegionFromAddress,
+} from '../services/programFetcher.js';
 import type { ServerSupportProgram } from '../services/programFetcher.js';
 import {
   analyzeFit,
@@ -36,6 +41,11 @@ const router = Router();
 ensureVaultStructure().catch(e => console.error('[vault] Failed to ensure vault structure:', e));
 
 // ─── Helper ────────────────────────────────────────────────────
+
+/** slug 검증: 경로순회 방지 (영문/한글/숫자/하이픈/언더스코어만 허용) */
+function isValidSlug(slug: string): boolean {
+  return /^[a-zA-Z0-9가-힣_-]+$/.test(slug) && !slug.includes('..');
+}
 
 function programToFrontmatter(
   p: ServerSupportProgram,
@@ -129,17 +139,17 @@ function programToMarkdown(
     md += `\n## 사업 목적\n${objectives.map(o => `- ${o}`).join('\n')}\n`;
   }
 
-  const detailLink = p.detailUrl ? `[공고문 원문 확인](${p.detailUrl})` : '공고문 참조';
-
-  // 지원 대상
+  // 지원 대상 (데이터 있을 때만 표시)
   const target = deepCrawl?.targetAudience || p.targetAudience || '';
-  md += `\n## 지원 대상\n${target || detailLink}\n`;
+  if (target) {
+    md += `\n## 지원 대상\n${target}\n`;
+  }
 
-  // 자격요건
+  // 자격요건 (데이터 있을 때만 표시)
   const criteria = deepCrawl?.eligibilityCriteria || p.eligibilityCriteria || [];
-  md += `\n## 자격요건\n${criteria.length
-    ? criteria.map(c => `- ${c}`).join('\n')
-    : detailLink}\n`;
+  if (criteria.length > 0) {
+    md += `\n## 자격요건\n${criteria.map(c => `- ${c}`).join('\n')}\n`;
+  }
 
   // 참여 제한 대상
   const exclusion = deepCrawl?.exclusionCriteria || [];
@@ -155,7 +165,9 @@ function programToMarkdown(
 
   // 사업 상세 설명
   const fullDesc = deepCrawl?.fullDescription || p.fullDescription || p.description || '';
-  md += `\n## 사업 상세 설명\n${fullDesc || '상세 내용은 공고문을 참조하세요.'}\n`;
+  if (fullDesc && fullDesc.length > 30) {
+    md += `\n## 사업 상세 설명\n${fullDesc}\n`;
+  }
 
   // 선정 절차
   const selProcess = deepCrawl?.selectionProcess || [];
@@ -163,17 +175,17 @@ function programToMarkdown(
     md += `\n## 선정 절차\n${selProcess.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n`;
   }
 
-  // 필수서류
+  // 필수서류 (데이터 있을 때만 표시)
   const docs = deepCrawl?.requiredDocuments || p.requiredDocuments || [];
-  md += `\n## 필수 제출 서류\n${docs.length
-    ? docs.map(d => `- [ ] ${d}`).join('\n')
-    : detailLink}\n`;
+  if (docs.length > 0) {
+    md += `\n## 필수 제출 서류\n${docs.map(d => `- [ ] ${d}`).join('\n')}\n`;
+  }
 
-  // 평가기준
+  // 평가기준 (데이터 있을 때만 표시)
   const evalCriteria = deepCrawl?.evaluationCriteria || p.evaluationCriteria || [];
-  md += `\n## 평가 기준\n${evalCriteria.length
-    ? evalCriteria.map(e => `- ${e}`).join('\n')
-    : detailLink}\n`;
+  if (evalCriteria.length > 0) {
+    md += `\n## 평가 기준\n${evalCriteria.map(e => `- ${e}`).join('\n')}\n`;
+  }
 
   // 주요 일정 테이블
   const announcementDate = deepCrawl?.announcementDate || p.announcementDate || '';
@@ -317,9 +329,21 @@ router.get('/stats', async (_req: Request, res: Response) => {
 router.post('/sync', async (req: Request, res: Response) => {
   try {
     await ensureVaultStructure();
-    const programs = await fetchAllProgramsServerSide();
+
+    // 회사 주소 읽기 (지역 필터용)
+    let companyAddress = '';
+    try {
+      const companyPath = path.join('company', 'profile.md');
+      if (await noteExists(companyPath)) {
+        const { frontmatter: cf } = await readNote(companyPath);
+        companyAddress = (cf.address as string) || '';
+      }
+    } catch { /* company 정보 없으면 무시 */ }
+
+    const { programs, filterStats } = await fetchAllProgramsServerSide({
+      companyAddress,
+    });
     const deepCrawlMode = req.query.deepCrawl === 'true';
-    const enrichMode = req.query.enrich === 'true';
 
     let created = 0;
     let updated = 0;
@@ -338,64 +362,137 @@ router.post('/sync', async (req: Request, res: Response) => {
         await writeNote(filePath, existing.frontmatter, existing.content);
         updated++;
       } else {
-        // API 데이터에 이미 풍부한 정보가 있는 경우 항상 활용
-        const hasRichApiData = !!(p.fullDescription && p.fullDescription.length > 100);
-
         if (deepCrawlMode && p.detailUrl) {
           try {
             const { crawlResult, attachments } = await deepCrawlProgramFull(
               p.detailUrl,
               p.programName,
               slug,
-              p // API 데이터 전달
+              p
             );
             const frontmatter = programToFrontmatter(p, slug, crawlResult, attachments);
             const content = programToMarkdown(p, crawlResult, attachments);
             await writeNote(filePath, frontmatter, content);
             if (crawlResult) deepCrawled++;
             attachmentsDownloaded += attachments.length;
-            // rate limit 방지
             await new Promise(r => setTimeout(r, 3000));
           } catch (e) {
             console.warn(`[vault/sync] Deep crawl failed for ${p.programName}:`, e);
-            // API 데이터만으로 노트 생성 (풍부한 데이터 활용)
             const frontmatter = programToFrontmatter(p, slug);
             const content = programToMarkdown(p);
             await writeNote(filePath, frontmatter, content);
           }
-        } else if (enrichMode && hasRichApiData) {
-          // enrich 모드: 크롤링 없이 API 텍스트 데이터만 AI에 전달
+        } else {
+          // 항상 enrichFromApiOnly 시도 (AI 강화 또는 직접 매핑)
           try {
             const crawlResult = await enrichFromApiOnly(p);
             const frontmatter = programToFrontmatter(p, slug, crawlResult);
             const content = programToMarkdown(p, crawlResult);
             await writeNote(filePath, frontmatter, content);
             enriched++;
-            // Gemini rate limit 방지: 2초 딜레이
-            await new Promise(r => setTimeout(r, 2000));
+            // AI 호출이 포함된 경우 rate limit 방지
+            if (p.fullDescription && p.fullDescription.length > 50) {
+              await new Promise(r => setTimeout(r, 2000));
+            }
           } catch (e) {
             console.warn(`[vault/sync] Enrich failed for ${p.programName}:`, e);
             const frontmatter = programToFrontmatter(p, slug);
             const content = programToMarkdown(p);
             await writeNote(filePath, frontmatter, content);
           }
-        } else {
-          const frontmatter = programToFrontmatter(p, slug);
-          const content = programToMarkdown(p);
-          await writeNote(filePath, frontmatter, content);
         }
         created++;
       }
     }
 
+    // ─── 기존 노트 클린업 (중복/창업/지역 필터 소급 적용) ────────────
+    const companyRegion = extractRegionFromAddress(companyAddress);
+    let cleanedStartup = 0;
+    let cleanedRegion = 0;
+    let cleanedDuplicates = 0;
+
+    try {
+      const vaultRoot = getVaultRoot();
+      const existingFiles = await listNotes(path.join(vaultRoot, 'programs'));
+
+      // 1단계: 중복 제거 (같은 programName → 최신 syncedAt만 유지)
+      const notesByName = new Map<string, { file: string; syncedAt: string; dqs: number }[]>();
+      for (const file of existingFiles) {
+        try {
+          const { frontmatter: ef } = await readNote(file);
+          const pName = (ef.programName as string) || '';
+          if (!pName) continue;
+          const entry = {
+            file,
+            syncedAt: (ef.syncedAt as string) || '',
+            dqs: Number(ef.dataQualityScore) || 0,
+          };
+          const arr = notesByName.get(pName) || [];
+          arr.push(entry);
+          notesByName.set(pName, arr);
+        } catch { /* 읽기 실패 무시 */ }
+      }
+
+      const survivingFiles = new Set<string>();
+      for (const [, entries] of notesByName) {
+        if (entries.length > 1) {
+          // 데이터 품질 점수 → syncedAt 순 정렬, 최상위 1개만 유지
+          entries.sort((a, b) => b.dqs - a.dqs || b.syncedAt.localeCompare(a.syncedAt));
+          survivingFiles.add(entries[0].file);
+          for (let i = 1; i < entries.length; i++) {
+            await fs.unlink(entries[i].file);
+            cleanedDuplicates++;
+          }
+        } else {
+          survivingFiles.add(entries[0].file);
+        }
+      }
+
+      // 2단계: 창업/지역 필터
+      for (const file of survivingFiles) {
+        try {
+          const { frontmatter: ef } = await readNote(file);
+          const pName = (ef.programName as string) || '';
+          const desc = (ef.fullDescription as string) || (ef.description as string) || '';
+          const target = (ef.targetAudience as string) || '';
+          const regions = (ef.regions as string[]) || [];
+
+          // 창업 필터
+          if (isLikelyStartupProgram(pName, desc, target)) {
+            await fs.unlink(file);
+            cleanedStartup++;
+            continue;
+          }
+
+          // 지역 필터
+          if (companyRegion && isRegionMismatch(pName, regions, companyRegion)) {
+            await fs.unlink(file);
+            cleanedRegion++;
+          }
+        } catch { /* 개별 파일 에러 무시 */ }
+      }
+
+      if (cleanedDuplicates > 0 || cleanedStartup > 0 || cleanedRegion > 0) {
+        console.log(`[vault/sync] 클린업: 중복 ${cleanedDuplicates}건, 창업 ${cleanedStartup}건, 지역 ${cleanedRegion}건 삭제`);
+      }
+    } catch (e) {
+      console.warn('[vault/sync] 클린업 중 에러:', e);
+    }
+
     res.json({
       success: true,
-      totalFetched: programs.length,
+      totalFetched: filterStats.totalFetched,
+      afterFiltering: filterStats.finalCount,
+      filteredByRegion: filterStats.filteredByRegion,
+      filteredByStartup: filterStats.filteredByStartup,
       created,
       updated,
       deepCrawled,
       enriched,
       attachmentsDownloaded,
+      cleanedDuplicates,
+      cleanedStartup,
+      cleanedRegion,
       syncedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -411,6 +508,7 @@ router.post('/sync', async (req: Request, res: Response) => {
 router.post('/deep-crawl/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const programPath = path.join('programs', `${slug}.md`);
 
     if (!(await noteExists(programPath))) {
@@ -563,6 +661,7 @@ router.get('/programs', async (_req: Request, res: Response) => {
 router.get('/program/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const filePath = path.join('programs', `${slug}.md`);
 
     if (!(await noteExists(filePath))) {
@@ -585,6 +684,7 @@ router.get('/program/:slug', async (req: Request, res: Response) => {
 router.post('/analyze/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const programPath = path.join('programs', `${slug}.md`);
 
     if (!(await noteExists(programPath))) {
@@ -754,6 +854,7 @@ router.post('/analyze-all', async (_req: Request, res: Response) => {
 router.post('/download-pdf/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const programPath = path.join('programs', `${slug}.md`);
 
     if (!(await noteExists(programPath))) {
@@ -837,6 +938,7 @@ ${analysis.keyPoints.map(k => `- ${k}`).join('\n')}
 router.post('/generate-app/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const programPath = path.join('programs', `${slug}.md`);
 
     if (!(await noteExists(programPath))) {
@@ -1014,6 +1116,7 @@ router.get('/applications', async (_req: Request, res: Response) => {
 router.get('/application/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const draftPath = path.join('applications', slug, 'draft.md');
 
     if (!(await noteExists(draftPath))) {
@@ -1056,6 +1159,7 @@ router.get('/application/:slug', async (req: Request, res: Response) => {
 router.put('/application/:slug', async (req: Request, res: Response) => {
   try {
     const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
     const { sections } = req.body as { sections: Record<string, string> };
 
     if (!sections) {

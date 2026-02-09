@@ -1,12 +1,13 @@
 /**
- * 딥크롤링 서비스 (고도화)
- * 다단계 파이프라인: API 데이터 + 웹 크롤링 + AI 재가공
+ * 딥크롤링 서비스 (고도화 v2)
+ * 다단계 파이프라인: API 데이터 + cheerio DOM 파싱 + PDF 추출 + AI 재가공
  * 사이트별 전용 파서 (어댑터 패턴)
  */
 
 import { callGeminiDirect, cleanAndParseJSON } from './geminiService.js';
 import { writeBinaryFile } from './vaultFileService.js';
 import path from 'path';
+import * as cheerio from 'cheerio';
 import type { ServerSupportProgram } from './programFetcher.js';
 
 // ─── 타입 정의 ─────────────────────────────────────────────
@@ -66,94 +67,212 @@ const CRAWL_HEADERS = {
   'Connection': 'keep-alive',
 };
 
-// ─── 유틸리티 함수 ──────────────────────────────────────────
+// ─── cheerio 기반 유틸리티 함수 ──────────────────────────────
 
-/** HTML에서 스크립트/스타일/네비게이션 제거 후 텍스트 추출 */
+/** cheerio로 HTML 테이블에서 key-value 쌍 추출 */
+function extractTableDataCheerio(html: string): Record<string, string> {
+  const $ = cheerio.load(html);
+  const result: Record<string, string> = {};
+
+  // <th>키</th><td>값</td> 패턴
+  $('table tr').each((_i, row) => {
+    const $row = $(row);
+    const ths = $row.find('th');
+    const tds = $row.find('td');
+
+    ths.each((j, th) => {
+      const key = $(th).text().replace(/\s+/g, ' ').trim();
+      const td = tds.eq(j);
+      if (td.length && key) {
+        // td 안의 br을 줄바꿈으로, 나머지 태그는 텍스트로
+        const value = td.html()
+          ?.replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\s+/g, ' ')
+          .trim() || '';
+        if (value && value !== '-') {
+          result[key] = value;
+        }
+      }
+    });
+  });
+
+  // <dt>키</dt><dd>값</dd> 패턴
+  $('dl').each((_i, dl) => {
+    const $dl = $(dl);
+    $dl.find('dt').each((_j, dt) => {
+      const key = $(dt).text().trim();
+      const dd = $(dt).next('dd');
+      if (dd.length && key) {
+        const value = dd.text().replace(/\s+/g, ' ').trim();
+        if (value) {
+          result[key] = value;
+        }
+      }
+    });
+  });
+
+  // .label/.value 또는 .tit/.cont 패턴 (한국 정부 사이트 공통)
+  $('[class*=info] [class*=label], [class*=info] [class*=tit]').each((_i, el) => {
+    const key = $(el).text().trim();
+    const valueEl = $(el).next('[class*=value], [class*=cont], [class*=txt]');
+    if (valueEl.length && key) {
+      const value = valueEl.text().replace(/\s+/g, ' ').trim();
+      if (value) {
+        result[key] = value;
+      }
+    }
+  });
+
+  return result;
+}
+
+/** cheerio로 본문 영역 추출 (noise 제거) */
+function extractMainContentCheerio(html: string): string {
+  const $ = cheerio.load(html);
+
+  // noise 요소 제거
+  $('script, style, nav, header, footer, aside, .gnb, .lnb, .snb, #header, #footer, #gnb, .breadcrumb, .skip-nav, .top-banner').remove();
+
+  // 우선순위별 콘텐츠 영역 시도
+  const selectors = [
+    '.detail-content', '.detail_content', '.detailContent',
+    '.board-content', '.board_content', '.boardContent',
+    '.view-content', '.view_content', '.viewContent',
+    '.board-view', '.board_view', '.boardView',
+    '.bbs_view', '.bbs-view',
+    '.content-detail', '.content_detail',
+    '.view-area', '.view_area',
+    'article', 'main',
+    '[class*="content"][class*="detail"]',
+    '[class*="content"][class*="view"]',
+    '[id*="content"]',
+  ];
+
+  for (const selector of selectors) {
+    const el = $(selector);
+    if (el.length && el.text().trim().length > 200) {
+      return el.html() || '';
+    }
+  }
+
+  // 폴백: body 전체 (noise 이미 제거됨)
+  return $('body').html() || html;
+}
+
+/** HTML에서 텍스트 추출 (cheerio 기반) */
 function extractTextFromHtml(html: string): string {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-    .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<\/h[1-6]>/gi, '\n\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+  const $ = cheerio.load(html);
+
+  // 블록 요소 뒤에 줄바꿈 삽입
+  $('br').replaceWith('\n');
+  $('p, div, tr, li, h1, h2, h3, h4, h5, h6').each((_i, el) => {
+    $(el).append('\n');
+  });
+
+  return $.text()
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]+/g, ' ')
     .trim();
 }
 
-/** HTML 테이블에서 key-value 쌍 추출 */
-function extractTableData(html: string): Record<string, string> {
-  const result: Record<string, string> = {};
+/** cheerio로 섹션 헤더 기반 구조적 콘텐츠 추출 */
+function extractSectionContent($: cheerio.CheerioAPI, sectionHeaders: string[]): string {
+  const sections: string[] = [];
 
-  // <th>키</th><td>값</td> 패턴
-  const thTdRegex = /<th[^>]*>([\s\S]*?)<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/gi;
-  let match;
-  while ((match = thTdRegex.exec(html)) !== null) {
-    const key = match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-    const value = match[2]
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (key && value && value !== '-') {
-      result[key] = value;
+  // h3, h4, strong, b 태그에서 섹션 헤더 찾기
+  $('h3, h4, h5, strong, b, .tit, .title').each((_i, el) => {
+    const headerText = $(el).text().trim();
+    const isRelevant = sectionHeaders.some(h => headerText.includes(h));
+    if (isRelevant) {
+      // 헤더 이후의 형제 요소에서 콘텐츠 추출
+      let content = '';
+      let nextEl = $(el).parent().next();
+      // 같은 형제가 없으면 부모의 다음 형제 시도
+      if (!nextEl.length) {
+        nextEl = $(el).next();
+      }
+      for (let j = 0; j < 5 && nextEl.length; j++) {
+        const tag = nextEl.prop('tagName')?.toLowerCase() || '';
+        // 다음 헤더를 만나면 중단
+        if (['h3', 'h4', 'h5'].includes(tag)) break;
+        content += nextEl.text().trim() + '\n';
+        nextEl = nextEl.next();
+      }
+      if (content.trim()) {
+        sections.push(`[${headerText}]\n${content.trim()}`);
+      }
     }
-  }
+  });
 
-  // <dt>키</dt><dd>값</dd> 패턴
-  const dtDdRegex = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
-  while ((match = dtDdRegex.exec(html)) !== null) {
-    const key = match[1].replace(/<[^>]+>/g, '').trim();
-    const value = match[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (key && value) {
-      result[key] = value;
-    }
-  }
-
-  return result;
+  return sections.join('\n\n');
 }
 
-/** 본문 영역만 추출 (네비게이션/헤더/푸터 제외) */
-function extractMainContent(html: string): string {
-  // 우선순위별 콘텐츠 영역 셀렉터
-  const patterns = [
-    // bizinfo.go.kr
-    /<div[^>]*class="[^"]*detail[_-]?content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?:<div[^>]*class="[^"]*(?:btn|button|list)[^"]*")/i,
-    /<div[^>]*class="[^"]*board[_-]?content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?:<div[^>]*class="[^"]*(?:btn|button|list)[^"]*")/i,
-    /<div[^>]*class="[^"]*view[_-]?content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-    /<div[^>]*class="[^"]*board[_-]?view[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?:<div[^>]*class)/i,
-    // 일반적인 콘텐츠 영역
-    /<article[^>]*>([\s\S]*?)<\/article>/i,
-    /<main[^>]*>([\s\S]*?)<\/main>/i,
-    /<div[^>]*(?:id|class)="[^"]*(?:content|cont|detail|view)[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+// ─── 텍스트 전처리 ──────────────────────────────────────────
+
+/** 크롤링된 텍스트에서 한국 정부 공고 섹션을 사전 추출 (라인 기반, ReDoS 안전) */
+function preprocessCrawledText(text: string): {
+  structuredSections: string;
+  fullText: string;
+} {
+  const sectionHeaders: { name: string; keywords: string[] }[] = [
+    { name: '자격요건', keywords: ['자격요건', '신청자격', '지원자격', '참여자격', '지원대상자격', '응모자격', '참여대상'] },
+    { name: '필수서류', keywords: ['제출서류', '구비서류', '필수서류', '신청서류', '첨부서류', '제출서류목록'] },
+    { name: '평가기준', keywords: ['평가기준', '심사기준', '선정기준', '배점기준', '심사항목', '평가항목', '선정방법'] },
+    { name: '지원내용', keywords: ['지원내용', '사업내용', '지원사항', '지원규모'] },
+    { name: '선정절차', keywords: ['선정절차', '심사절차', '선발절차', '선정과정', '심사과정'] },
   ];
 
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match?.[1] && match[1].length > 300) {
-      return match[1];
+  const lines = text.split('\n');
+  const extracted: string[] = [];
+
+  for (const section of sectionHeaders) {
+    for (let i = 0; i < lines.length; i++) {
+      const lineNoSpace = lines[i].replace(/\s/g, '');
+      const matched = section.keywords.some(kw => lineNoSpace.includes(kw));
+      if (!matched) continue;
+
+      // 헤더 이후 줄들을 수집 (다음 헤더나 빈 줄 2개 연속까지, 최대 30줄)
+      const contentLines: string[] = [];
+      for (let j = i + 1; j < lines.length && j < i + 31; j++) {
+        const line = lines[j].trim();
+        // 다음 섹션 헤더를 만나면 중단
+        const isNextHeader = sectionHeaders.some(s =>
+          s.keywords.some(kw => line.replace(/\s/g, '').includes(kw)) && s.name !== section.name
+        );
+        if (isNextHeader) break;
+        if (line === '' && contentLines.length > 0 && contentLines[contentLines.length - 1] === '') break;
+        contentLines.push(line);
+      }
+      const content = contentLines.join('\n').trim();
+      if (content.length > 10) {
+        extracted.push(`[${section.name}]\n${content}`);
+        break;
+      }
     }
   }
 
-  // 폴백: body 전체
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  return bodyMatch?.[1] || html;
+  return {
+    structuredSections: extracted.join('\n\n'),
+    fullText: text.substring(0, 15000),
+  };
+}
+
+// ─── PDF 텍스트 추출 ─────────────────────────────────────────
+
+/** PDF 버퍼에서 텍스트 추출 (pdf-parse v2 API) */
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  try {
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    const textResult = await parser.getText();
+    await parser.destroy();
+    return textResult.text || '';
+  } catch (e) {
+    console.warn('[deepCrawler] PDF 텍스트 추출 실패:', e);
+    return '';
+  }
 }
 
 // ─── 사이트별 어댑터 ────────────────────────────────────────
@@ -165,10 +284,9 @@ class BizinfoAdapter implements CrawlAdapter {
   }
 
   extractMetadata(html: string): Record<string, string> {
-    const tableData = extractTableData(html);
+    const tableData = extractTableDataCheerio(html);
     const metadata: Record<string, string> = {};
 
-    // 키 매핑
     const keyMap: Record<string, string> = {
       '사업명': 'programName',
       '공고명': 'programName',
@@ -192,6 +310,14 @@ class BizinfoAdapter implements CrawlAdapter {
       '참여제한': 'exclusionCriteria',
       '유의사항': 'specialNotes',
       '공고일': 'announcementDate',
+      // Phase 4-2 추가: 자격요건 관련 키
+      '자격요건': 'eligibilityCriteria',
+      '신청자격': 'eligibilityCriteria',
+      '참여자격': 'eligibilityCriteria',
+      '지원자격': 'eligibilityCriteria',
+      '구비서류': 'requiredDocuments',
+      '필수서류': 'requiredDocuments',
+      '신청서류': 'requiredDocuments',
     };
 
     for (const [rawKey, value] of Object.entries(tableData)) {
@@ -203,16 +329,28 @@ class BizinfoAdapter implements CrawlAdapter {
       }
     }
 
+    // cheerio 기반 섹션 추출 (h3/h4/strong 헤더 → 다음 형제 콘텐츠)
+    const $ = cheerio.load(html);
+    const sectionHeaders = [
+      '자격요건', '신청자격', '참여자격', '지원대상',
+      '제출서류', '구비서류', '필수서류',
+      '평가기준', '심사기준', '선정기준',
+    ];
+    const sectionContent = extractSectionContent($, sectionHeaders);
+    if (sectionContent) {
+      metadata['_sectionContent'] = sectionContent;
+    }
+
     return metadata;
   }
 
   extractContent(html: string): string {
-    const mainContent = extractMainContent(html);
+    const mainContent = extractMainContentCheerio(html);
     return extractTextFromHtml(mainContent);
   }
 
   extractAttachments(html: string, baseUrl: string): AttachmentLink[] {
-    return extractAttachmentLinks(html, baseUrl);
+    return extractAttachmentLinksCheerio(html, baseUrl);
   }
 }
 
@@ -223,16 +361,44 @@ class KStartupAdapter implements CrawlAdapter {
   }
 
   extractMetadata(html: string): Record<string, string> {
-    return extractTableData(html);
+    const $ = cheerio.load(html);
+    const metadata = extractTableDataCheerio(html);
+
+    // K-Startup 특유의 div/table 구조 파싱
+    // .tbl-view, .info-tbl 패턴
+    $('.tbl-view th, .info-tbl th, .tbl_view th').each((_i, el) => {
+      const key = $(el).text().trim();
+      const td = $(el).next('td');
+      if (td.length && key) {
+        const value = td.text().replace(/\s+/g, ' ').trim();
+        if (value && value !== '-') {
+          metadata[key] = value;
+        }
+      }
+    });
+
+    // 섹션 헤더 기반 추출
+    const sectionHeaders = [
+      '자격요건', '신청자격', '참여자격', '지원대상',
+      '제출서류', '구비서류', '필수서류',
+      '평가기준', '심사기준', '선정기준',
+      '지원내용', '사업내용',
+    ];
+    const sectionContent = extractSectionContent($, sectionHeaders);
+    if (sectionContent) {
+      metadata['_sectionContent'] = sectionContent;
+    }
+
+    return metadata;
   }
 
   extractContent(html: string): string {
-    const mainContent = extractMainContent(html);
+    const mainContent = extractMainContentCheerio(html);
     return extractTextFromHtml(mainContent);
   }
 
   extractAttachments(html: string, baseUrl: string): AttachmentLink[] {
-    return extractAttachmentLinks(html, baseUrl);
+    return extractAttachmentLinksCheerio(html, baseUrl);
   }
 }
 
@@ -243,16 +409,30 @@ class GenericAdapter implements CrawlAdapter {
   }
 
   extractMetadata(html: string): Record<string, string> {
-    return extractTableData(html);
+    const metadata = extractTableDataCheerio(html);
+
+    // 섹션 헤더 기반 추출
+    const $ = cheerio.load(html);
+    const sectionHeaders = [
+      '자격요건', '신청자격', '참여자격', '지원대상',
+      '제출서류', '구비서류', '필수서류',
+      '평가기준', '심사기준', '선정기준',
+    ];
+    const sectionContent = extractSectionContent($, sectionHeaders);
+    if (sectionContent) {
+      metadata['_sectionContent'] = sectionContent;
+    }
+
+    return metadata;
   }
 
   extractContent(html: string): string {
-    const mainContent = extractMainContent(html);
+    const mainContent = extractMainContentCheerio(html);
     return extractTextFromHtml(mainContent);
   }
 
   extractAttachments(html: string, baseUrl: string): AttachmentLink[] {
-    return extractAttachmentLinks(html, baseUrl);
+    return extractAttachmentLinksCheerio(html, baseUrl);
   }
 }
 
@@ -269,42 +449,61 @@ function getAdapter(url: string): CrawlAdapter {
 
 // ─── 첨부파일 처리 ──────────────────────────────────────────
 
-/** HTML에서 첨부파일 링크 추출 */
-export function extractAttachmentLinks(html: string, baseUrl: string): AttachmentLink[] {
+/** cheerio로 HTML에서 첨부파일 링크 추출 */
+function extractAttachmentLinksCheerio(html: string, baseUrl: string): AttachmentLink[] {
+  const $ = cheerio.load(html);
   const links: AttachmentLink[] = [];
   const seenUrls = new Set<string>();
   const extensions = ['pdf', 'hwp', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'zip'];
-  const extPattern = extensions.join('|');
 
-  // 1. 직접 파일 링크 <a href="...파일.pdf">
-  const anchorRegex = new RegExp(
-    `<a[^>]+href=["']([^"']+\\.(?:${extPattern}))["'][^>]*>([^<]*)<\\/a>`,
-    'gi'
-  );
-  let match: RegExpExecArray | null;
-  while ((match = anchorRegex.exec(html)) !== null) {
-    addLink(links, seenUrls, match[1], match[2].trim(), baseUrl);
-  }
+  // 1. <a> 태그 href에 파일 확장자가 있는 링크
+  $('a[href]').each((_i, el) => {
+    const href = $(el).attr('href') || '';
+    const text = $(el).text().trim();
+    const extMatch = href.match(/\.([a-zA-Z]+)(?:\?|$)/);
+    if (extMatch && extensions.includes(extMatch[1].toLowerCase())) {
+      addLink(links, seenUrls, href, text, baseUrl);
+    }
+  });
 
   // 2. 다운로드 API 링크
-  const downloadRegex = /href=["']([^"']*(?:download|fileDown|filedown|attach|getFile|dnFile)[^"']*)["']/gi;
-  while ((match = downloadRegex.exec(html)) !== null) {
-    addLink(links, seenUrls, match[1], '', baseUrl);
-  }
+  $('a[href*="download"], a[href*="fileDown"], a[href*="attach"], a[href*="getFile"], a[href*="dnFile"]').each((_i, el) => {
+    const href = $(el).attr('href') || '';
+    const text = $(el).text().trim();
+    addLink(links, seenUrls, href, text, baseUrl);
+  });
 
-  // 3. onclick 이벤트에 숨겨진 다운로드
-  const onclickRegex = /onclick=["'][^"']*(?:download|fileDown|fnDown)\s*\(\s*['"]([^'"]+)['"]/gi;
-  while ((match = onclickRegex.exec(html)) !== null) {
-    addLink(links, seenUrls, match[1], '', baseUrl);
-  }
+  // 3. onclick에 숨겨진 다운로드
+  $('[onclick*="download"], [onclick*="fileDown"], [onclick*="fnDown"]').each((_i, el) => {
+    const onclick = $(el).attr('onclick') || '';
+    const urlMatch = onclick.match(/['"]([^'"]+)['"]/);
+    if (urlMatch) {
+      addLink(links, seenUrls, urlMatch[1], $(el).text().trim(), baseUrl);
+    }
+  });
 
-  // 4. data 속성에 숨겨진 URL
-  const dataAttrRegex = /data-(?:file|download|url|href)=["']([^"']+\.(?:pdf|hwp|docx?|xlsx?|zip))["']/gi;
-  while ((match = dataAttrRegex.exec(html)) !== null) {
-    addLink(links, seenUrls, match[1], '', baseUrl);
-  }
+  // 4. data 속성
+  $('[data-file], [data-download], [data-url]').each((_i, el) => {
+    const url = $(el).attr('data-file') || $(el).attr('data-download') || $(el).attr('data-url') || '';
+    if (url) {
+      addLink(links, seenUrls, url, $(el).text().trim(), baseUrl);
+    }
+  });
+
+  // 5. .file-list, .attach-list 등의 파일 목록 영역
+  $('.file-list a, .attach-list a, .file_list a, .attach_list a, .file-area a, .file_area a').each((_i, el) => {
+    const href = $(el).attr('href') || '';
+    if (href) {
+      addLink(links, seenUrls, href, $(el).text().trim(), baseUrl);
+    }
+  });
 
   return links;
+}
+
+/** 레거시 regex 기반 첨부파일 링크 추출 (하위호환) */
+export function extractAttachmentLinks(html: string, baseUrl: string): AttachmentLink[] {
+  return extractAttachmentLinksCheerio(html, baseUrl);
 }
 
 function addLink(
@@ -382,9 +581,16 @@ async function enrichWithAI(
     apiData.requiredDocuments?.length ? `서류: ${apiData.requiredDocuments.join(', ')}` : '',
     apiData.regions?.length ? `지역: ${apiData.regions.join(', ')}` : '',
     apiData.matchingRatio ? `매칭비율: ${apiData.matchingRatio}` : '',
+    apiData.eligibilityCriteria?.length ? `자격요건: ${apiData.eligibilityCriteria.join(', ')}` : '',
+    apiData.exclusionCriteria?.length ? `제외대상: ${apiData.exclusionCriteria.join(', ')}` : '',
   ].filter(Boolean).join('\n');
 
-  const metadataSummary = Object.entries(crawledMetadata)
+  // 섹션 콘텐츠가 메타데이터에 포함되어 있으면 분리
+  const sectionContent = crawledMetadata['_sectionContent'] || '';
+  const cleanMetadata = { ...crawledMetadata };
+  delete cleanMetadata['_sectionContent'];
+
+  const metadataSummary = Object.entries(cleanMetadata)
     .map(([k, v]) => `${k}: ${v}`)
     .join('\n');
 
@@ -392,8 +598,8 @@ async function enrichWithAI(
     ? attachmentTexts.join('\n\n---\n\n').substring(0, 10000)
     : '';
 
-  // 크롤링 텍스트를 적절한 길이로 제한
-  const trimmedCrawlText = crawledText.substring(0, 20000);
+  // 텍스트 전처리: 구조화된 섹션 추출
+  const { structuredSections, fullText } = preprocessCrawledText(crawledText);
 
   const prompt = `당신은 정부 지원사업 공고 분석 전문가입니다.
 
@@ -405,13 +611,23 @@ ${apiSummary || '(없음)'}
 ### 2. 웹페이지 메타데이터 (테이블에서 추출):
 ${metadataSummary || '(없음)'}
 
+${sectionContent ? `### 2-1. 웹페이지 섹션별 추출 (헤더 기반):\n${sectionContent}\n` : ''}
+
+${structuredSections ? `### 2-2. 본문 텍스트에서 사전 추출된 섹션:\n${structuredSections}\n` : ''}
+
 ### 3. 웹페이지 본문 텍스트:
-${trimmedCrawlText || '(없음)'}
+${fullText || '(없음)'}
 
 ${attachmentSummary ? `### 4. 첨부파일 텍스트:\n${attachmentSummary}` : ''}
 
 ## 작업
 위 데이터를 종합하여 아래 JSON 형식으로 공고 정보를 **최대한 상세하게** 추출하세요.
+
+## 추출 힌트 (중요!)
+- **자격요건(eligibilityCriteria)**: '지원 대상', '참여 자격', '신청 자격', '자격요건', '참여대상' 등의 제목 아래에 나열됩니다. 이 필드를 빈 배열로 두지 마세요.
+- **필수서류(requiredDocuments)**: '제출 서류', '구비 서류', '필수 서류', '신청 서류', '첨부서류' 등의 제목 아래에 나열됩니다. 이 필드를 빈 배열로 두지 마세요.
+- **평가기준(evaluationCriteria)**: '평가 기준', '심사 기준', '선정 기준', '배점' 등의 제목 아래에 나열됩니다.
+- 원문에서 리스트 마커(○, ◦, ▪, ①②③, 가나다, 1) 2) 3) 등)로 나열된 항목을 각각 개별 배열 항목으로 추출하세요.
 
 ## 규칙
 1. 정보가 여러 소스에 있으면 가장 상세한 내용을 선택
@@ -423,6 +639,7 @@ ${attachmentSummary ? `### 4. 첨부파일 텍스트:\n${attachmentSummary}` : '
 7. 없는 정보는 빈 문자열 또는 빈 배열로 유지
 8. categories와 keywords는 반드시 이 공고 사업의 분류에 해당하는 것만 포함. 사이트 메뉴, 네비게이션 항목(업무계획, 기관소개, 연혁, MI소개, 정보공개 등)은 절대 포함하지 말 것
 9. regions는 실제 사업 대상 지역만 포함 (전국, 서울, 인천 등)
+10. eligibilityCriteria와 requiredDocuments는 가장 중요한 필드입니다. 원문 어디에든 관련 정보가 있으면 반드시 추출하세요.
 
 반드시 아래 JSON 형식만 반환하세요:
 {
@@ -480,38 +697,42 @@ ${attachmentSummary ? `### 4. 첨부파일 텍스트:\n${attachmentSummary}` : '
     if (crawledText.length > 100) dataSources.push('crawl');
     if (metadataSummary.length > 20) dataSources.push('metadata');
     if (attachmentSummary.length > 100) dataSources.push('attachment');
+    if (sectionContent.length > 20) dataSources.push('section');
+
+    // 런타임 배열 검증 헬퍼
+    const asArray = (v: unknown): string[] => Array.isArray(v) ? v.map(String) : [];
+    const asStr = (v: unknown): string => typeof v === 'string' ? v : '';
 
     return {
-      department: (parsed.department as string) || '',
-      supportScale: (parsed.supportScale as string) || '',
-      targetAudience: (parsed.targetAudience as string) || '',
-      eligibilityCriteria: (parsed.eligibilityCriteria as string[]) || [],
-      requiredDocuments: (parsed.requiredDocuments as string[]) || [],
+      department: asStr(parsed.department),
+      supportScale: asStr(parsed.supportScale),
+      targetAudience: asStr(parsed.targetAudience),
+      eligibilityCriteria: asArray(parsed.eligibilityCriteria),
+      requiredDocuments: asArray(parsed.requiredDocuments),
       applicationPeriod: {
-        start: (parsed.applicationPeriod as Record<string, string>)?.start || '',
-        end: (parsed.applicationPeriod as Record<string, string>)?.end || '',
+        start: asStr((parsed.applicationPeriod as Record<string, unknown>)?.start),
+        end: asStr((parsed.applicationPeriod as Record<string, unknown>)?.end),
       },
-      evaluationCriteria: (parsed.evaluationCriteria as string[]) || [],
-      contactInfo: (parsed.contactInfo as string) || '',
-      fullDescription: (parsed.fullDescription as string) || '',
-      applicationMethod: (parsed.applicationMethod as string) || '',
-      specialNotes: (parsed.specialNotes as string[]) || [],
-      regions: (parsed.regions as string[]) || [],
-      categories: (parsed.categories as string[]) || [],
-      // 고도화 추가 필드
-      exclusionCriteria: (parsed.exclusionCriteria as string[]) || [],
-      objectives: (parsed.objectives as string[]) || [],
-      supportDetails: (parsed.supportDetails as string[]) || [],
-      matchingRatio: (parsed.matchingRatio as string) || '',
-      totalBudget: (parsed.totalBudget as string) || '',
-      selectionProcess: (parsed.selectionProcess as string[]) || [],
-      announcementDate: (parsed.announcementDate as string) || '',
-      selectionDate: (parsed.selectionDate as string) || '',
-      projectPeriod: (parsed.projectPeriod as string) || '',
-      applicationUrl: (parsed.applicationUrl as string) || '',
-      contactPhone: (parsed.contactPhone as string) || '',
-      contactEmail: (parsed.contactEmail as string) || '',
-      keywords: (parsed.keywords as string[]) || [],
+      evaluationCriteria: asArray(parsed.evaluationCriteria),
+      contactInfo: asStr(parsed.contactInfo),
+      fullDescription: asStr(parsed.fullDescription),
+      applicationMethod: asStr(parsed.applicationMethod),
+      specialNotes: asArray(parsed.specialNotes),
+      regions: asArray(parsed.regions),
+      categories: asArray(parsed.categories),
+      exclusionCriteria: asArray(parsed.exclusionCriteria),
+      objectives: asArray(parsed.objectives),
+      supportDetails: asArray(parsed.supportDetails),
+      matchingRatio: asStr(parsed.matchingRatio),
+      totalBudget: asStr(parsed.totalBudget),
+      selectionProcess: asArray(parsed.selectionProcess),
+      announcementDate: asStr(parsed.announcementDate),
+      selectionDate: asStr(parsed.selectionDate),
+      projectPeriod: asStr(parsed.projectPeriod),
+      applicationUrl: asStr(parsed.applicationUrl),
+      contactPhone: asStr(parsed.contactPhone),
+      contactEmail: asStr(parsed.contactEmail),
+      keywords: asArray(parsed.keywords),
       dataQualityScore: qualityScore,
       dataSources,
     };
@@ -566,42 +787,51 @@ export async function enrichFromApiOnly(
     (apiData.evaluationCriteria?.length ?? 0) > 0
   );
 
-  // API에 풍부한 설명 + 구조화 필드도 있으면 AI 없이 직접 매핑
-  if (apiData.fullDescription && apiData.fullDescription.length > 200 && hasStructuredData) {
-    return {
-      department: apiData.department || '',
-      supportScale: apiData.supportScale || '',
-      targetAudience: apiData.targetAudience || '',
-      eligibilityCriteria: apiData.eligibilityCriteria || [],
-      requiredDocuments: apiData.requiredDocuments || [],
-      applicationPeriod: apiData.applicationPeriod || { start: '', end: '' },
-      evaluationCriteria: apiData.evaluationCriteria || [],
-      contactInfo: apiData.contactInfo || '',
-      fullDescription: apiData.fullDescription,
-      applicationMethod: apiData.applicationMethod || '',
-      specialNotes: apiData.specialNotes || [],
-      regions: apiData.regions || [],
-      categories: apiData.categories || [],
-      exclusionCriteria: apiData.exclusionCriteria || [],
-      objectives: apiData.objectives || [],
-      supportDetails: apiData.supportDetails || [],
-      matchingRatio: apiData.matchingRatio || '',
-      totalBudget: apiData.totalBudget || '',
-      selectionProcess: apiData.selectionProcess || [],
-      announcementDate: apiData.announcementDate || '',
-      selectionDate: apiData.selectionDate || '',
-      projectPeriod: apiData.projectPeriod || '',
-      applicationUrl: apiData.applicationUrl || '',
-      contactPhone: apiData.contactPhone || '',
-      contactEmail: apiData.contactEmail || '',
-      keywords: apiData.keywords || [],
-      dataQualityScore: 50,
-      dataSources: ['api'],
-    };
+  const descLength = (apiData.fullDescription || apiData.description || '').length;
+
+  // 직접 매핑 함수 (AI 없이 API 필드를 DeepCrawlResult로 변환)
+  const directMap = (qualityScore: number): DeepCrawlResult => ({
+    department: apiData.department || '',
+    supportScale: apiData.supportScale || '',
+    targetAudience: apiData.targetAudience || '',
+    eligibilityCriteria: apiData.eligibilityCriteria || [],
+    requiredDocuments: apiData.requiredDocuments || [],
+    applicationPeriod: apiData.applicationPeriod || { start: '', end: '' },
+    evaluationCriteria: apiData.evaluationCriteria || [],
+    contactInfo: apiData.contactInfo || '',
+    fullDescription: apiData.fullDescription || apiData.description || '',
+    applicationMethod: apiData.applicationMethod || '',
+    specialNotes: apiData.specialNotes || [],
+    regions: apiData.regions || [],
+    categories: apiData.categories || [],
+    exclusionCriteria: apiData.exclusionCriteria || [],
+    objectives: apiData.objectives || [],
+    supportDetails: apiData.supportDetails || [],
+    matchingRatio: apiData.matchingRatio || '',
+    totalBudget: apiData.totalBudget || '',
+    selectionProcess: apiData.selectionProcess || [],
+    announcementDate: apiData.announcementDate || '',
+    selectionDate: apiData.selectionDate || '',
+    projectPeriod: apiData.projectPeriod || '',
+    applicationUrl: apiData.applicationUrl || '',
+    contactPhone: apiData.contactPhone || '',
+    contactEmail: apiData.contactEmail || '',
+    keywords: apiData.keywords || [],
+    dataQualityScore: qualityScore,
+    dataSources: ['api'],
+  });
+
+  // Case 1: 풍부한 설명 + 구조화 필드 → AI 없이 직접 매핑
+  if (descLength > 200 && hasStructuredData) {
+    return directMap(50);
   }
 
-  // 구조화 필드가 비어있으면 AI로 비구조화 텍스트에서 추출
-  // fullDescription을 crawledText로 전달하여 AI가 파싱할 수 있게 함
+  // Case 2: 설명이 너무 짧음 (< 50자) → AI 호출해도 효과 없음, 직접 매핑
+  if (descLength < 50) {
+    return directMap(15);
+  }
+
+  // Case 3: 설명이 있음 (50~200자) 또는 구조화 필드 없음 → AI로 텍스트에서 추출
   const textForAI = apiData.fullDescription || apiData.description || '';
   return enrichWithAI(apiData, textForAI, {}, []);
 }
@@ -727,7 +957,7 @@ export async function deepCrawlProgram(
 
 /**
  * 단일 프로그램 전체 딥크롤 파이프라인
- * (API 데이터 + 상세페이지 크롤 + 첨부파일 다운로드 + AI 재가공)
+ * (API 데이터 + 상세페이지 크롤 + 첨부파일 다운로드/PDF 추출 + AI 재가공)
  */
 export async function deepCrawlProgramFull(
   detailUrl: string,
@@ -782,37 +1012,15 @@ export async function deepCrawlProgramFull(
     console.warn(`[deepCrawler] 페이지 요청 실패: ${detailUrl}`, e);
   }
 
-  // 2. 크롤링 + AI 재가공
-  let crawlResult: DeepCrawlResult | null = null;
+  // 어댑터 1회 선택 (첨부파일 + 콘텐츠 추출에 공유)
+  const adapter = html ? getAdapter(detailUrl) : null;
 
-  if (html && html.length > 100) {
+  // 2. 첨부파일 추출 및 다운로드 (크롤링 전에 수행 → PDF 텍스트를 AI에 전달)
+  const attachmentTexts: string[] = [];
+
+  if (html && adapter) {
     try {
-      console.log(`[deepCrawler] 딥크롤 시작: ${programName}`);
-      const adapter = getAdapter(detailUrl);
-      const metadata = adapter.extractMetadata(html);
-      const content = adapter.extractContent(html);
-
-      if (content.length >= 50 || apiData?.fullDescription) {
-        crawlResult = await enrichWithAI(apiData || {}, content, metadata, []);
-        console.log(`[deepCrawler] 딥크롤 완료: ${programName} (품질: ${crawlResult.dataQualityScore})`);
-      } else {
-        console.warn(`[deepCrawler] 내용 부족 (${content.length}자), API 폴백`);
-        if (apiData) crawlResult = await enrichFromApiOnly(apiData);
-      }
-    } catch (e) {
-      console.error(`[deepCrawler] 파싱/AI 실패 (${programName}):`, e);
-      if (apiData) crawlResult = await enrichFromApiOnly(apiData);
-    }
-  } else {
-    // HTML 가져오기 실패 → API 데이터 폴백
-    if (apiData) crawlResult = await enrichFromApiOnly(apiData);
-  }
-
-  // 3. 첨부파일 추출 및 다운로드 (이미 가져온 HTML 재사용)
-  if (html) {
-    try {
-      // API에서 제공한 첨부파일 URL도 포함
-      const links = extractAttachmentLinks(html, detailUrl);
+      const links = adapter.extractAttachments(html, detailUrl);
 
       // API에서 이미 알고 있는 첨부파일 URL 추가
       if (apiData?.attachmentUrls) {
@@ -826,12 +1034,21 @@ export async function deepCrawlProgramFull(
 
       for (let i = 0; i < links.length && i < 5; i++) {
         const link = links[i];
-        const ext = link.filename.split('.').pop() || 'pdf';
+        const ext = link.filename.split('.').pop()?.toLowerCase() || 'pdf';
         const savePath = path.join('attachments', 'pdfs', `${slug}-${i}.${ext}`);
 
         const buffer = await downloadAttachment(link.url, savePath);
         if (buffer) {
           attachments.push({ path: savePath, name: link.filename, analyzed: false });
+
+          // PDF이면 텍스트 추출
+          if (ext === 'pdf') {
+            const pdfText = await extractTextFromPdf(buffer);
+            if (pdfText.length > 50) {
+              attachmentTexts.push(pdfText.substring(0, 8000));
+              console.log(`[deepCrawler] PDF 텍스트 추출 성공: ${link.filename} (${pdfText.length}자)`);
+            }
+          }
         }
       }
     } catch (e) {
@@ -839,22 +1056,60 @@ export async function deepCrawlProgramFull(
     }
   }
 
-  // 4. API 첨부파일 URL이 있고 HTML에서 못 찾은 경우 직접 다운로드
+  // API 첨부파일 URL이 있고 HTML에서 못 찾은 경우 직접 다운로드
   if (attachments.length === 0 && apiData?.attachmentUrls?.length) {
     for (let i = 0; i < apiData.attachmentUrls.length && i < 5; i++) {
       const url = apiData.attachmentUrls[i];
       try {
         const filename = decodeURIComponent(url.split('/').pop() || 'attachment');
-        const ext = filename.split('.').pop() || 'pdf';
+        const ext = filename.split('.').pop()?.toLowerCase() || 'pdf';
         const savePath = path.join('attachments', 'pdfs', `${slug}-${i}.${ext}`);
         const buffer = await downloadAttachment(url, savePath);
         if (buffer) {
           attachments.push({ path: savePath, name: filename, analyzed: false });
+
+          // PDF이면 텍스트 추출
+          if (ext === 'pdf') {
+            const pdfText = await extractTextFromPdf(buffer);
+            if (pdfText.length > 50) {
+              attachmentTexts.push(pdfText.substring(0, 8000));
+            }
+          }
         }
       } catch (e) {
         console.warn(`[deepCrawler] API 첨부파일 다운로드 실패: ${url}`, e);
       }
     }
+  }
+
+  // 3. 크롤링 + AI 재가공 (PDF 텍스트도 함께 전달)
+  let crawlResult: DeepCrawlResult | null = null;
+
+  if (html && html.length > 100 && adapter) {
+    try {
+      console.log(`[deepCrawler] 딥크롤 시작: ${programName}`);
+      const metadata = adapter.extractMetadata(html);
+      const content = adapter.extractContent(html);
+
+      if (content.length >= 50 || apiData?.fullDescription) {
+        crawlResult = await enrichWithAI(apiData || {}, content, metadata, attachmentTexts);
+        console.log(`[deepCrawler] 딥크롤 완료: ${programName} (품질: ${crawlResult.dataQualityScore})`);
+      } else {
+        console.warn(`[deepCrawler] 내용 부족 (${content.length}자), API 폴백`);
+        if (apiData) {
+          // PDF 텍스트가 있으면 AI에 함께 전달
+          crawlResult = attachmentTexts.length > 0
+            ? await enrichWithAI(apiData, '', {}, attachmentTexts)
+            : await enrichFromApiOnly(apiData);
+        }
+      }
+    } catch (e) {
+      console.error(`[deepCrawler] 파싱/AI 실패 (${programName}):`, e);
+      if (apiData) crawlResult = await enrichFromApiOnly(apiData);
+    }
+  } else {
+    // HTML 가져오기 실패 → API 데이터 폴백
+    if (apiData) crawlResult = await enrichFromApiOnly(apiData);
   }
 
   return { crawlResult, attachments };
