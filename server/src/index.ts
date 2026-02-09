@@ -1,4 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const serverRoot = path.resolve(__dirname, '..');
+
+// .env.local 우선, .env 폴백
+dotenv.config({ path: path.join(serverRoot, '.env.local') });
+dotenv.config({ path: path.join(serverRoot, '.env') });
 import express from 'express';
 import { createCorsMiddleware } from './middleware/cors.js';
 import healthRouter from './routes/health.js';

@@ -53,7 +53,7 @@ function programToFrontmatter(
     supportScale: deepCrawl?.supportScale || p.supportScale || '',
     targetAudience: deepCrawl?.targetAudience || p.targetAudience || '',
     officialEndDate: p.officialEndDate,
-    applicationStart: deepCrawl?.applicationPeriod?.start || '',
+    applicationStart: deepCrawl?.applicationPeriod?.start || p.applicationPeriod?.start || '',
     internalDeadline: p.internalDeadline,
     expectedGrant: p.expectedGrant,
     fitScore: 0,
@@ -64,18 +64,34 @@ function programToFrontmatter(
     analyzedAt: '',
     deepCrawledAt: deepCrawl ? new Date().toISOString() : '',
     status: deepCrawl ? 'deep_crawled' : 'synced',
-    regions: deepCrawl?.regions || [],
-    categories: deepCrawl?.categories || [],
-    tags: ['program', p.supportType, ...(deepCrawl?.categories || [])],
+    regions: deepCrawl?.regions || p.regions || [],
+    categories: deepCrawl?.categories || p.categories || [],
+    tags: ['program', p.supportType, ...(deepCrawl?.categories || p.categories || [])],
     requiredDocuments: deepCrawl?.requiredDocuments || p.requiredDocuments || [],
-    evaluationCriteria: deepCrawl?.evaluationCriteria || [],
-    applicationMethod: deepCrawl?.applicationMethod || '',
-    contactInfo: deepCrawl?.contactInfo || '',
+    evaluationCriteria: deepCrawl?.evaluationCriteria || p.evaluationCriteria || [],
+    applicationMethod: deepCrawl?.applicationMethod || p.applicationMethod || '',
+    contactInfo: deepCrawl?.contactInfo || p.contactInfo || '',
     attachments: (attachments || []).map(a => ({
       path: a.path,
       name: a.name,
       analyzed: a.analyzed,
     })),
+    // 고도화 추가 필드
+    matchingRatio: deepCrawl?.matchingRatio || p.matchingRatio || '',
+    totalBudget: deepCrawl?.totalBudget || p.totalBudget || '',
+    projectPeriod: deepCrawl?.projectPeriod || p.projectPeriod || '',
+    selectionDate: deepCrawl?.selectionDate || p.selectionDate || '',
+    announcementDate: deepCrawl?.announcementDate || p.announcementDate || '',
+    applicationUrl: deepCrawl?.applicationUrl || p.applicationUrl || '',
+    contactPhone: deepCrawl?.contactPhone || p.contactPhone || '',
+    contactEmail: deepCrawl?.contactEmail || p.contactEmail || '',
+    keywords: deepCrawl?.keywords || p.keywords || [],
+    dataQualityScore: deepCrawl?.dataQualityScore || 0,
+    dataSources: deepCrawl?.dataSources || [p.source],
+    // API 원본 데이터에서 추가 필드 (프론트 표시용)
+    exclusionCriteria: deepCrawl?.exclusionCriteria || p.exclusionCriteria || [],
+    specialNotes: deepCrawl?.specialNotes || p.specialNotes || [],
+    fullDescription: deepCrawl?.fullDescription || p.fullDescription || p.description || '',
   };
   return fm;
 }
@@ -86,57 +102,120 @@ function programToMarkdown(
   attachments?: { path: string; name: string; analyzed: boolean }[]
 ): string {
   const grantText = (p.expectedGrant / 100000000).toFixed(1);
-  const scale = deepCrawl?.supportScale || `${grantText}억원`;
-  const period = deepCrawl?.applicationPeriod;
+  const scale = deepCrawl?.supportScale || p.supportScale || `${grantText}억원`;
+  const period = deepCrawl?.applicationPeriod || p.applicationPeriod;
   const periodText = period?.start && period?.end
     ? `${period.start} ~ ${period.end}`
     : p.officialEndDate;
+  const dept = deepCrawl?.department || p.department || '';
+  const matching = deepCrawl?.matchingRatio || p.matchingRatio || '';
+  const appMethod = deepCrawl?.applicationMethod || p.applicationMethod || '공고문 참조';
+  const appUrl = deepCrawl?.applicationUrl || '';
 
   let md = `# ${p.programName}
 
 > [!info] 기본 정보
-> - **주관**: ${p.organizer}${deepCrawl?.department ? ` / ${deepCrawl.department}` : ''}
-> - **지원금**: ${scale} | **마감**: ${p.officialEndDate}
+> - **주관**: ${p.organizer}${dept ? ` / ${dept}` : ''}
+> - **지원 규모**: ${scale}${matching ? ` (${matching})` : ''}
+> - **마감**: ${p.officialEndDate}
 > - **신청기간**: ${periodText}
-> - **신청방법**: ${deepCrawl?.applicationMethod || '공고문 참조'}
-
-## 지원 대상
-${deepCrawl?.targetAudience || '(AI 분석 후 채워짐)'}
-
-## 자격요건
-${deepCrawl?.eligibilityCriteria?.length
-    ? deepCrawl.eligibilityCriteria.map(c => `- ${c}`).join('\n')
-    : '(AI 분석 후 채워짐)'}
-
-## 필수서류
-${deepCrawl?.requiredDocuments?.length
-    ? deepCrawl.requiredDocuments.map(d => `- ${d}`).join('\n')
-    : '(AI 분석 후 채워짐)'}
-
-## 평가기준
-${deepCrawl?.evaluationCriteria?.length
-    ? deepCrawl.evaluationCriteria.map(e => `- ${e}`).join('\n')
-    : '(AI 분석 후 채워짐)'}
-
-## 사업 상세 설명
-${deepCrawl?.fullDescription || p.description || '상세 내용은 공고문을 참조하세요.'}
+> - **신청방법**: ${appMethod}${appUrl ? ` ([온라인 신청](${appUrl}))` : ''}
 `;
 
-  if (deepCrawl?.specialNotes?.length) {
-    md += `\n## 특이사항\n${deepCrawl.specialNotes.map(n => `- ${n}`).join('\n')}\n`;
+  // 사업 목적
+  const objectives = deepCrawl?.objectives || [];
+  if (objectives.length > 0) {
+    md += `\n## 사업 목적\n${objectives.map(o => `- ${o}`).join('\n')}\n`;
   }
 
+  // 지원 대상
+  const target = deepCrawl?.targetAudience || p.targetAudience || '';
+  md += `\n## 지원 대상\n${target || '(정보 수집 중)'}\n`;
+
+  // 자격요건
+  const criteria = deepCrawl?.eligibilityCriteria || p.eligibilityCriteria || [];
+  md += `\n## 자격요건\n${criteria.length
+    ? criteria.map(c => `- ${c}`).join('\n')
+    : '(정보 수집 중)'}\n`;
+
+  // 참여 제한 대상
+  const exclusion = deepCrawl?.exclusionCriteria || [];
+  if (exclusion.length > 0) {
+    md += `\n## 참여 제한 대상\n${exclusion.map(e => `- ${e}`).join('\n')}\n`;
+  }
+
+  // 지원 내용 상세
+  const supportDetails = deepCrawl?.supportDetails || [];
+  if (supportDetails.length > 0) {
+    md += `\n## 지원 내용\n${supportDetails.map(s => `- ${s}`).join('\n')}\n`;
+  }
+
+  // 사업 상세 설명
+  const fullDesc = deepCrawl?.fullDescription || p.fullDescription || p.description || '';
+  md += `\n## 사업 상세 설명\n${fullDesc || '상세 내용은 공고문을 참조하세요.'}\n`;
+
+  // 선정 절차
+  const selProcess = deepCrawl?.selectionProcess || [];
+  if (selProcess.length > 0) {
+    md += `\n## 선정 절차\n${selProcess.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n`;
+  }
+
+  // 필수서류
+  const docs = deepCrawl?.requiredDocuments || p.requiredDocuments || [];
+  md += `\n## 필수 제출 서류\n${docs.length
+    ? docs.map(d => `- [ ] ${d}`).join('\n')
+    : '(정보 수집 중)'}\n`;
+
+  // 평가기준
+  const evalCriteria = deepCrawl?.evaluationCriteria || p.evaluationCriteria || [];
+  md += `\n## 평가 기준\n${evalCriteria.length
+    ? evalCriteria.map(e => `- ${e}`).join('\n')
+    : '(정보 수집 중)'}\n`;
+
+  // 주요 일정 테이블
+  const announcementDate = deepCrawl?.announcementDate || p.announcementDate || '';
+  const selectionDate = deepCrawl?.selectionDate || '';
+  const projectPeriod = deepCrawl?.projectPeriod || '';
+
+  if (announcementDate || selectionDate || projectPeriod) {
+    md += `\n## 주요 일정\n| 일정 | 날짜 |\n|------|------|\n`;
+    if (announcementDate) md += `| 공고일 | ${announcementDate} |\n`;
+    md += `| 접수기간 | ${periodText} |\n`;
+    if (selectionDate) md += `| 선정발표 | ${selectionDate} |\n`;
+    if (projectPeriod) md += `| 사업기간 | ${projectPeriod} |\n`;
+  }
+
+  // 유의사항
+  const notes = deepCrawl?.specialNotes || p.specialNotes || [];
+  if (notes.length > 0) {
+    md += `\n> [!warning] 유의사항\n${notes.map(n => `> - ${n}`).join('\n')}\n`;
+  }
+
+  // 첨부파일
   if (attachments?.length) {
     md += `\n## 첨부파일\n${attachments.map(a => `- [[${a.path}|${a.name}]]`).join('\n')}\n`;
   }
 
-  md += `
-## 적합도
-(적합도 분석 후 채워짐)
+  // 적합도
+  md += `\n## 적합도\n(적합도 분석 후 채워짐)\n`;
 
-## 연락처
-${deepCrawl?.contactInfo || '(공고문 참조)'}
-`;
+  // 연락처
+  const contact = deepCrawl?.contactInfo || p.contactInfo || '';
+  const phone = deepCrawl?.contactPhone || p.contactPhone || '';
+  const email = deepCrawl?.contactEmail || '';
+  if (contact || phone || email) {
+    md += `\n## 연락처\n`;
+    if (contact) md += `- **담당**: ${contact}\n`;
+    if (phone) md += `- **전화**: ${phone}\n`;
+    if (email) md += `- **이메일**: ${email}\n`;
+  } else {
+    md += `\n## 연락처\n(공고문 참조)\n`;
+  }
+
+  // 데이터 품질 표시
+  const quality = deepCrawl?.dataQualityScore || 0;
+  const sources = deepCrawl?.dataSources || [p.source];
+  md += `\n---\n*데이터 품질: ${quality}/100 | 소스: ${sources.join(', ')} | 수집일: ${new Date().toISOString().split('T')[0]}*\n`;
 
   return md;
 }
@@ -254,12 +333,16 @@ router.post('/sync', async (req: Request, res: Response) => {
         await writeNote(filePath, existing.frontmatter, existing.content);
         updated++;
       } else {
+        // API 데이터에 이미 풍부한 정보가 있는 경우 항상 활용
+        const hasRichApiData = !!(p.fullDescription && p.fullDescription.length > 100);
+
         if (deepCrawlMode && p.detailUrl) {
           try {
             const { crawlResult, attachments } = await deepCrawlProgramFull(
               p.detailUrl,
               p.programName,
-              slug
+              slug,
+              p // API 데이터 전달
             );
             const frontmatter = programToFrontmatter(p, slug, crawlResult, attachments);
             const content = programToMarkdown(p, crawlResult, attachments);
@@ -270,10 +353,16 @@ router.post('/sync', async (req: Request, res: Response) => {
             await new Promise(r => setTimeout(r, 3000));
           } catch (e) {
             console.warn(`[vault/sync] Deep crawl failed for ${p.programName}:`, e);
+            // API 데이터만으로 노트 생성 (풍부한 데이터 활용)
             const frontmatter = programToFrontmatter(p, slug);
             const content = programToMarkdown(p);
             await writeNote(filePath, frontmatter, content);
           }
+        } else if (hasRichApiData) {
+          // 딥크롤 없이도 API 데이터가 풍부하면 그대로 활용
+          const frontmatter = programToFrontmatter(p, slug);
+          const content = programToMarkdown(p);
+          await writeNote(filePath, frontmatter, content);
         } else {
           const frontmatter = programToFrontmatter(p, slug);
           const content = programToMarkdown(p);
@@ -320,10 +409,27 @@ router.post('/deep-crawl/:slug', async (req: Request, res: Response) => {
       return;
     }
 
+    // frontmatter에서 API 데이터 복원
+    const apiDataForCrawl: Partial<ServerSupportProgram> = {
+      programName: pf.programName as string,
+      organizer: pf.organizer as string,
+      supportType: pf.supportType as string,
+      description: pf.description as string || '',
+      targetAudience: pf.targetAudience as string || undefined,
+      applicationMethod: pf.applicationMethod as string || undefined,
+      contactInfo: pf.contactInfo as string || undefined,
+      supportScale: pf.supportScale as string || undefined,
+      requiredDocuments: pf.requiredDocuments as string[] || [],
+      evaluationCriteria: pf.evaluationCriteria as string[] || [],
+      regions: pf.regions as string[] || [],
+      categories: pf.categories as string[] || [],
+    };
+
     const { crawlResult, attachments } = await deepCrawlProgramFull(
       detailUrl,
       pf.programName as string,
-      slug
+      slug,
+      apiDataForCrawl
     );
 
     if (!crawlResult) {
