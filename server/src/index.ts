@@ -16,6 +16,7 @@ import dataGoKrRouter from './routes/dataGoKr.js';
 import dartRouter from './routes/dart.js';
 import geminiRouter from './routes/gemini.js';
 import vaultRouter from './routes/vault.js';
+import { ensureVaultStructure } from './services/vaultFileService.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5001', 10);
@@ -33,7 +34,14 @@ app.use('/api/gemini', geminiRouter);
 app.use('/api/vault', vaultRouter);
 
 // Start
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Z-GPS API Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+
+  try {
+    await ensureVaultStructure();
+    console.log('Vault structure initialized');
+  } catch (err) {
+    console.error('Vault structure init failed:', err);
+  }
 });
