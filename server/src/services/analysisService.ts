@@ -300,7 +300,8 @@ Output only the text content for the section.`;
 /** 적합도 분석 (5개 차원 + 자격요건 상세 매칭) */
 export async function analyzeFit(
   company: CompanyInfo,
-  program: ProgramInfo
+  program: ProgramInfo,
+  attachmentText?: string
 ): Promise<FitAnalysisResult> {
   // 기업 정보 블록
   const companyBlock = [
@@ -356,6 +357,10 @@ export async function analyzeFit(
       : '',
   ].filter(Boolean).join('\n');
 
+  const attachmentBlock = attachmentText
+    ? `\n## 공고문 첨부파일 원문 (발췌)\n아래는 공고문에 첨부된 PDF/HWPX 문서에서 추출한 텍스트입니다. 자격요건, 제출서류, 평가기준 등 핵심 정보가 포함되어 있을 수 있습니다.\n${attachmentText}`
+    : '';
+
   const prompt = `당신은 정부 지원사업 전문 컨설턴트입니다. 기업과 지원사업의 적합도를 5개 차원으로 정밀 분석하세요.
 
 ## 기업 정보
@@ -364,6 +369,7 @@ ${companyBlock}
 ## 지원사업 정보
 ${programBlock}
 ${eligibilityBlock}
+${attachmentBlock}
 
 ## 분석 요청 (5개 차원별 평가)
 아래 5개 차원을 각각 0~100으로 평가하되, 근거를 명확히 제시하세요.
@@ -602,8 +608,13 @@ export interface StrategyDocument {
 export async function generateStrategyDocument(
   company: CompanyInfo,
   program: ProgramInfo,
-  fitAnalysis: FitAnalysisResult
+  fitAnalysis: FitAnalysisResult,
+  attachmentText?: string
 ): Promise<StrategyDocument> {
+  const attachmentBlock = attachmentText
+    ? `\n## 공고문 첨부파일 원문 (발췌)\n아래는 공고문에 첨부된 PDF/HWPX 문서에서 추출한 텍스트입니다. 자격요건, 평가기준, 제출서류 양식 등의 원문이 포함되어 있습니다. 전략 수립 시 반드시 참고하세요.\n${attachmentText}`
+    : '';
+
   const prompt = `당신은 한국 정부 지원사업 전문 컨설턴트입니다. 아래 기업-지원사업 조합에 대해 실무자가 즉시 활용 가능한 상세 전략 문서를 작성하세요.
 
 ## 기업 정보
@@ -638,6 +649,7 @@ ${program.selectionProcess?.length ? `- 선정절차: ${program.selectionProcess
 - 전략적 부합도: ${fitAnalysis.dimensions.strategicAlignment}/100
 - 강점: ${fitAnalysis.strengths.join(', ')}
 - 약점: ${fitAnalysis.weaknesses.join(', ')}
+${attachmentBlock}
 
 ## 작성 요청
 아래 8개 섹션을 모두 작성하세요. 각 섹션은 구체적이고 실행 가능한 내용이어야 합니다.
