@@ -2132,4 +2132,80 @@ router.delete('/company/documents/:docId', async (req: Request, res: Response) =
   }
 });
 
+/**
+ * GET /api/vault/program/:slug/attachments
+ * 프로그램 첨부파일 목록 + 서빙
+ */
+router.get('/program/:slug/attachments', async (req: Request, res: Response) => {
+  try {
+    const slug = String(req.params.slug);
+    if (!isValidSlug(slug)) { res.status(400).json({ error: '잘못된 slug 형식입니다.' }); return; }
+    const programPath = path.join('programs', `${slug}.md`);
+
+    if (!(await noteExists(programPath))) {
+      res.json({ attachments: [] });
+      return;
+    }
+
+    const { frontmatter } = await readNote(programPath);
+    const attachments = (frontmatter.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
+
+    const result = attachments.map(a => ({
+      name: a.name,
+      path: a.path,
+      analyzed: a.analyzed,
+      downloadUrl: `/api/vault/attachment/${encodeURIComponent(a.path)}`,
+    }));
+
+    res.json({ attachments: result });
+  } catch (error) {
+    console.error('[vault/program/attachments] Error:', error);
+    res.status(500).json({ error: '첨부파일 목록 조회 실패' });
+  }
+});
+
+/**
+ * GET /api/vault/attachment/:filePath
+ * 첨부파일 다운로드 (PDF 등)
+ */
+router.get('/attachment/*', async (req: Request, res: Response) => {
+  try {
+    const filePath = req.params[0] || '';
+    if (!filePath || filePath.includes('..')) {
+      res.status(400).json({ error: '잘못된 경로입니다.' });
+      return;
+    }
+
+    const vaultRoot = getVaultRoot();
+    const fullPath = path.join(vaultRoot, filePath);
+
+    // 보안: vault 루트 내부 파일만 허용
+    const resolved = path.resolve(fullPath);
+    if (!resolved.startsWith(path.resolve(vaultRoot))) {
+      res.status(403).json({ error: '접근 권한이 없습니다.' });
+      return;
+    }
+
+    await fs.access(fullPath);
+    const ext = path.extname(fullPath).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.hwp': 'application/x-hwp',
+      '.hwpx': 'application/x-hwpx',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.zip': 'application/zip',
+    };
+
+    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${path.basename(fullPath)}"`);
+
+    const fileBuffer = await fs.readFile(fullPath);
+    res.send(fileBuffer);
+  } catch (error) {
+    console.error('[vault/attachment] Error:', error);
+    res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+  }
+});
+
 export default router;

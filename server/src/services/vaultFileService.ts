@@ -4,8 +4,10 @@ import matter from 'gray-matter';
 import fg from 'fast-glob';
 import crypto from 'crypto';
 
-// 볼트 루트: VAULT_PATH 환경변수 또는 프로젝트 루트 기준 ./vault/
-const VAULT_ROOT = path.resolve(process.env.VAULT_PATH || process.cwd(), 'vault');
+// 볼트 루트: lazy 초기화
+// ESM import 호이스팅으로 dotenv 로드 전에 모듈이 평가되므로
+// 환경변수는 첫 요청 시점에 읽어야 올바른 값을 얻음
+let _vaultRoot: string | null = null;
 
 /** 볼트 디렉토리 구조 생성 */
 export async function ensureVaultStructure(): Promise<void> {
@@ -23,12 +25,12 @@ export async function ensureVaultStructure(): Promise<void> {
   ];
 
   for (const dir of dirs) {
-    const fullPath = path.join(VAULT_ROOT, dir);
+    const fullPath = path.join(getVaultRoot(), dir);
     await fs.mkdir(fullPath, { recursive: true });
   }
 
   // .obsidian 기본 설정 생성 (존재하지 않을 때만)
-  const obsidianDir = path.join(VAULT_ROOT, '.obsidian');
+  const obsidianDir = path.join(getVaultRoot(), '.obsidian');
   try {
     await fs.access(obsidianDir);
   } catch {
@@ -41,7 +43,7 @@ export async function ensureVaultStructure(): Promise<void> {
   }
 
   // 대시보드 MOC 생성 (존재하지 않을 때만)
-  const dashboardPath = path.join(VAULT_ROOT, '_대시보드.md');
+  const dashboardPath = path.join(getVaultRoot(), '_대시보드.md');
   try {
     await fs.access(dashboardPath);
   } catch {
@@ -79,7 +81,7 @@ SORT file.mtime DESC
 
 /** gray-matter로 마크다운 파싱 (frontmatter + content) */
 export async function readNote(filePath: string): Promise<{ frontmatter: Record<string, unknown>; content: string }> {
-  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(VAULT_ROOT, filePath);
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(getVaultRoot(), filePath);
   const raw = await fs.readFile(fullPath, 'utf-8');
   const parsed = matter(raw);
   return {
@@ -94,7 +96,7 @@ export async function writeNote(
   frontmatter: Record<string, unknown>,
   content: string
 ): Promise<void> {
-  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(VAULT_ROOT, filePath);
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(getVaultRoot(), filePath);
   const dir = path.dirname(fullPath);
   await fs.mkdir(dir, { recursive: true });
 
@@ -104,7 +106,7 @@ export async function writeNote(
 
 /** fast-glob로 .md 파일 목록 반환 */
 export async function listNotes(dirPath: string): Promise<string[]> {
-  const fullDir = path.isAbsolute(dirPath) ? dirPath : path.join(VAULT_ROOT, dirPath);
+  const fullDir = path.isAbsolute(dirPath) ? dirPath : path.join(getVaultRoot(), dirPath);
   // fast-glob는 posix 경로 필요
   const pattern = fullDir.replace(/\\/g, '/') + '/**/*.md';
   const files = await fg(pattern, { onlyFiles: true });
@@ -125,14 +127,17 @@ export function generateSlug(programName: string, id: string): string {
   return `${sanitized}-${hash}`;
 }
 
-/** 볼트 루트 경로 반환 */
+/** 볼트 루트 경로 반환 (lazy 초기화) */
 export function getVaultRoot(): string {
-  return VAULT_ROOT;
+  if (!_vaultRoot) {
+    _vaultRoot = path.resolve(process.env.VAULT_PATH || process.cwd(), 'vault');
+  }
+  return _vaultRoot;
 }
 
 /** 파일 존재 확인 */
 export async function noteExists(filePath: string): Promise<boolean> {
-  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(VAULT_ROOT, filePath);
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(getVaultRoot(), filePath);
   try {
     await fs.access(fullPath);
     return true;
@@ -143,7 +148,7 @@ export async function noteExists(filePath: string): Promise<boolean> {
 
 /** 바이너리 파일 저장 (PDF 등) */
 export async function writeBinaryFile(filePath: string, data: Buffer): Promise<void> {
-  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(VAULT_ROOT, filePath);
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(getVaultRoot(), filePath);
   const dir = path.dirname(fullPath);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(fullPath, data);
@@ -151,7 +156,7 @@ export async function writeBinaryFile(filePath: string, data: Buffer): Promise<v
 
 /** 바이너리 파일 삭제 */
 export async function deleteBinaryFile(filePath: string): Promise<void> {
-  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(VAULT_ROOT, filePath);
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(getVaultRoot(), filePath);
   try {
     await fs.unlink(fullPath);
   } catch {
@@ -161,7 +166,7 @@ export async function deleteBinaryFile(filePath: string): Promise<void> {
 
 /** 디렉토리 내 모든 파일 목록 (md 외 바이너리 포함) */
 export async function listFiles(dirPath: string): Promise<string[]> {
-  const fullDir = path.isAbsolute(dirPath) ? dirPath : path.join(VAULT_ROOT, dirPath);
+  const fullDir = path.isAbsolute(dirPath) ? dirPath : path.join(getVaultRoot(), dirPath);
   const pattern = fullDir.replace(/\\/g, '/') + '/**/*';
   const files = await fg(pattern, { onlyFiles: true });
   return files;

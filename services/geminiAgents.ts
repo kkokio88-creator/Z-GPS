@@ -22,12 +22,23 @@ const callGemini = async (
   contents: string | unknown,
   config?: Record<string, unknown>
 ): Promise<GeminiResponse> => {
-  const { data } = await apiClient.post<GeminiResponse>('/api/gemini/generate', {
-    model,
-    contents,
-    config,
-  });
-  return data;
+  try {
+    const { data } = await apiClient.post<GeminiResponse>('/api/gemini/generate', {
+      model,
+      contents,
+      config,
+    });
+    return data;
+  } catch (error: unknown) {
+    // 서버 에러 응답에서 상세 메시지 추출
+    const axiosError = error as { response?: { data?: { error?: string }; status?: number }; message?: string };
+    const serverMessage = axiosError?.response?.data?.error;
+    const status = axiosError?.response?.status;
+    if (serverMessage) {
+      throw new Error(`${status || 'ERROR'}: ${serverMessage}`);
+    }
+    throw error;
+  }
 };
 
 // Connection verification via backend
@@ -73,13 +84,19 @@ const cleanAndParseJSON = (text: string): Record<string, unknown> | unknown[] =>
 const handleGeminiError = (error: unknown, context: string = ""): string => {
     const errStr = String(error);
     if (import.meta.env.DEV) console.error(`Gemini API Error (${context}):`, error);
-    if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+    if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("quota")) {
         return "API 사용량이 소진되었습니다. 잠시 후 다시 시도하거나 API Key를 확인하세요.";
     }
-    if (errStr.includes("API key not valid")) {
+    if (errStr.includes("API key not valid") || errStr.includes("Invalid API key") || errStr.includes("403")) {
         return "API Key가 유효하지 않습니다. 설정에서 키를 확인해주세요.";
     }
-    return "AI 분석 중 오류가 발생했습니다.";
+    if (errStr.includes("not configured") || errStr.includes("GEMINI_API_KEY")) {
+        return "서버에 Gemini API Key가 설정되지 않았습니다. 서버 환경변수를 확인하세요.";
+    }
+    if (errStr.includes("500")) {
+        return "서버 오류가 발생했습니다. 서버 로그를 확인하세요.";
+    }
+    return `AI 처리 중 오류: ${errStr.length > 120 ? errStr.substring(0, 120) + '...' : errStr}`;
 };
 
 class BaseAgent {
@@ -308,7 +325,15 @@ export class OntologyLearningAgent extends BaseAgent {
     async extractSuccessPatterns(_text: string): Promise<string[]> { return []; }
 }
 export class DraftRefinementAgent extends BaseAgent {
-    async refine(text: string, instruction: string): Promise<string> { const response = await this.callGemini(`Refine: ${text}. Instruction: ${instruction}`); return response.text || text; }
+    async refine(text: string, instruction: string): Promise<string> {
+        try {
+            const response = await this.callGemini(`다음 텍스트를 지시사항에 따라 수정하세요.\n\n텍스트:\n${text}\n\n지시사항: ${instruction}\n\n수정된 텍스트만 출력하세요.`);
+            return response.text || text;
+        } catch (e) {
+            if (import.meta.env.DEV) console.error('Magic Edit Error:', e);
+            return `[수정 실패] ${handleGeminiError(e, 'Magic Edit')}\n\n${text}`;
+        }
+    }
 }
 export class ProgramParserAgent extends BaseAgent {
     async parseAnnouncement(text: string): Promise<Record<string, unknown>> {

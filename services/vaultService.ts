@@ -380,6 +380,18 @@ export const vaultService = {
     return data;
   },
 
+  /** 프로그램 첨부파일 목록 */
+  async getAttachments(slug: string): Promise<{ name: string; path: string; analyzed: boolean; downloadUrl: string }[]> {
+    try {
+      const { data } = await apiClient.get<{ attachments: { name: string; path: string; analyzed: boolean; downloadUrl: string }[] }>(
+        `/api/vault/program/${encodeURIComponent(slug)}/attachments`
+      );
+      return data.attachments;
+    } catch {
+      return [];
+    }
+  },
+
   /** 기업명 AI 딥리서치 */
   async researchCompany(companyName: string): Promise<{ success: boolean; company: Record<string, unknown> }> {
     const { data } = await apiClient.post<{ success: boolean; company: Record<string, unknown> }>(

@@ -100,6 +100,119 @@ const TrashAnimation: React.FC<{ show: boolean }> = ({ show }) => {
   );
 };
 
+/** 마크다운 렌더러 - 전략 문서 모달용 */
+const MarkdownRenderer: React.FC<{ content: string }> = React.memo(({ content }) => {
+  const processInline = (text: string): React.ReactNode => {
+    const parts: React.ReactNode[] = [];
+    const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let key = 0;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) parts.push(text.substring(lastIndex, match.index));
+      if (match[2]) parts.push(<strong key={key++} className="font-semibold text-gray-800 dark:text-gray-200">{match[2]}</strong>);
+      else if (match[3]) parts.push(<em key={key++} className="italic">{match[3]}</em>);
+      else if (match[4]) parts.push(<code key={key++} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[11px] font-mono">{match[4]}</code>);
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) parts.push(text.substring(lastIndex));
+    return parts.length === 0 ? text : <>{parts}</>;
+  };
+
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code block
+    if (line.startsWith('```')) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) { codeLines.push(lines[i]); i++; }
+      elements.push(<pre key={`code-${i}`} className="bg-gray-900 text-gray-100 rounded-lg p-4 my-3 text-xs overflow-x-auto leading-relaxed"><code>{codeLines.join('\n')}</code></pre>);
+      i++; continue;
+    }
+
+    // Table
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim().startsWith('|')) { tableLines.push(lines[i]); i++; }
+      if (tableLines.length >= 2) {
+        const parseRow = (row: string) => row.split('|').slice(1, -1).map(c => c.trim());
+        const isSep = (r: string) => /^[\s|:-]+$/.test(r);
+        const headers = parseRow(tableLines[0]);
+        const dataRows = tableLines.filter((_, idx) => idx > 0 && !isSep(tableLines[idx]));
+        elements.push(
+          <div key={`tbl-${i}`} className="overflow-x-auto my-3 rounded-lg border border-gray-200 dark:border-gray-600">
+            <table className="min-w-full text-xs">
+              <thead><tr className="bg-gray-100 dark:bg-gray-700">{headers.map((h, j) => <th key={j} className="px-3 py-2 text-left font-semibold border-b border-gray-200 dark:border-gray-600">{processInline(h)}</th>)}</tr></thead>
+              <tbody>{dataRows.map((row, r) => <tr key={r} className="even:bg-gray-50 dark:even:bg-gray-800/50">{parseRow(row).map((cell, c) => <td key={c} className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">{processInline(cell)}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
+    }
+
+    // Headers
+    if (line.startsWith('#### ')) { elements.push(<h4 key={i} className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-3 mb-1">{processInline(line.slice(5))}</h4>); i++; continue; }
+    if (line.startsWith('### ')) { elements.push(<h3 key={i} className="text-base font-semibold text-gray-700 dark:text-gray-300 mt-4 mb-1.5">{processInline(line.slice(4))}</h3>); i++; continue; }
+    if (line.startsWith('## ')) { elements.push(<h2 key={i} className="text-lg font-bold text-gray-800 dark:text-gray-200 mt-6 mb-2 pb-1.5 border-b border-gray-200 dark:border-gray-700">{processInline(line.slice(3))}</h2>); i++; continue; }
+    if (line.startsWith('# ')) { elements.push(<h1 key={i} className="text-xl font-bold text-gray-900 dark:text-white mt-6 mb-3">{processInline(line.slice(2))}</h1>); i++; continue; }
+
+    // Blockquote (consecutive)
+    if (line.startsWith('> ')) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].startsWith('> ')) { quoteLines.push(lines[i].slice(2)); i++; }
+      elements.push(
+        <blockquote key={`bq-${i}`} className="border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-r-lg pl-4 pr-3 py-2.5 my-3">
+          {quoteLines.map((ql, qi) => <p key={qi} className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{processInline(ql)}</p>)}
+        </blockquote>
+      );
+      continue;
+    }
+
+    // Unordered list
+    if (line.match(/^[\s]*[-*+] /)) {
+      const items: React.ReactNode[] = [];
+      while (i < lines.length && lines[i].match(/^[\s]*[-*+] /)) {
+        const c = lines[i].replace(/^[\s]*[-*+] /, '');
+        items.push(<li key={i} className="flex items-start gap-2 py-0.5"><span className="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary" /><span className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{processInline(c)}</span></li>);
+        i++;
+      }
+      elements.push(<ul key={`ul-${i}`} className="my-2 space-y-0.5 ml-1">{items}</ul>);
+      continue;
+    }
+
+    // Ordered list
+    if (line.match(/^\s*\d+\. /)) {
+      const items: React.ReactNode[] = [];
+      while (i < lines.length && lines[i].match(/^\s*\d+\. /)) {
+        const c = lines[i].replace(/^\s*\d+\.\s*/, '');
+        const num = lines[i].match(/^\s*(\d+)\./)?.[1] || '1';
+        items.push(<li key={i} className="flex items-start gap-2 py-0.5"><span className="text-primary font-bold text-xs min-w-[20px] mt-0.5 flex-shrink-0">{num}.</span><span className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{processInline(c)}</span></li>);
+        i++;
+      }
+      elements.push(<ol key={`ol-${i}`} className="my-2 space-y-0.5 ml-1">{items}</ol>);
+      continue;
+    }
+
+    // HR
+    if (line.match(/^---+$/)) { elements.push(<hr key={i} className="my-4 border-gray-200 dark:border-gray-700" />); i++; continue; }
+
+    // Empty line
+    if (line.trim() === '') { elements.push(<div key={i} className="h-2" />); i++; continue; }
+
+    // Paragraph
+    elements.push(<p key={i} className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed my-1.5">{processInline(line)}</p>);
+    i++;
+  }
+
+  return <>{elements}</>;
+});
+
 const ProgramExplorer: React.FC = () => {
   const navigate = useNavigate();
   const [company] = useState<Company>(getStoredCompany());
@@ -183,7 +296,7 @@ const ProgramExplorer: React.FC = () => {
   const filteredPrograms = allPrograms
     .filter(p => {
       if (activeTab === 'all') return p.category === 'none';
-      if (activeTab === 'recommended') return p.fitScore >= 80;
+      if (activeTab === 'recommended') return p.fitScore >= 80 && p.category === 'none';
       return p.category === activeTab;
     })
     .filter(p => {
@@ -369,6 +482,20 @@ const ProgramExplorer: React.FC = () => {
     ));
   };
 
+  // 리스트뷰에서 특정 프로그램 분류 (swipe와 달리 직접 대상 지정)
+  const handleCategorizeInList = useCallback((program: CategorizedProgram, direction: 'left' | 'right') => {
+    const newCategory: SwipeCategory = direction === 'right' ? 'interested' : 'rejected';
+    saveProgramCategory(program.id, newCategory, {
+      programName: program.programName,
+      expectedGrant: program.expectedGrant,
+      supportType: program.supportType
+    });
+    if (direction === 'right') autoCreateDraft(program);
+    setAllPrograms(prev => prev.map(p =>
+      p.id === program.id ? { ...p, category: newCategory } : p
+    ));
+  }, [autoCreateDraft]);
+
   // 지원서 작성
   const handleCreateApplication = (program: SupportProgram) => {
     const myApplications = getStoredApplications();
@@ -447,7 +574,7 @@ const ProgramExplorer: React.FC = () => {
   const stats = {
     total: allPrograms.length,
     remaining: allPrograms.filter(p => p.category === 'none').length,
-    recommended: allPrograms.filter(p => p.fitScore >= 80).length,
+    recommended: allPrograms.filter(p => p.fitScore >= 80 && p.category === 'none').length,
     interested: allPrograms.filter(p => p.category === 'interested').length,
     rejected: allPrograms.filter(p => p.category === 'rejected').length
   };
@@ -645,32 +772,33 @@ const ProgramExplorer: React.FC = () => {
                               적합도 {program.fitScore}%
                             </p>
                           </div>
-                          {activeTab === 'all' && (
+                          {(activeTab === 'all' || activeTab === 'recommended') && (
                             <div className="flex gap-1">
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleSwipe('left'); setSelectedProgram(program); }}
+                                onClick={(e) => { e.stopPropagation(); handleCategorizeInList(program, 'left'); }}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="부적합"
                               >
                                 <span className="material-icons-outlined text-gray-400 text-lg">close</span>
                               </button>
+                              {activeTab === 'recommended' && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleViewStrategy(program.id); }}
+                                  disabled={isLoadingStrategy}
+                                  className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                  title="전략 보기"
+                                >
+                                  <span className="material-icons-outlined text-amber-500 text-lg">auto_awesome</span>
+                                </button>
+                              )}
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleSwipe('right'); setSelectedProgram(program); }}
+                                onClick={(e) => { e.stopPropagation(); handleCategorizeInList(program, 'right'); }}
                                 className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20"
                                 title="관심 등록"
                               >
                                 <span className="material-icons-outlined text-primary text-lg">favorite</span>
                               </button>
                             </div>
-                          )}
-                          {activeTab === 'recommended' && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleViewStrategy(program.id); }}
-                              disabled={isLoadingStrategy}
-                              className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors"
-                            >
-                              전략
-                            </button>
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCreateApplication(program); }}
@@ -840,14 +968,24 @@ const ProgramExplorer: React.FC = () => {
                 </div>
 
                 {/* 액션 버튼 */}
-                {activeTab === 'all' && (
-                  <div className="flex gap-5 mt-6 items-center">
+                {(activeTab === 'all' || activeTab === 'recommended') && (
+                  <div className="flex gap-4 mt-6 items-center">
                     <button
                       onClick={() => handleSwipe('left')}
                       className="group w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-gray-200 dark:border-gray-700"
                     >
                       <span className="text-xl">🗑️</span>
                     </button>
+                    {activeTab === 'recommended' && (
+                      <button
+                        onClick={() => currentProgram && handleViewStrategy(currentProgram.id)}
+                        disabled={isLoadingStrategy}
+                        className="group w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-600 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+                        title="전략 보기"
+                      >
+                        <span className="material-icons-outlined text-white text-xl">auto_awesome</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => currentProgram && handleCreateApplication(currentProgram)}
                       className="group w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
@@ -864,14 +1002,23 @@ const ProgramExplorer: React.FC = () => {
                   </div>
                 )}
 
-                {activeTab !== 'all' && (
-                  <button
-                    onClick={() => handleRestoreProgram(currentProgram.id)}
-                    className="mt-6 px-6 py-3 bg-white dark:bg-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-md flex items-center gap-2"
-                  >
-                    <span>↩️</span>
-                    미분류로 복원
-                  </button>
+                {activeTab !== 'all' && activeTab !== 'recommended' && (
+                  <div className="flex gap-3 mt-6 items-center">
+                    <button
+                      onClick={() => handleRestoreProgram(currentProgram.id)}
+                      className="px-5 py-3 bg-white dark:bg-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-md flex items-center gap-2"
+                    >
+                      <span>↩️</span>
+                      미분류로 복원
+                    </button>
+                    <button
+                      onClick={() => currentProgram && handleCreateApplication(currentProgram)}
+                      className="px-5 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-md flex items-center gap-2"
+                    >
+                      <span className="material-icons-outlined text-sm">edit_note</span>
+                      지원서 작성
+                    </button>
+                  </div>
                 )}
               </>
             )}
@@ -888,6 +1035,24 @@ const ProgramExplorer: React.FC = () => {
                   <h3 className="font-bold text-sm text-gray-700 dark:text-gray-200 mb-1">공고 상세</h3>
                   <p className="text-xs text-gray-500 line-clamp-1">{selectedProgram.programName}</p>
                 </div>
+
+                {/* 전략 문서 버튼 - 추천 공고 상단 배치 */}
+                {selectedProgram.fitScore >= 80 && (
+                  <div className="px-4 pt-3">
+                    <button
+                      onClick={() => handleViewStrategy(selectedProgram.id)}
+                      disabled={isLoadingStrategy}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                    >
+                      {isLoadingStrategy ? (
+                        <span className="animate-spin material-icons-outlined text-lg">autorenew</span>
+                      ) : (
+                        <span className="material-icons-outlined text-lg">auto_awesome</span>
+                      )}
+                      AI 전략 문서 보기
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {/* 기본 정보 */}
@@ -1017,21 +1182,7 @@ const ProgramExplorer: React.FC = () => {
                       </div>
                     )}
 
-                    {/* 전략 문서 버튼 */}
-                    {selectedProgram.fitScore >= 80 && (
-                      <button
-                        onClick={() => handleViewStrategy(selectedProgram.id)}
-                        disabled={isLoadingStrategy}
-                        className="mt-3 w-full py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 font-medium text-xs hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        {isLoadingStrategy ? (
-                          <span className="animate-spin">⏳</span>
-                        ) : (
-                          <span className="material-icons-outlined text-sm">description</span>
-                        )}
-                        전체 전략 문서 보기
-                      </button>
-                    )}
+                    {/* 전략 문서 버튼은 상단으로 이동됨 */}
                   </div>
 
                   {/* 사업 설명 */}
@@ -1118,18 +1269,8 @@ const ProgramExplorer: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                {strategyModal.content.split('\n').map((line, i) => {
-                  if (line.startsWith('# ')) return <h1 key={i} className="text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2">{line.slice(2)}</h1>;
-                  if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-bold text-gray-800 dark:text-gray-200 mt-6 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">{line.slice(3)}</h2>;
-                  if (line.startsWith('### ')) return <h3 key={i} className="text-base font-semibold text-gray-700 dark:text-gray-300 mt-4 mb-1">{line.slice(4)}</h3>;
-                  if (line.startsWith('> ')) return <blockquote key={i} className="border-l-4 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-400 bg-amber-50 dark:bg-amber-900/10 rounded-r-lg my-2">{line.slice(2)}</blockquote>;
-                  if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="text-sm text-gray-600 dark:text-gray-400 ml-4 my-0.5">{line.slice(2)}</li>;
-                  if (line.match(/^\d+\. /)) return <li key={i} className="text-sm text-gray-600 dark:text-gray-400 ml-4 my-0.5 list-decimal">{line.replace(/^\d+\. /, '')}</li>;
-                  if (line.startsWith('**') && line.endsWith('**')) return <p key={i} className="font-bold text-sm text-gray-700 dark:text-gray-300 my-1">{line.replace(/\*\*/g, '')}</p>;
-                  if (line.trim() === '') return <div key={i} className="h-2" />;
-                  return <p key={i} className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed my-1">{line}</p>;
-                })}
+              <div className="max-w-none">
+                <MarkdownRenderer content={strategyModal.content} />
               </div>
             </div>
           </div>
