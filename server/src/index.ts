@@ -56,6 +56,10 @@ app.listen(PORT, async () => {
         process.env.DART_API_KEY = config.dartApiKey;
         console.log('Loaded DART_API_KEY from vault config');
       }
+      if (!process.env.DATA_GO_KR_API_KEY && config.dataGoKrApiKey) {
+        process.env.DATA_GO_KR_API_KEY = config.dataGoKrApiKey;
+        console.log('Loaded DATA_GO_KR_API_KEY from vault config');
+      }
     } catch { /* config.json 없으면 스킵 */ }
 
     // 4시간 자동 동기화

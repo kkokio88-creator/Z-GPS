@@ -2536,14 +2536,15 @@ router.post('/company/research', async (req: Request, res: Response) => {
      */
     const hasValidContent = (obj: Record<string, unknown>): boolean => {
       const hasName = !!obj.name && String(obj.name).trim().length > 0;
-      const hasDescription = !!obj.description && String(obj.description).trim().length > 1;
-      const hasIndustry = !!obj.industry && String(obj.industry).trim().length > 1;
+      const hasDescription = !!obj.description && String(obj.description).trim().length > 0;
+      const hasIndustry = !!obj.industry && String(obj.industry).trim().length > 0;
       const hasCompetencies = Array.isArray(obj.coreCompetencies) && obj.coreCompetencies.length > 0;
+      const hasProducts = Array.isArray(obj.mainProducts) && obj.mainProducts.length > 0;
       const hasStrategic = !!(obj.strategicAnalysis &&
         typeof obj.strategicAnalysis === 'object' &&
-        (obj.strategicAnalysis as Record<string, unknown>).swot);
+        Object.keys(obj.strategicAnalysis as object).length > 0);
       // name + 최소 1개 추가 정보 필수
-      return hasName && (hasDescription || hasIndustry || hasCompetencies || hasStrategic);
+      return hasName && (hasDescription || hasIndustry || hasCompetencies || hasProducts || hasStrategic);
     };
 
     /** 단일 단계 실행 후 검증 */
@@ -2559,54 +2560,64 @@ router.post('/company/research', async (req: Request, res: Response) => {
           errors.push(`${label}: 응답 없음 (${rawLen}자)`);
           return false;
         }
-        const candidate = cleanAndParseJSON(r.text) as Record<string, unknown>;
+        // 배열 응답 처리: [{...}] → 첫 번째 요소 사용
+        const raw = cleanAndParseJSON(r.text);
+        const candidate = (Array.isArray(raw) && raw.length > 0 ? raw[0] : raw) as Record<string, unknown>;
+        if (!candidate || typeof candidate !== 'object') {
+          errors.push(`${label}: 파싱 결과가 객체가 아님`);
+          return false;
+        }
         const keys = Object.keys(candidate).filter(k => {
           const v = candidate[k];
           return v !== null && v !== undefined && v !== '' &&
             !(Array.isArray(v) && v.length === 0);
         });
-        console.log(`[company/research] ${label}: 파싱 결과 유효 키 ${keys.length}개 [${keys.slice(0, 5).join(', ')}...]`);
+        console.log(`[company/research] ${label}: 파싱 결과 유효 키 ${keys.length}개 [${keys.slice(0, 8).join(', ')}...]`);
         if (hasValidContent(candidate)) {
           parsed = candidate;
           console.log(`[company/research] ${label}: ✓ 유효 데이터 확인`);
           return true;
         }
+        // 유효 키가 3개 이상이면 name이 없어도 부분 데이터로 사용
+        if (keys.length >= 3 && !parsed) {
+          parsed = candidate;
+          console.log(`[company/research] ${label}: △ 부분 데이터 사용 (유효 키 ${keys.length}개)`);
+          return true;
+        }
         errors.push(`${label}: 파싱 성공, 유효 키 ${keys.length}개이나 필수 조건 미충족`);
         return false;
       } catch (e) {
-        errors.push(`${label}: ${String(e).substring(0, 100)}`);
+        errors.push(`${label}: ${String(e).substring(0, 200)}`);
         return false;
       }
     };
 
-    // 1차: JSON 모드 + 사용자 모델 (가장 안정적 — 구조화된 JSON 보장)
-    await tryGeminiStep(`1-JSON+${userModel}`, {
-      model: userModel,
+    // 1차: gemini-2.0-flash JSON 모드 (가장 안정적)
+    await tryGeminiStep('1-Flash-JSON', {
+      model: 'gemini-2.0-flash',
       responseMimeType: 'application/json',
     });
 
-    // 2차: Google Search grounding + JSON 모드 (웹 검색 + JSON 구조)
-    if (!parsed) {
-      await tryGeminiStep('2-Search+JSON', {
-        model: 'gemini-2.0-flash',
-        tools: [{ googleSearch: {} }],
+    // 2차: 사용자 모델 + JSON 모드
+    if (!parsed && userModel !== 'gemini-2.0-flash') {
+      await tryGeminiStep(`2-${userModel}-JSON`, {
+        model: userModel,
         responseMimeType: 'application/json',
       });
     }
 
-    // 3차: Google Search grounding만 (JSON 모드 없이 — 텍스트에서 JSON 추출)
+    // 3차: Google Search grounding (텍스트에서 JSON 추출 — tools + JSON 모드 동시 사용 불가)
     if (!parsed) {
-      await tryGeminiStep('3-Search-only', {
+      await tryGeminiStep('3-Search', {
         model: 'gemini-2.0-flash',
         tools: [{ googleSearch: {} }],
       });
     }
 
-    // 4차: gemini-2.0-flash JSON 모드 (최후 수단)
+    // 4차: 사용자 모델 텍스트 모드 (최후 수단)
     if (!parsed) {
-      await tryGeminiStep('4-Flash-JSON', {
-        model: 'gemini-2.0-flash',
-        responseMimeType: 'application/json',
+      await tryGeminiStep('4-Text-fallback', {
+        model: userModel,
       });
     }
 
@@ -2626,20 +2637,27 @@ router.post('/company/research', async (req: Request, res: Response) => {
 
     // 클로저 내부 할당으로 TS narrowing 불가 → 로컬 변수에 재할당
     const result = parsed as Record<string, unknown>;
+    const queryName = companyName.trim();
 
-    // Gemini가 "못 찾음"을 반환한 경우
-    if (result.name == null || result.error) {
+    // Gemini가 명시적으로 "못 찾음"을 반환한 경우
+    if (result.error) {
       res.status(404).json({
-        error: `"${companyName.trim()}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
+        error: `"${queryName}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
         notFound: true,
       });
       return;
     }
 
+    // 이름이 비어있으면 검색어로 채움 (부분 데이터 허용을 위해 매칭 검증 전에 실행)
+    if (!result.name || String(result.name).trim().length === 0) {
+      result.name = queryName;
+    }
+
     // ─── 회사명 매칭 검증 ───────────────────────────────────
     // Gemini가 엉뚱한 회사 정보를 반환하는 경우 방지
-    const queryName = companyName.trim();
+    // brandName도 확인 (예: "토스" → 법인명 "비바리퍼블리카", brandName "토스")
     const returnedName = String(result.name || '').trim();
+    const returnedBrand = String(result.brandName || '').trim();
 
     /** 한국 법인 접두사 제거 후 핵심 이름 추출 */
     const normalizeName = (n: string) =>
@@ -2649,29 +2667,37 @@ router.post('/company/research', async (req: Request, res: Response) => {
        .toLowerCase();
 
     const normalQuery = normalizeName(queryName);
-    const normalReturned = normalizeName(returnedName);
+    const checkMatch = (candidate: string) => {
+      const nc = normalizeName(candidate);
+      if (!nc) return false;
+      return nc.includes(normalQuery) ||
+        normalQuery.includes(nc) ||
+        // 2글자 이상 공통 접두사
+        (normalQuery.length >= 2 && nc.length >= 2 &&
+          (nc.startsWith(normalQuery.substring(0, 2)) ||
+           normalQuery.startsWith(nc.substring(0, 2))));
+    };
 
-    const nameMatches = returnedName.length > 0 &&
-      (normalReturned.includes(normalQuery) ||
-       normalQuery.includes(normalReturned) ||
-       // 2글자 이상 공통 부분이면 매칭으로 간주
-       (normalQuery.length >= 2 && normalReturned.length >= 2 &&
-        (normalReturned.startsWith(normalQuery.substring(0, 2)) ||
-         normalQuery.startsWith(normalReturned.substring(0, 2)))));
+    const nameMatches = returnedName === queryName ||
+      checkMatch(returnedName) ||
+      checkMatch(returnedBrand);
 
-    if (!nameMatches && returnedName.length > 0) {
-      console.warn(`[vault/company/research] 회사명 불일치: 검색="${queryName}" → 반환="${returnedName}"`);
-      res.status(422).json({
-        error: `AI가 다른 기업 정보를 반환했습니다 ("${returnedName}"). "${queryName}"을(를) 다시 검색해주세요.`,
-        details: `검색: ${queryName} → 반환: ${returnedName}`,
-        mismatch: true,
+    if (!nameMatches && returnedName.length > 0 && returnedName !== queryName) {
+      // 경고만 로그하고, 데이터가 충분하면 그대로 사용 (브랜드명/법인명 차이 허용)
+      console.warn(`[vault/company/research] 회사명 불완전 매칭: 검색="${queryName}" → 반환="${returnedName}" (brand="${returnedBrand}")`);
+      // 유효 키 10개 이상이면 관련 기업으로 간주하고 진행
+      const validKeys = Object.keys(result).filter(k => {
+        const v = result[k];
+        return v !== null && v !== undefined && v !== '' && v !== 0;
       });
-      return;
-    }
-
-    // 이름이 비어있으면 검색어로 채움
-    if (!result.name) {
-      result.name = queryName;
+      if (validKeys.length < 10) {
+        res.status(422).json({
+          error: `AI가 다른 기업 정보를 반환했습니다 ("${returnedName}"). "${queryName}"을(를) 다시 검색해주세요.`,
+          details: `검색: ${queryName} → 반환: ${returnedName}`,
+          mismatch: true,
+        });
+        return;
+      }
     }
 
     // NPS 데이터 보강 (DATA_GO_KR_API_KEY가 설정된 경우)
