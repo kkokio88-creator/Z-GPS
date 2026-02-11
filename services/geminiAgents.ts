@@ -94,9 +94,15 @@ const handleGeminiError = (error: unknown, context: string = ""): string => {
         return "서버에 Gemini API Key가 설정되지 않았습니다. 서버 환경변수를 확인하세요.";
     }
     if (errStr.includes("500")) {
-        return "서버 오류가 발생했습니다. 서버 로그를 확인하세요.";
+        // 서버에서 보낸 상세 메시지가 있으면 표시
+        const detailMatch = errStr.match(/500:\s*(.+)/);
+        return detailMatch?.[1] || "서버 오류가 발생했습니다. 서버 로그를 확인하세요.";
     }
-    return `AI 처리 중 오류: ${errStr.length > 120 ? errStr.substring(0, 120) + '...' : errStr}`;
+    if (errStr.includes("400")) {
+        const detailMatch = errStr.match(/400:\s*(.+)/);
+        return detailMatch?.[1] || "잘못된 요청입니다.";
+    }
+    return `AI 처리 중 오류: ${errStr.length > 200 ? errStr.substring(0, 200) + '...' : errStr}`;
 };
 
 class BaseAgent {
@@ -236,14 +242,33 @@ export class DraftWritingAgent extends BaseAgent {
     const config: Record<string, unknown> = {};
     if (useSearch) config.tools = [{ googleSearch: {} }];
 
+    const companyDetails = [
+      `기업명: ${company.name}`,
+      `업종: ${company.industry}`,
+      `매출액: ${company.revenue ? (company.revenue / 100000000).toFixed(1) + '억원' : '미공개'}`,
+      `직원수: ${company.employees || 0}명`,
+      company.address ? `소재지: ${company.address}` : '',
+      company.description ? `사업 설명: ${company.description}` : '',
+      company.coreCompetencies?.length ? `핵심역량: ${company.coreCompetencies.join(', ')}` : '',
+      company.certifications?.length ? `보유 인증: ${company.certifications.join(', ')}` : '',
+      company.history ? `기업 연혁: ${company.history.substring(0, 300)}` : '',
+    ].filter(Boolean).join('\n');
+
     const prompt = `
         Role: Professional Government Grant Writer (Korean).
         Task: Write the "${sectionTitle}" section for the grant application: "${program.programName}".
 
-        Applicant: "${company.name}" (${company.industry})
-        Company Context: ${company.description}
+        ## 지원 기업 정보
+        ${companyDetails}
 
-        Reference Materials & Strategy:
+        ## 지원사업 정보
+        사업명: ${program.programName}
+        주관기관: ${program.organizer}
+        지원금: ${program.expectedGrant ? (program.expectedGrant / 100000000).toFixed(1) + '억원' : '미공개'}
+        지원유형: ${program.supportType}
+        ${program.description ? `사업설명: ${program.description.substring(0, 500)}` : ''}
+
+        ## Reference Materials & Strategy
         ${referenceContext}
         ${ontologyContext}
 
@@ -252,6 +277,7 @@ export class DraftWritingAgent extends BaseAgent {
         - Tone: Persuasive, Data-driven, Confident.
         - Length: Comprehensive (approx 500-800 characters).
         - Structure: Use bullet points where appropriate for readability.
+        - IMPORTANT: 기업의 실제 정보(업종, 매출, 핵심역량, 인증 등)를 적극 반영하여 구체적이고 설득력 있게 작성하세요.
 
         Output only the text content for the section.
     `;

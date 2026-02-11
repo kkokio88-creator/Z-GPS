@@ -1005,7 +1005,7 @@ export interface TaxRefundOpportunity {
   risks: string[];
   isAmendedReturn: boolean;
   status: 'identified' | 'in_progress' | 'reviewing' | 'filed' | 'received' | 'dismissed';
-  dataSource?: 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED';
+  dataSource?: 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED' | 'DART_API';
 }
 
 export interface TaxScanResult {
@@ -1019,11 +1019,28 @@ export interface TaxScanResult {
   disclaimer: string;
 }
 
+interface DartFinancialYear {
+  year: number;
+  revenue: number;
+  operatingProfit: number;
+  netIncome: number;
+  rndExpense: number;
+  personnelExpense: number;
+  totalAssets: number;
+  totalEquity: number;
+}
+
 /** AI 세금 환급 스캔: 놓친 세금 혜택 탐지 */
 export async function scanMissedTaxBenefits(
   company: CompanyInfo,
   benefitHistory: { programName: string; category: string; receivedAmount: number; receivedDate: string }[],
-  npsData?: NpsLookupResult | null
+  npsData?: NpsLookupResult | null,
+  dartFinancials?: DartFinancialYear[],
+  researchContent?: string,
+  documentsMeta?: string,
+  programFitData?: string,
+  eiData?: string,
+  bizStatusData?: string
 ): Promise<{ opportunities: TaxRefundOpportunity[]; summary: string; disclaimer: string }> {
   const companyBlock = [
     `- 기업명: ${company.name}`,
@@ -1045,6 +1062,47 @@ export async function scanMissedTaxBenefits(
 
   const currentYear = new Date().getFullYear();
 
+  // DART 재무데이터 블록
+  const dartBlock = dartFinancials && dartFinancials.length > 0
+    ? `## DART 공시 재무데이터 (${dartFinancials.length}년)
+${dartFinancials.map(f => `### ${f.year}년
+- 매출액: ${f.revenue.toLocaleString()}원
+- 영업이익: ${f.operatingProfit.toLocaleString()}원
+- 당기순이익: ${f.netIncome.toLocaleString()}원
+- 연구개발비: ${f.rndExpense.toLocaleString()}원
+- 인건비(급여): ${f.personnelExpense.toLocaleString()}원
+- 자산총계: ${f.totalAssets.toLocaleString()}원
+- 자본총계: ${f.totalEquity.toLocaleString()}원`).join('\n\n')}`
+    : '';
+
+  // 추가 데이터 블록 구성
+  const researchBlock = researchContent
+    ? `## AI 기업 딥리서치 데이터
+${researchContent.substring(0, 6000)}
+
+위 딥리서치에 포함된 SWOT 분석, 산업 분류, 정부지원 적합성, 매출/투자 정보를
+세금 혜택 적용 가능성 판단에 적극 활용하세요.
+
+`
+    : '';
+
+  const documentsBlock = documentsMeta
+    ? `## 보유 문서 현황
+${documentsMeta}
+
+`
+    : '';
+
+  const programFitBlock = programFitData
+    ? `## 과거 지원사업 적합도 분석 이력
+${programFitData}
+
+적합도 분석에서 확인된 기업 강점, 보유 인증, 업종 매칭 정보를
+세금 혜택 자격 판단에 교차 검증 자료로 활용하세요.
+
+`
+    : '';
+
   const prompt = `당신은 한국 중소기업 세무 전문가입니다. 아래 기업 정보와 과거 수령 이력을 분석하여, 이 기업이 놓치고 있을 가능성이 있는 세금 혜택(세액공제/감면/경정청구)을 스캔하세요.
 
 ## 기업 정보
@@ -1053,21 +1111,56 @@ ${companyBlock}
 ## 과거 지원금 수령 이력
 ${historyBlock}
 
-## 국민연금 사업장 데이터 (실제 조회)
-${npsData?.found && npsData.workplace ? [
-    `- 데이터 출처: 국민연금공단 사업장 API (실제 데이터)`,
-    `- 사업장명: ${npsData.workplace.wkplNm}`,
-    `- 매칭 방식: ${npsData.matchedByBusinessNumber ? '사업자등록번호 정확매칭' : '사업장명 검색'}`,
-    `- 현재 직원수(가입자수): ${npsData.workplace.nrOfJnng}명`,
-    `- 당월 국민연금 고지액: ${npsData.workplace.crtmNtcAmt.toLocaleString()}원`,
-    `- 연간 추정 국민연금: ${(npsData.workplace.crtmNtcAmt * 12).toLocaleString()}원`,
-    `- 신규 입사(취득자): ${npsData.workplace.nwAcqzrCnt}명`,
-    `- 퇴사(상실자): ${npsData.workplace.lssJnngpCnt}명`,
-    `- 기준연월: ${npsData.workplace.dataCrtYm}`,
-    `- 데이터 완성도: ${npsData.dataCompleteness}%`,
-  ].join('\n') : '국민연금 데이터 조회 불가 — 모든 수치는 추정치입니다.'}
+${dartBlock ? dartBlock + '\n\n' : ''}${researchBlock}${documentsBlock}${programFitBlock}${eiData ? `## 고용/산재보험 데이터 (근로복지공단 API)\n${eiData}\n\n고용보험 가입자수는 NPS(국민연금)보다 넓은 범위(1인 이상)입니다.\nNPS와 교차 검증하여 실제 직원수를 보다 정확하게 판단하세요.\n\n` : ''}${bizStatusData ? `## 국세청 사업자등록 상태\n${bizStatusData}\n\n과세유형(일반/간이/면세)과 영업상태를 세금 혜택 자격 검증에 활용하세요.\n간이과세자는 일부 세액공제 적용이 제한될 수 있습니다.\n\n` : ''}## 국민연금 사업장 데이터 (실제 조회)
+${npsData?.found && npsData.workplace ? (() => {
+    const lines = [
+      `### 기본 현황`,
+      `- 데이터 출처: 국민연금공단 사업장 API (실제 데이터)`,
+      `- 총 사업장 수: ${npsData.allWorkplaces ? npsData.allWorkplaces.length : 1}개${npsData.allWorkplaces ? ' (통합 조회)' : ''}`,
+      `- 매칭 방식: ${npsData.matchedByBusinessNumber ? '사업자등록번호 정확매칭' : '사업장명 검색'}`,
+      `- 현재 직원수(가입자수 합계): ${npsData.workplace.nrOfJnng}명`,
+      `- 당월 국민연금 고지액 합계: ${npsData.workplace.crtmNtcAmt.toLocaleString()}원`,
+      `- 연간 추정 국민연금: ${(npsData.workplace.crtmNtcAmt * 12).toLocaleString()}원`,
+      `- 신규 입사(취득자): ${npsData.workplace.nwAcqzrCnt}명`,
+      `- 퇴사(상실자): ${npsData.workplace.lssJnngpCnt}명`,
+      `- 기준연월: ${npsData.workplace.dataCrtYm}`,
+      `- 데이터 완성도: ${npsData.dataCompleteness}%`,
+    ];
 
-## 스캔 대상: 10대 세금 혜택
+    // 연도별 고용 추이 (히스토리 데이터가 있을 때)
+    if (npsData.historical?.yearSummary?.length) {
+      lines.push('', '### 연도별 고용 추이 (과거 60개월)');
+      for (const ys of npsData.historical.yearSummary) {
+        lines.push(`**${ys.year}년**: 평균 ${ys.avgEmployees}명 | 신규 +${ys.totalNewHires}명 | 퇴사 -${ys.totalDepartures}명 | 순증감 ${ys.netChange >= 0 ? '+' : ''}${ys.netChange}명`);
+      }
+    }
+
+    // 월별 현황 (최근 12개월)
+    if (npsData.historical?.monthlyData?.length) {
+      lines.push('', '### 월별 현황 (최근 12개월)');
+      const recent12 = npsData.historical.monthlyData.slice(0, 12);
+      for (const md of recent12) {
+        lines.push(`- ${md.dataCrtYm}: ${md.employeeCount}명 (신규 +${md.newHires}, 상실 -${md.departures})`);
+      }
+    }
+
+    // 고용증대 세액공제 사전 검증
+    if (npsData.historical?.yearSummary?.length && npsData.historical.yearSummary.length >= 2) {
+      const sorted = [...npsData.historical.yearSummary].sort((a, b) => b.year - a.year);
+      const thisYear = sorted[0];
+      const lastYear = sorted[1];
+      const diff = thisYear.avgEmployees - lastYear.avgEmployees;
+      lines.push('', '### 고용증대 세액공제 사전 검증');
+      lines.push(`- ${thisYear.year}년 vs ${lastYear.year}년: ${diff >= 0 ? '+' : ''}${diff}명 ${diff > 0 ? '증가 → 적용 가능 ✓' : diff === 0 ? '변동 없음' : '감소 → 적용 불가'}`);
+      if (diff > 0) {
+        lines.push(`- 예상 공제 (1인당 1,550만원 기준): ${(diff * 15500000).toLocaleString()}원`);
+      }
+    }
+
+    return lines.join('\n');
+  })() : '국민연금 데이터 조회 불가 — 모든 수치는 추정치입니다.'}
+
+## 스캔 대상: 19대 세금 혜택
 
 1. **고용증대 세액공제** (조특법 §29의7) - 코드: EMPLOYMENT_INCREASE
    - 직전 연도 대비 상시근로자 수 증가 시 1인당 최대 1,550만원 공제
@@ -1089,10 +1182,34 @@ ${npsData?.found && npsData.workplace ? [
    - 창업 후 5년간 소득세/법인세 50~100% 감면
 10. **경정청구** (국세기본법 §45의2) - 코드: AMENDED_RETURN
     - 최근 5년간 과다 납부 세금 환급 청구
+11. **청년 고용 세액공제** (조특법 §30의7) - 코드: YOUTH_EMPLOYMENT
+    - 15-34세 청년 정규직 채용 시 1인당 연 최대 1,200만원 (3년간)
+12. **장애인 고용 세액공제** (조특법 §29의8) - 코드: DISABLED_EMPLOYMENT
+    - 장애인 고용 시 1인당 연 1,000~1,500만원 공제
+13. **육아휴직 복귀자 세액공제** (조특법 §29의3의2) - 코드: PARENTAL_LEAVE_RETURN
+    - 육아휴직 후 복귀자 1인당 연 1,000만원 (2년간)
+14. **근로소득증대 세액공제** (조특법 §29의4) - 코드: WAGE_INCREASE_CREDIT
+    - 직전 3개 과세연도 대비 평균 임금 증가액의 20~30% 공제
+15. **고용유지 중소기업 세액공제** (조특법 §30의3) - 코드: EMPLOYMENT_RETENTION
+    - 경영위기에도 고용 유지 시 1인당 최대 1,000만원
+16. **고용증가 사회보험료 세액공제** (조특법 §30의4의2) - 코드: SOCIAL_INSURANCE_INCREASE
+    - 상시근로자 증가 인원의 사회보험료 사업주 부담분 추가 공제
+17. **통합투자 세액공제** (조특법 §24의2) - 코드: INTEGRATED_INVESTMENT
+    - 신성장·원천기술 사업화 시설투자 시 최대 15% 공제
+18. **성과공유 중소기업 세액공제** (조특법 §19) - 코드: PROFIT_SHARING
+    - 근로자 성과급 지급 시 성과급의 10% 공제
+19. **중소기업 재직자 우대저축 공제** (조특법 §91의21) - 코드: SAVINGS_CREDIT
+    - 재직자 우대저축 기업 불입액의 40% 소득공제
+
+## 경정청구 5년 소급 분석 지침
+- 국세기본법 §45의2에 따라 과거 5년(${currentYear - 5}~${currentYear}) 이내 경정청구 가능
+- 각 혜택별로 applicableYears에 소급 가능 연도를 **모두** 명시하세요
+- DART 재무데이터가 있으면 해당 연도의 실제 수치로 계산하세요
+- R&D 세액공제: DART 연구개발비 실데이터 사용 (있으면 dataSource='DART_API')
+- 고용증대 공제: NPS 60개월 히스토리로 연도별 증감 실산출
 
 ## 분석 규칙
-- 각 혜택별로 이 기업에 적용 가능한지 구체적으로 판단
-- 적용 가능성이 있는 항목만 반환 (명백히 해당 없는 항목은 제외)
+- **19개 혜택 전체**를 이 기업에 적용 가능한지 판단. 적용 가능성이 있는 항목만 반환 (해당 없는 항목은 제외하되, 제외 사유를 summary에 간략 기재)
 - 각 기회에 대해 추정 환급액, 적용 연도, 난이도, 확신도를 산출
 - taxBenefitCode가 "AMENDED_RETURN"인 항목은 반드시 "isAmendedReturn": true로 설정
 - 그 외 항목은 "isAmendedReturn": false
@@ -1100,14 +1217,51 @@ ${npsData?.found && npsData.workplace ? [
 - estimatedRefund는 원(KRW) 단위
 - applicableYears는 ${currentYear - 5}~${currentYear} 범위
 
-### dataSource 및 confidence 규칙 (중요)
-- 국민연금 데이터가 있는 경우:
-  - 고용증대/사회보험료 등 직원수·보험료 기반 항목: dataSource를 "NPS_API"로, confidence 70 이상
-  - estimatedRefund 산출 시 실제 직원수·고지액 기반 계산 근거를 eligibilityReason에 명시
+### NPS 히스토리 활용 규칙 (중요)
+- **연도별 고용 추이 데이터가 있으면**: 실제 연도별 평균 직원수 증감으로 고용증대/사회보험료 공제액 산출. confidence 80 이상
+- **사회보험료**: 월 고지액 × 12 × (증가인원 / 현재 직원수) 비율로 자동 추정
+- **고용증대 세액공제**: 연도별 yearSummary의 netChange > 0 이면 적용 가능. 1인당 1,550만원 × netChange로 estimatedRefund 산출
+
+### DART 재무데이터 활용 규칙
+- DART 재무데이터가 있는 경우:
+  - R&D 세액공제: DART 연구개발비 실데이터 × 25%로 estimatedRefund 산출. dataSource="DART_API", confidence 85-95
+  - 중소기업 특별세액감면: DART 당기순이익 기반 계산. dataSource="DART_API"
+  - 투자세액공제: DART 자산총계 증감 기반. dataSource="DART_API"
+  - 인건비/급여 기반 항목: DART 인건비 실데이터 참고. NPS + DART 양쪽 확인 시 confidence 상향
+- DART + NPS 모두 있는 경우: confidence 85-95
+- DART만 있는 경우: confidence 70-80
+- NPS만 있는 경우: confidence 65-80
+- 둘 다 없는 경우: confidence 30-50
+
+### 리서치 데이터 활용 규칙
+- 딥리서치에 SWOT, R&D 비중, 수출/내수 비율 등이 있으면 관련 항목의 confidence +5~10
+- 딥리서치의 '정부지원 적합도' 분석이 세금 혜택 카테고리와 일치하면 confidence 추가 상향
+- 보유 문서(사업자등록증, 재무제표 원본 등)가 확인되면 해당 항목의 confidence +5
+- dataSource: 리서치 기반 판단일 경우 "RESEARCH" 사용
+
+### 고용/산재보험 데이터 활용 규칙
+- 고용보험 가입자수가 NPS 가입자수보다 크면: 실제 직원수는 고용보험 기준 사용
+- 고용보험 성립일로 사업 개시 시기를 더 정확하게 파악 → 창업기업 세액감면 자격 검증
+- 고용보험 데이터가 있으면 사회보험료 관련 항목의 confidence +5
+- 고용보험 기반 판단 시: dataSource를 "EI_API"로
+
+### 국세청 사업자등록 상태 활용 규칙
+- 영업상태가 "계속사업자"가 아닌 경우: 대부분의 세액공제 적용 불가 → 해당 항목 제외
+- 간이과세자: 부가세 관련 세액공제 제한, confidence 하향 조정
+- 면세사업자: 부가가치세 항목 해당 없음
+- 국세청 데이터 기반 판단 시: dataSource를 "NTS_API"로
+
+### dataSource 및 confidence 규칙
+- DART 재무데이터로 산출한 항목 (R&D, 매출 기반 등): dataSource를 "DART_API"로
+- 국민연금 히스토리 데이터가 있는 경우:
+  - 고용증대/사회보험료/청년고용/고용유지 등 직원수·보험료 기반 항목: dataSource를 "NPS_API"로, confidence 80 이상
+  - estimatedRefund 산출 시 실제 연도별 증감·고지액 기반 계산 근거를 eligibilityReason에 명시
+- 국민연금 단월 데이터만 있는 경우:
+  - 고용증대/사회보험료: dataSource를 "NPS_API"로, confidence 70
 - 국민연금 데이터가 없는 경우:
   - 프로필(업종·매출·설립연도)만으로 판단 가능한 항목: dataSource를 "COMPANY_PROFILE"로, confidence 40~60
   - 나머지 항목: dataSource를 "ESTIMATED"로, confidence 50 이하, eligibilityReason에 "(추정치)" 표시
-- 국민연금 데이터가 있어도 직원수·보험료와 무관한 항목(R&D, 투자 등): dataSource를 "COMPANY_PROFILE" 또는 "ESTIMATED"로
+- 국민연금 데이터가 있어도 직원수·보험료와 무관한 항목(R&D, 투자 등): dataSource를 "DART_API" (DART 데이터 있을 때) 또는 "COMPANY_PROFILE" 또는 "ESTIMATED"로
 
 반드시 아래 JSON 형식만 반환하세요:
 {
@@ -1130,7 +1284,7 @@ ${npsData?.found && npsData.workplace ? [
       "risks": ["리스크"],
       "isAmendedReturn": true,
       "status": "identified",
-      "dataSource": "NPS_API"|"COMPANY_PROFILE"|"ESTIMATED"
+      "dataSource": "NPS_API"|"COMPANY_PROFILE"|"ESTIMATED"|"DART_API"|"RESEARCH"|"EI_API"|"NTS_API"
     }
   ],
   "summary": "전체 분석 요약 300자 이상",
@@ -1154,9 +1308,9 @@ ${npsData?.found && npsData.workplace ? [
         estimatedRefund: Number(o.estimatedRefund) || 0,
         applicableYears: Array.isArray(o.applicableYears) ? o.applicableYears.map(Number) : [],
         status: (o.status as string) || 'identified',
-        dataSource: (['NPS_API', 'COMPANY_PROFILE', 'ESTIMATED'].includes(o.dataSource as string)
-          ? o.dataSource as 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED'
-          : (npsData?.found ? 'COMPANY_PROFILE' : 'ESTIMATED')),
+        dataSource: (['NPS_API', 'COMPANY_PROFILE', 'ESTIMATED', 'DART_API', 'RESEARCH', 'EI_API', 'NTS_API'].includes(o.dataSource as string)
+          ? o.dataSource as 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED' | 'DART_API' | 'RESEARCH' | 'EI_API' | 'NTS_API'
+          : (dartFinancials?.length ? 'DART_API' : npsData?.found ? 'COMPANY_PROFILE' : 'ESTIMATED')),
       } as TaxRefundOpportunity;
     });
     const summary = (result.summary as string) || '';

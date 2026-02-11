@@ -338,6 +338,7 @@ const Settings: React.FC = () => {
             businessType: (c.businessType as string) ?? prev.businessType,
             mainProducts: Array.isArray(c.mainProducts) ? c.mainProducts as string[] : prev.mainProducts,
             representative: (c.representative as string) ?? prev.representative,
+            history: (c.history as string) ?? prev.history,
           }));
         }
       }).catch(() => {
@@ -418,69 +419,113 @@ const Settings: React.FC = () => {
     setResearchError('');
     try {
       const result = await vaultService.researchCompany(researchQuery.trim());
-      if (result.success && result.company) {
-        const c = result.company;
-        // foundedYear 추출: "YYYY-MM-DD" 또는 숫자
-        let foundedYear: number | undefined;
-        if (c.foundedDate && typeof c.foundedDate === 'string') {
-          const y = parseInt(c.foundedDate.substring(0, 4), 10);
-          if (!isNaN(y) && y > 1900) foundedYear = y;
-        } else if (c.foundedYear && typeof c.foundedYear === 'number') {
-          foundedYear = c.foundedYear as number;
-        }
+      if (!result.success || !result.company) {
+        setResearchError('리서치 결과를 받지 못했습니다. 다시 시도해주세요.');
+        return;
+      }
+      const c = result.company;
 
-        const updated: typeof company = {
-          ...company,
-          name: (c.name as string) || company.name,
-          businessNumber: (c.businessNumber as string) || company.businessNumber,
-          industry: (c.industry as string) || company.industry,
-          address: (c.address as string) || company.address,
-          revenue: (c.revenue != null && Number(c.revenue) > 0 ? Number(c.revenue) : company.revenue),
-          employees: (c.employees != null && Number(c.employees) > 0 ? Number(c.employees) : company.employees),
-          description: (c.description as string) || company.description,
-          coreCompetencies: Array.isArray(c.coreCompetencies) && c.coreCompetencies.length > 0 ? c.coreCompetencies as string[] : company.coreCompetencies,
-          certifications: Array.isArray(c.certifications) && c.certifications.length > 0 ? c.certifications as string[] : company.certifications,
-          mainProducts: Array.isArray(c.mainProducts) && c.mainProducts.length > 0 ? c.mainProducts as string[] : company.mainProducts,
-          representative: (c.representative as string) || company.representative,
-          foundedYear: foundedYear ?? company.foundedYear,
-          businessType: (c.businessType as string) || company.businessType,
-          history: (c.history as string) || company.history,
-        };
-        setCompany(updated);
+      // 빈 결과 검증 — name만 있고 나머지 비어있으면 실패 처리
+      const hasName = !!c.name && String(c.name).trim().length > 0;
+      const hasExtra = !!(
+        (c.description && String(c.description).trim().length > 1) ||
+        (c.industry && String(c.industry).trim().length > 1) ||
+        (Array.isArray(c.coreCompetencies) && c.coreCompetencies.length > 0) ||
+        (c.strategicAnalysis && typeof c.strategicAnalysis === 'object')
+      );
+      if (!hasName || !hasExtra) {
+        setResearchError('AI가 유효한 기업 정보를 반환하지 않았습니다. 기업명을 확인 후 다시 시도해주세요.');
+        return;
+      }
 
-        // 리서치 완료 시 자동 저장
-        saveStoredCompany(updated);
-        try {
-          await vaultService.saveCompany({
-            name: updated.name,
-            businessNumber: updated.businessNumber,
-            industry: updated.industry,
-            address: updated.address,
-            revenue: updated.revenue,
-            employees: updated.employees,
-            description: updated.description,
-            coreCompetencies: updated.coreCompetencies,
-            certifications: updated.certifications,
-            foundedYear: updated.foundedYear,
-            businessType: updated.businessType,
-            mainProducts: updated.mainProducts,
-            representative: updated.representative,
-          });
-        } catch { /* vault 저장 실패는 toast에서 처리 */ }
+      // ─── 클라이언트측 회사명 이중 검증 ───────────────
+      const normalize = (n: string) =>
+        n.replace(/^(주식회사|㈜|\(주\)|\(사\)|사단법인|재단법인)\s*/g, '')
+         .replace(/\s*(주식회사|㈜|\(주\))$/g, '')
+         .replace(/\s+/g, '').toLowerCase();
 
-        // 딥리서치 전체 데이터 저장
-        setDeepResearchData(c);
-        setExpandedSections(new Set(['swot', 'funding']));
-        setResearchQuery('');
+      const returnedName = String(c.name || '');
+      const queryNorm = normalize(researchQuery.trim());
+      const returnedNorm = normalize(returnedName);
 
+      if (returnedName && returnedNorm.length > 0 &&
+          !returnedNorm.includes(queryNorm) &&
+          !queryNorm.includes(returnedNorm)) {
+        setResearchError(`AI가 다른 기업("${returnedName}")을 반환했습니다. 정확한 기업명으로 다시 검색해주세요.`);
+        return;
+      }
+
+      // foundedYear 추출: "YYYY-MM-DD" 또는 숫자
+      let foundedYear: number | undefined;
+      if (c.foundedDate && typeof c.foundedDate === 'string') {
+        const y = parseInt(c.foundedDate.substring(0, 4), 10);
+        if (!isNaN(y) && y > 1900) foundedYear = y;
+      } else if (c.foundedYear && typeof c.foundedYear === 'number') {
+        foundedYear = c.foundedYear as number;
+      }
+
+      const updated: typeof company = {
+        ...company,
+        name: (c.name as string) || company.name,
+        businessNumber: (c.businessNumber as string) || company.businessNumber,
+        industry: (c.industry as string) || company.industry,
+        address: (c.address as string) || company.address,
+        revenue: (c.revenue != null && Number(c.revenue) > 0 ? Number(c.revenue) : company.revenue),
+        employees: (c.employees != null && Number(c.employees) > 0 ? Number(c.employees) : company.employees),
+        description: (c.description as string) || company.description,
+        coreCompetencies: Array.isArray(c.coreCompetencies) && c.coreCompetencies.length > 0 ? c.coreCompetencies as string[] : company.coreCompetencies,
+        certifications: Array.isArray(c.certifications) && c.certifications.length > 0 ? c.certifications as string[] : company.certifications,
+        mainProducts: Array.isArray(c.mainProducts) && c.mainProducts.length > 0 ? c.mainProducts as string[] : company.mainProducts,
+        representative: (c.representative as string) || company.representative,
+        foundedYear: foundedYear ?? company.foundedYear,
+        businessType: (c.businessType as string) || company.businessType,
+        history: (c.history as string) || company.history,
+      };
+      setCompany(updated);
+
+      // 리서치 완료 시 자동 저장
+      saveStoredCompany(updated);
+      try {
+        await vaultService.saveCompany({
+          name: updated.name,
+          businessNumber: updated.businessNumber,
+          industry: updated.industry,
+          address: updated.address,
+          revenue: updated.revenue,
+          employees: updated.employees,
+          description: updated.description,
+          coreCompetencies: updated.coreCompetencies,
+          certifications: updated.certifications,
+          foundedYear: updated.foundedYear,
+          businessType: updated.businessType,
+          mainProducts: updated.mainProducts,
+          representative: updated.representative,
+          history: updated.history,
+        });
+      } catch (saveErr) {
+        console.warn('[Settings] Research auto-save failed:', saveErr);
         window.dispatchEvent(new CustomEvent('zmis-toast', {
-          detail: { message: '기업 리서치 완료 — 자동 저장되었습니다.', type: 'success' },
+          detail: { message: '서버 저장에 실패했습니다. 로컬에만 저장됩니다.', type: 'warning' },
         }));
       }
+
+      // 딥리서치 전체 데이터 저장
+      setDeepResearchData(c);
+      setExpandedSections(new Set(['swot', 'funding']));
+      setResearchQuery('');
+
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: '기업 리서치 완료 — 자동 저장되었습니다.', type: 'success' },
+      }));
     } catch (e: unknown) {
-      const err = e as Error & { response?: { data?: { error?: string; details?: string } } };
-      const detail = err?.response?.data?.details || err?.response?.data?.error || String(e);
-      setResearchError(`리서치 실패: ${detail}`);
+      const err = e as Error & { response?: { data?: { error?: string; details?: string; mismatch?: boolean; notFound?: boolean } } };
+      const data = err?.response?.data;
+      if (data?.mismatch || data?.notFound) {
+        setResearchError(data.error || '기업 정보를 찾을 수 없습니다.');
+      } else {
+        const detail = data?.details || data?.error || String(e);
+        setResearchError(`리서치 실패: ${detail}`);
+      }
     } finally {
       setResearching(false);
     }
@@ -512,6 +557,7 @@ const Settings: React.FC = () => {
         businessType: company.businessType,
         mainProducts: company.mainProducts,
         representative: company.representative,
+        history: company.history,
       });
       window.dispatchEvent(new CustomEvent('zmis-toast', {
         detail: { message: '기업 정보가 서버에 저장되었습니다.', type: 'success' },
@@ -815,6 +861,9 @@ const Settings: React.FC = () => {
         const ei = deepResearchData.employmentInfo as Record<string, unknown> | undefined;
         const inv = deepResearchData.investmentInfo as Record<string, unknown> | undefined;
 
+        // 표시 가능한 섹션이 있는지 체크
+        const hasAnySections = !!(swot || mp || ii || gf || ei || (inv && !inv.isBootstrapped));
+
         const AccordionSection: React.FC<{ id: string; icon: string; title: string; children: React.ReactNode }> = ({ id, icon, title, children }) => (
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <button
@@ -842,6 +891,24 @@ const Settings: React.FC = () => {
               </h3>
               <button onClick={() => setDeepResearchData(null)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
             </div>
+
+            {/* 기본 정보 요약 (항상 표시) */}
+            {deepResearchData.name && (
+              <div className="mb-3 p-3 bg-indigo-50 dark:bg-indigo-950/20 rounded-lg">
+                <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200">{deepResearchData.name as string}</p>
+                {deepResearchData.industry && <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">{deepResearchData.industry as string}</p>}
+                {deepResearchData.description && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{deepResearchData.description as string}</p>}
+              </div>
+            )}
+
+            {!hasAnySections && (
+              <div className="text-center py-6 text-gray-400">
+                <span className="material-icons-outlined text-3xl mb-2 block">info</span>
+                <p className="text-sm">기본 정보만 수집되었습니다. 상세 분석 데이터가 없습니다.</p>
+                <p className="text-xs mt-1">아래 기업 정보 폼에서 수집된 내용을 확인하세요.</p>
+              </div>
+            )}
+
             <div className="space-y-2">
 
               {/* SWOT */}

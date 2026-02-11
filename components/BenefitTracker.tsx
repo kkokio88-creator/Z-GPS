@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService } from '../services/vaultService';
-import type { BenefitRecord, BenefitAnalysisResult, BenefitSummary, BenefitCategory, BenefitStatus, TaxScanResult, TaxRefundDifficulty, TaxRefundOpportunity, TaxCalculationLineItem } from '../types';
+import type { BenefitRecord, BenefitAnalysisResult, BenefitSummary, BenefitCategory, BenefitStatus, TaxScanResult, TaxRefundDifficulty, TaxRefundOpportunity, TaxCalculationLineItem, NpsHistoricalTrend, DartFinancialYear } from '../types';
 import Header from './Header';
 
 const CATEGORIES: BenefitCategory[] = ['고용지원', 'R&D', '수출', '창업', '시설투자', '교육훈련', '기타'];
@@ -36,13 +36,18 @@ const OPP_STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 const SCAN_STEPS = [
   { label: '기업 정보 수집', icon: 'business' },
-  { label: '국민연금 데이터 조회', icon: 'cloud_download' },
+  { label: '국민연금 + 고용보험 조회', icon: 'cloud_download' },
+  { label: 'DART + 국세청 + 리서치', icon: 'inventory_2' },
   { label: 'AI 세금 분석', icon: 'psychology' },
   { label: '결과 정리', icon: 'checklist' },
 ];
 
 const DATA_SOURCE_BADGES: Record<string, { label: string; color: string }> = {
-  NPS_API: { label: '실제 데이터', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  NPS_API: { label: 'NPS 실데이터', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  DART_API: { label: 'DART 공시', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  EI_API: { label: '고용보험', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
+  NTS_API: { label: '국세청', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' },
+  RESEARCH: { label: '리서치', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
   COMPANY_PROFILE: { label: '프로필 기반', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
   ESTIMATED: { label: '추정치', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 };
@@ -70,6 +75,15 @@ const TAX_BENEFIT_ICONS: Record<string, string> = {
   ENTERTAINMENT_SPECIAL: 'restaurant',
   STARTUP_EXEMPTION: 'rocket_launch',
   AMENDED_RETURN: 'history',
+  YOUTH_EMPLOYMENT: 'school',
+  DISABLED_EMPLOYMENT: 'accessible',
+  PARENTAL_LEAVE_RETURN: 'child_care',
+  WAGE_INCREASE_CREDIT: 'payments',
+  EMPLOYMENT_RETENTION: 'verified_user',
+  SOCIAL_INSURANCE_INCREASE: 'trending_up',
+  INTEGRATED_INVESTMENT: 'category',
+  PROFIT_SHARING: 'handshake',
+  SAVINGS_CREDIT: 'savings',
 };
 
 const LINE_ITEM_SOURCE_BADGE: Record<string, { icon: string; color: string; label: string }> = {
@@ -155,7 +169,14 @@ const BenefitTracker: React.FC = () => {
   const [taxErrorCode, setTaxErrorCode] = useState<number | null>(null);
   const [scanStep, setScanStep] = useState<0 | 1 | 2 | 3>(0);
   const [generatingWorksheet, setGeneratingWorksheet] = useState<string | null>(null);
+  const [showNpsTrend, setShowNpsTrend] = useState(false);
   const autoScanTriggered = useRef(false);
+
+  // 세금 환급 탭: 정렬/필터
+  const [taxSortBy, setTaxSortBy] = useState<'refund' | 'confidence' | 'difficulty'>('refund');
+  const [taxFilterStatus, setTaxFilterStatus] = useState<string>('all');
+  const [taxFilterSource, setTaxFilterSource] = useState<string>('all');
+  const [showDartSummary, setShowDartSummary] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -228,6 +249,22 @@ const BenefitTracker: React.FC = () => {
     if (filterCategory === 'all') return benefits;
     return benefits.filter(b => b.category === filterCategory);
   }, [benefits, filterCategory]);
+
+  const sortedOpportunities = useMemo(() => {
+    if (!taxScan) return [];
+    let filtered = [...taxScan.opportunities];
+    if (taxFilterStatus !== 'all') filtered = filtered.filter(o => o.status === taxFilterStatus);
+    if (taxFilterSource === 'real') filtered = filtered.filter(o => o.dataSource === 'NPS_API' || o.dataSource === 'DART_API');
+    if (taxFilterSource === 'estimated') filtered = filtered.filter(o => o.dataSource === 'ESTIMATED' || o.dataSource === 'COMPANY_PROFILE');
+
+    filtered.sort((a, b) => {
+      if (taxSortBy === 'refund') return b.estimatedRefund - a.estimatedRefund;
+      if (taxSortBy === 'confidence') return b.confidence - a.confidence;
+      const diffOrder = { EASY: 0, MODERATE: 1, COMPLEX: 2 };
+      return (diffOrder[a.difficulty] ?? 1) - (diffOrder[b.difficulty] ?? 1);
+    });
+    return filtered;
+  }, [taxScan, taxSortBy, taxFilterStatus, taxFilterSource]);
 
   const handleSubmit = async () => {
     if (!form.programName || !form.receivedAmount || !form.receivedDate || !form.organizer) return;
@@ -1093,21 +1130,155 @@ const BenefitTracker: React.FC = () => {
               {/* Results */}
               {!taxScanning && taxScan && (
                 <>
-                  {/* Data Source Badge */}
-                  {taxScan.npsData?.found ? (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-lg">
-                      <span className="material-icons-outlined text-blue-500 text-base">verified</span>
-                      <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
-                        국민연금 데이터 확인 ({taxScan.npsData.workplace?.nrOfJnng}명 가입)
-                        {taxScan.npsData.matchedByBusinessNumber && ' · 사업자번호 매칭'}
-                      </span>
-                      {typeof taxScan.dataCompleteness === 'number' && (
-                        <span className="ml-auto text-[10px] text-blue-500 dark:text-blue-400">완성도 {taxScan.dataCompleteness}%</span>
-                      )}
-                    </div>
-                  ) : (
-                    <NpsDisconnectedBanner navigate={navigate} />
-                  )}
+                  {/* Data Source Badges */}
+                  <div className="space-y-2">
+                    {taxScan.npsData?.found ? (
+                      <div className="space-y-0">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-lg">
+                          <span className="material-icons-outlined text-blue-500 text-base">verified</span>
+                          <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                            NPS 실데이터 ({taxScan.npsData.allWorkplaces ? `${taxScan.npsData.allWorkplaces.length}개 사업장 · ` : ''}{taxScan.npsData.workplace?.nrOfJnng}명)
+                            {taxScan.npsData.historical ? ` · ${taxScan.npsData.historical.monthlyData.length}개월` : ''}
+                            {taxScan.npsData.matchedByBusinessNumber && ' · 사업자번호 매칭'}
+                          </span>
+                          <div className="ml-auto flex items-center gap-2">
+                            {typeof taxScan.dataCompleteness === 'number' && (
+                              <span className="text-[10px] text-blue-500 dark:text-blue-400">완성도 {taxScan.dataCompleteness}%</span>
+                            )}
+                            {taxScan.npsData.historical && (
+                              <button
+                                onClick={() => setShowNpsTrend(v => !v)}
+                                className="px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded transition-colors flex items-center gap-0.5"
+                              >
+                                <span className="material-icons-outlined text-xs">{showNpsTrend ? 'expand_less' : 'bar_chart'}</span>
+                                추이
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* NPS 월별 추이 차트 */}
+                        {showNpsTrend && taxScan.npsData.historical && (() => {
+                          const hist = taxScan.npsData.historical as NpsHistoricalTrend;
+                          const recent12 = hist.monthlyData.slice(0, 12).reverse();
+                          const maxEmp = Math.max(...recent12.map(d => d.employeeCount), 1);
+
+                          return (
+                            <div className="mt-2 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-lg p-4 space-y-4">
+                              {hist.yearSummary.length > 0 && (
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                                  {hist.yearSummary.map(ys => (
+                                    <div key={ys.year} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-100 dark:border-blue-800/30">
+                                      <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{ys.year}년</p>
+                                      <div className="space-y-0.5 text-[11px] text-gray-600 dark:text-gray-400">
+                                        <p>평균 <span className="font-medium text-gray-900 dark:text-white">{ys.avgEmployees}</span>명</p>
+                                        <p>
+                                          순증감{' '}
+                                          <span className={`font-medium ${ys.netChange > 0 ? 'text-green-600 dark:text-green-400' : ys.netChange < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
+                                            {ys.netChange >= 0 ? '+' : ''}{ys.netChange}명
+                                          </span>
+                                        </p>
+                                        <p className="text-[10px] text-gray-400">+{ys.totalNewHires} / -{ys.totalDepartures}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-2">최근 12개월 직원수 추이</p>
+                                <div className="flex items-end gap-1 h-24">
+                                  {recent12.map(md => {
+                                    const h = Math.max((md.employeeCount / maxEmp) * 100, 3);
+                                    return (
+                                      <div key={md.dataCrtYm} className="flex-1 flex flex-col items-center group relative">
+                                        <div className="absolute -top-5 hidden group-hover:block z-10 bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap">
+                                          {md.employeeCount}명 (+{md.newHires}/-{md.departures})
+                                        </div>
+                                        <div
+                                          className="w-full bg-blue-400 dark:bg-blue-500 rounded-t transition-all hover:bg-blue-500 dark:hover:bg-blue-400"
+                                          style={{ height: `${h}%` }}
+                                        />
+                                        <span className="text-[8px] text-gray-400 mt-1 leading-none">
+                                          {md.dataCrtYm.substring(4)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <NpsDisconnectedBanner navigate={navigate} />
+                    )}
+
+                    {/* DART 재무 배지 + 요약 */}
+                    {(taxScan as TaxScanResult & { dartFinancials?: DartFinancialYear[] }).dartFinancials && (taxScan as TaxScanResult & { dartFinancials?: DartFinancialYear[] }).dartFinancials!.length > 0 && (
+                      <div className="space-y-0">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg">
+                          <span className="material-icons-outlined text-emerald-500 text-base">verified</span>
+                          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                            DART 공시 재무데이터 ({(taxScan as TaxScanResult & { dartFinancials?: DartFinancialYear[] }).dartFinancials!.length}년분)
+                          </span>
+                          <button
+                            onClick={() => setShowDartSummary(v => !v)}
+                            className="ml-auto px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded transition-colors flex items-center gap-0.5"
+                          >
+                            <span className="material-icons-outlined text-xs">{showDartSummary ? 'expand_less' : 'table_chart'}</span>
+                            재무 요약
+                          </button>
+                        </div>
+
+                        {showDartSummary && (() => {
+                          const dartData = (taxScan as TaxScanResult & { dartFinancials?: DartFinancialYear[] }).dartFinancials!;
+                          return (
+                            <div className="mt-2 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 rounded-lg p-4">
+                              <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-2">DART 공시 재무현황</p>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-emerald-200 dark:border-emerald-800/40">
+                                      <th className="text-left py-1.5 pr-3 font-medium text-gray-600 dark:text-gray-400">연도</th>
+                                      <th className="text-right py-1.5 px-2 font-medium text-gray-600 dark:text-gray-400">매출액</th>
+                                      <th className="text-right py-1.5 px-2 font-medium text-gray-600 dark:text-gray-400">영업이익</th>
+                                      <th className="text-right py-1.5 px-2 font-medium text-gray-600 dark:text-gray-400">R&D비</th>
+                                      <th className="text-right py-1.5 px-2 font-medium text-gray-600 dark:text-gray-400">인건비</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {dartData.map(f => (
+                                      <tr key={f.year} className="border-b border-gray-100 dark:border-gray-700/50">
+                                        <td className="py-1.5 pr-3 font-medium text-gray-900 dark:text-white">{f.year}년</td>
+                                        <td className="py-1.5 px-2 text-right text-gray-700 dark:text-gray-300">{f.revenue ? formatKRW(f.revenue) : '-'}</td>
+                                        <td className="py-1.5 px-2 text-right text-gray-700 dark:text-gray-300">{f.operatingProfit ? formatKRW(f.operatingProfit) : '-'}</td>
+                                        <td className="py-1.5 px-2 text-right text-emerald-600 dark:text-emerald-400">{f.rndExpense ? formatKRW(f.rndExpense) : '-'}</td>
+                                        <td className="py-1.5 px-2 text-right text-blue-600 dark:text-blue-400">{f.personnelExpense ? formatKRW(f.personnelExpense) : '-'}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {/* 데이터 소스 요약 배너 */}
+                    {(taxScan as TaxScanResult).dataSources && (
+                      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/40 rounded-lg">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 mr-1">분석 데이터:</span>
+                        {(taxScan as TaxScanResult).dataSources!.nps && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium">NPS</span>}
+                        {(taxScan as TaxScanResult).dataSources!.dart && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">DART</span>}
+                        {(taxScan as TaxScanResult).dataSources!.ei && <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 font-medium">고용보험</span>}
+                        {(taxScan as TaxScanResult).dataSources!.bizStatus && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 font-medium">국세청</span>}
+                        {(taxScan as TaxScanResult).dataSources!.research && <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium">리서치</span>}
+                        {(taxScan as TaxScanResult).dataSources!.documents && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 font-medium">문서</span>}
+                        {(taxScan as TaxScanResult).dataSources!.programFit && <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-medium">적합도</span>}
+                      </div>
+                    )}
+                  </div>
 
                   {/* KPI Cards */}
                   <div className="grid grid-cols-3 gap-4">
@@ -1139,37 +1310,80 @@ const BenefitTracker: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Sort/Filter Bar */}
+                  <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-3">
+                    <span className="text-[10px] text-gray-400 font-medium mr-1">정렬</span>
+                    {([['refund', '환급액순'], ['confidence', '신뢰도순'], ['difficulty', '난이도순']] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => setTaxSortBy(key)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                          taxSortBy === key
+                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'
+                            : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+                    <span className="text-[10px] text-gray-400 font-medium mr-1">상태</span>
+                    <select
+                      value={taxFilterStatus}
+                      onChange={(e) => setTaxFilterStatus(e.target.value)}
+                      className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    >
+                      <option value="all">전체</option>
+                      <option value="identified">발견</option>
+                      <option value="reviewing">검토중</option>
+                      <option value="filed">신고완료</option>
+                      <option value="received">환급완료</option>
+                      <option value="dismissed">해당없음</option>
+                    </select>
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+                    <span className="text-[10px] text-gray-400 font-medium mr-1">데이터</span>
+                    <select
+                      value={taxFilterSource}
+                      onChange={(e) => setTaxFilterSource(e.target.value)}
+                      className="text-[11px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    >
+                      <option value="all">전체</option>
+                      <option value="real">실데이터</option>
+                      <option value="estimated">추정치</option>
+                    </select>
+                  </div>
+
                   {/* Opportunity Cards */}
-                  {taxScan.opportunities.length > 0 ? (
+                  {sortedOpportunities.length > 0 ? (
                     <div className="space-y-3">
-                      {[...taxScan.opportunities]
-                        .sort((a, b) => (b.estimatedRefund * b.confidence / 100) - (a.estimatedRefund * a.confidence / 100))
-                        .map(opp => {
+                      {sortedOpportunities.map(opp => {
                           const isExpanded = expandedOpportunity === opp.id;
                           const icon = TAX_BENEFIT_ICONS[opp.taxBenefitCode] || 'payments';
                           const diff = DIFFICULTY_LABELS[opp.difficulty] || DIFFICULTY_LABELS.MODERATE;
+                          const hasNpsVerify = opp.dataSource === 'NPS_API';
+                          const hasDartVerify = opp.dataSource === 'DART_API';
 
                           return (
                             <div key={opp.id} className="bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
-                              {/* Collapsed Header */}
+                              {/* Card Header */}
                               <div
                                 className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                                 onClick={() => setExpandedOpportunity(isExpanded ? null : opp.id)}
                               >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
-                                    <span className="material-icons-outlined text-indigo-600 dark:text-indigo-400 text-lg">{icon}</span>
+                                <div className="flex items-start gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                                    <span className="material-icons-outlined text-indigo-600 dark:text-indigo-400 text-xl">{icon}</span>
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <h4 className="font-bold text-sm text-gray-900 dark:text-white">{opp.taxBenefitName}</h4>
+                                      {opp.isAmendedReturn && (
+                                        <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-[10px] font-bold">경정청구</span>
+                                      )}
                                       {opp.status && OPP_STATUS_LABELS[opp.status] && (
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${OPP_STATUS_LABELS[opp.status].color}`}>
                                           {OPP_STATUS_LABELS[opp.status].label}
                                         </span>
-                                      )}
-                                      {opp.isAmendedReturn && (
-                                        <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-[10px] font-bold">경정청구</span>
                                       )}
                                       {opp.dataSource && DATA_SOURCE_BADGES[opp.dataSource] && (
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${DATA_SOURCE_BADGES[opp.dataSource].color}`}>
@@ -1177,27 +1391,55 @@ const BenefitTracker: React.FC = () => {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                      {opp.applicableYears.map(y => (
-                                        <span key={y} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-400">{y}</span>
-                                      ))}
-                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${diff.color}`}>{diff.label}</span>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-3 flex-shrink-0">
-                                    <div className="text-right">
-                                      <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{formatKRW(opp.estimatedRefund)}</p>
-                                      <div className="flex items-center gap-1 mt-1">
-                                        <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                          <div
-                                            className={`h-full rounded-full ${getConfidenceBarColor(opp.confidence)}`}
-                                            style={{ width: `${Math.min(opp.confidence, 100)}%` }}
-                                          />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                      {opp.legalBasis[0] || ''} · {opp.applicableYears[0]}-{opp.applicableYears[opp.applicableYears.length - 1]}년
+                                    </p>
+
+                                    {/* Estimated Refund + Confidence */}
+                                    <div className="flex items-center gap-4 mt-2">
+                                      <div>
+                                        <p className="text-[10px] text-gray-400">추정 환급액</p>
+                                        <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{formatKRW(opp.estimatedRefund)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-gray-400">신뢰도</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          <span className={`text-sm font-bold ${getConfidenceColor(opp.confidence)}`}>{opp.confidence}%</span>
+                                          <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full ${getConfidenceBarColor(opp.confidence)}`} style={{ width: `${Math.min(opp.confidence, 100)}%` }} />
+                                          </div>
                                         </div>
-                                        <span className={`text-[10px] font-medium ${getConfidenceColor(opp.confidence)}`}>{opp.confidence}%</span>
                                       </div>
                                     </div>
-                                    <span className={`material-icons-outlined text-gray-400 text-base transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+
+                                    {/* Data Verification Badges */}
+                                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                      {hasNpsVerify && taxScan.npsData?.historical && (
+                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+                                          <span className="material-icons-outlined text-[11px]">check_circle</span>
+                                          NPS {taxScan.npsData.historical.monthlyData.length}개월 검증
+                                        </span>
+                                      )}
+                                      {hasDartVerify && (
+                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
+                                          <span className="material-icons-outlined text-[11px]">check_circle</span>
+                                          DART 재무 검증
+                                        </span>
+                                      )}
+                                      {!hasNpsVerify && !hasDartVerify && opp.dataSource === 'ESTIMATED' && (
+                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500">
+                                          <span className="material-icons-outlined text-[11px]">change_history</span>
+                                          추정치 (실데이터 연결 시 정확도 향상)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${diff.color}`}>
+                                      난이도: {diff.label}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">{opp.estimatedProcessingTime}</span>
+                                    <span className={`material-icons-outlined text-gray-400 text-base transition-transform mt-1 ${isExpanded ? 'rotate-180' : ''}`}>
                                       expand_more
                                     </span>
                                   </div>
@@ -1213,6 +1455,48 @@ const BenefitTracker: React.FC = () => {
                                     <h5 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-1">적용 사유</h5>
                                     <p className="text-xs text-indigo-600 dark:text-indigo-300">{opp.eligibilityReason}</p>
                                   </div>
+
+                                  {/* 5년 연도별 분석 뷰 */}
+                                  {opp.applicableYears.length > 1 && (
+                                    <div>
+                                      <h5 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">연도별 환급 가능액</h5>
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                                              <th className="text-left py-1.5 pr-3 font-medium text-gray-500 dark:text-gray-400">연도</th>
+                                              <th className="text-right py-1.5 px-2 font-medium text-gray-500 dark:text-gray-400">환급 가능액</th>
+                                              <th className="text-left py-1.5 px-2 font-medium text-gray-500 dark:text-gray-400">근거</th>
+                                              <th className="text-left py-1.5 pl-2 font-medium text-gray-500 dark:text-gray-400">유형</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {opp.applicableYears.map(yr => {
+                                              const currentYr = new Date().getFullYear();
+                                              const perYearAmount = Math.round(opp.estimatedRefund / opp.applicableYears.length);
+                                              const npsYs = taxScan.npsData?.historical?.yearSummary?.find(y => y.year === yr);
+                                              const basis = npsYs ? `NPS ${npsYs.netChange >= 0 ? '+' : ''}${npsYs.netChange}명` : opp.dataSource === 'DART_API' ? 'DART 공시' : '추정';
+                                              const filingType = yr < currentYr - 1 ? '경정청구' : yr === currentYr - 1 ? '수정신고' : '당기신고';
+                                              return (
+                                                <tr key={yr} className="border-b border-gray-100 dark:border-gray-700/50">
+                                                  <td className="py-1.5 pr-3 font-medium text-gray-900 dark:text-white">{yr}년</td>
+                                                  <td className="py-1.5 px-2 text-right font-medium text-indigo-600 dark:text-indigo-400">{formatKRW(perYearAmount)}</td>
+                                                  <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{basis}</td>
+                                                  <td className="py-1.5 pl-2">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                                      filingType === '경정청구' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                        : filingType === '수정신고' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                        : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                    }`}>{filingType}</span>
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {opp.legalBasis.length > 0 && (
                                     <div>
@@ -1356,7 +1640,7 @@ const BenefitTracker: React.FC = () => {
                                           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-medium">가정:</p>
                                           <ul className="space-y-0.5">
                                             {opp.worksheet.assumptions.map((a, i) => (
-                                              <li key={i} className="text-[10px] text-gray-400 dark:text-gray-500">• {a}</li>
+                                              <li key={i} className="text-[10px] text-gray-400 dark:text-gray-500">{a}</li>
                                             ))}
                                           </ul>
                                         </div>
@@ -1382,7 +1666,7 @@ const BenefitTracker: React.FC = () => {
                                           <span className={`material-icons-outlined text-sm ${generatingWorksheet === opp.id ? 'animate-spin' : ''}`}>
                                             {generatingWorksheet === opp.id ? 'autorenew' : 'calculate'}
                                           </span>
-                                          {generatingWorksheet === opp.id ? '생성 중...' : '계산서 생성'}
+                                          {generatingWorksheet === opp.id ? '생성 중...' : '셀프 검토 시작'}
                                         </button>
                                       )}
                                       {(opp.status === 'reviewing' || opp.status === 'in_progress') && (
@@ -1391,7 +1675,7 @@ const BenefitTracker: React.FC = () => {
                                           className="flex items-center gap-1 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg text-xs font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
                                         >
                                           <span className="material-icons-outlined text-sm">send</span>
-                                          신고
+                                          신고 완료
                                         </button>
                                       )}
                                       {opp.status === 'filed' && (
@@ -1405,7 +1689,7 @@ const BenefitTracker: React.FC = () => {
                                       )}
                                       <button
                                         onClick={(e) => { e.stopPropagation(); handleUpdateOppStatus(opp.id, 'dismissed'); }}
-                                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ml-auto"
                                       >
                                         <span className="material-icons-outlined text-sm">block</span>
                                         해당 없음
@@ -1421,7 +1705,11 @@ const BenefitTracker: React.FC = () => {
                   ) : (
                     <div className="text-center py-12">
                       <span className="material-icons-outlined text-4xl text-gray-300 dark:text-gray-600 block mb-2">check_circle</span>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">분석 결과 추가 적용 가능한 세금 혜택이 발견되지 않았습니다.</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {taxFilterStatus !== 'all' || taxFilterSource !== 'all'
+                          ? '필터 조건에 맞는 항목이 없습니다.'
+                          : '분석 결과 추가 적용 가능한 세금 혜택이 발견되지 않았습니다.'}
+                      </p>
                     </div>
                   )}
 

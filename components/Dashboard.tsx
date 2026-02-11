@@ -175,8 +175,9 @@ const Dashboard: React.FC = () => {
       avgFit,
       analyzedCount: analyzedPrograms.length,
       recommendedCount,
+      taxRefund: taxScan?.totalEstimatedRefund || 0,
     };
-  }, [activePrograms]);
+  }, [activePrograms, taxScan]);
 
   const focusData = useMemo(() => {
     return FOCUS_AREAS.map(area => {
@@ -251,11 +252,11 @@ const Dashboard: React.FC = () => {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map(i => <SkeletonBlock key={i} className="h-20 bg-gray-700/50" />)}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {[1, 2, 3, 4, 5].map(i => <SkeletonBlock key={i} className="h-20 bg-gray-700/50" />)}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <p className="text-gray-400 text-xs font-medium mb-1">볼트 내 공고</p>
                   <p className="text-white text-3xl font-bold">{heroStats.totalPrograms}<span className="text-sm text-gray-400 ml-1">건</span></p>
@@ -271,6 +272,12 @@ const Dashboard: React.FC = () => {
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <p className="text-gray-400 text-xs font-medium mb-1">추천 공고</p>
                   <p className="text-purple-400 text-3xl font-bold">{heroStats.recommendedCount}<span className="text-sm text-gray-400 ml-1">건</span></p>
+                </div>
+                <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                  <p className="text-gray-400 text-xs font-medium mb-1">놓친 세금 환급</p>
+                  <p className="text-amber-400 text-3xl font-bold">
+                    {heroStats.taxRefund > 0 ? formatKRW(heroStats.taxRefund) : '-'}
+                  </p>
                 </div>
               </div>
             )}
@@ -321,7 +328,7 @@ const Dashboard: React.FC = () => {
                           visiblePrograms.map(prog => (
                             <div
                               key={prog.slug}
-                              onClick={() => navigate(`/editor/${prog.slug}`)}
+                              onClick={() => navigate(`/program/${prog.slug}`)}
                               className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer hover:shadow-sm transition-all ${area.bgLight} ${area.bgDark}`}
                             >
                               <div className="flex-1 min-w-0 mr-2">
@@ -408,7 +415,7 @@ const Dashboard: React.FC = () => {
                     return (
                       <div
                         key={p.id || i}
-                        onClick={() => p.slug && navigate(`/editor/${p.slug}`)}
+                        onClick={() => p.slug && navigate(`/program/${p.slug}`)}
                         className={`flex items-center p-3 rounded-lg border transition-colors cursor-pointer hover:shadow-md ${
                           isUrgent
                             ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 hover:border-red-300'

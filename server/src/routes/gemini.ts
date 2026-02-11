@@ -54,15 +54,25 @@ router.post('/generate', async (req: Request, res: Response) => {
     console.error('[gemini/generate] Error:', errStr);
 
     if (errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED')) {
-      res.status(429).json({ error: 'API quota exceeded' });
+      res.status(429).json({ error: 'API quota exceeded. 잠시 후 다시 시도하세요.' });
       return;
     }
     if (errStr.includes('403') || errStr.includes('API key not valid')) {
-      res.status(403).json({ error: 'Invalid API key' });
+      res.status(403).json({ error: 'Invalid API key. 설정에서 Gemini API Key를 확인하세요.' });
+      return;
+    }
+    if (errStr.includes('404') || errStr.includes('not found') || errStr.includes('is not found')) {
+      res.status(400).json({ error: `모델을 찾을 수 없습니다 (${model}). 설정에서 AI 모델을 변경해주세요.` });
+      return;
+    }
+    if (errStr.includes('SAFETY') || errStr.includes('blocked')) {
+      res.status(400).json({ error: 'AI 안전 필터에 의해 차단되었습니다. 입력 내용을 수정해주세요.' });
       return;
     }
 
-    res.status(500).json({ error: 'Gemini API call failed' });
+    // 상세 에러 메시지 포함
+    const shortErr = errStr.length > 200 ? errStr.substring(0, 200) + '...' : errStr;
+    res.status(500).json({ error: `Gemini API 호출 실패: ${shortErr}` });
   }
 });
 

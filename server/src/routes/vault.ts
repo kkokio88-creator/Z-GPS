@@ -44,8 +44,12 @@ import type {
   TaxCalculationWorksheet,
 } from '../services/analysisService.js';
 import { callGeminiDirect, cleanAndParseJSON } from '../services/geminiService.js';
-import { fetchNpsEmployeeData } from '../services/employeeDataService.js';
+import { fetchNpsEmployeeData, fetchNpsHistoricalData } from '../services/employeeDataService.js';
 import type { NpsLookupResult } from '../services/employeeDataService.js';
+import { findCorpCode, fetchFinancialStatements } from '../services/dartFinancialService.js';
+import type { DartFinancialYear } from '../services/dartFinancialService.js';
+import { fetchEmploymentInsurance, formatEIDataForPrompt } from '../services/employmentInsuranceService.js';
+import { fetchBusinessStatus, formatBusinessStatusForPrompt } from '../services/businessStatusService.js';
 import {
   deepCrawlProgramFull,
   enrichFromApiOnly,
@@ -67,6 +71,19 @@ const router = Router();
 ensureVaultStructure().catch(e => console.error('[vault] Failed to ensure vault structure:', e));
 
 // ─── Helper ────────────────────────────────────────────────────
+
+/** supportScale 텍스트에서 금액(원) 파싱 */
+function parseAmountFromScale(raw: string): number {
+  if (!raw) return 0;
+  const cleaned = raw.replace(/[,\s]/g, '');
+  const num = parseFloat(cleaned.replace(/[^0-9.]/g, ''));
+  if (isNaN(num) || num === 0) return 0;
+  if (cleaned.includes('억')) return num * 100000000;
+  if (cleaned.includes('천만')) return num * 10000000;
+  if (cleaned.includes('백만')) return num * 1000000;
+  if (cleaned.includes('만')) return num * 10000;
+  return num;
+}
 
 /** 첨부파일 분석 텍스트 로드 (pdf-analysis/*.txt) */
 async function loadAttachmentText(
@@ -1428,6 +1445,15 @@ router.get('/programs', async (_req: Request, res: Response) => {
       }
     }
 
+    // expectedGrant가 0인 프로그램은 supportScale/totalBudget에서 재파싱
+    for (const p of programs) {
+      if (!p.expectedGrant || Number(p.expectedGrant) === 0) {
+        const parsed = parseAmountFromScale(String(p.supportScale || ''))
+          || parseAmountFromScale(String(p.totalBudget || ''));
+        if (parsed > 0) p.expectedGrant = parsed;
+      }
+    }
+
     // fitScore 내림차순 정렬
     programs.sort((a, b) => (Number(b.fitScore) || 0) - (Number(a.fitScore) || 0));
 
@@ -2354,14 +2380,16 @@ router.post('/company/research', async (req: Request, res: Response) => {
 ## 작업
 "${companyName.trim()}" 기업에 대해 알고 있는 모든 정보를 아래 JSON 형식으로 정리하세요.
 
-## 규칙
+## 중요 규칙
+0. **반드시 "${companyName.trim()}"에 대한 정보만 반환하세요. 다른 기업의 정보를 반환하지 마세요.**
 1. 정확히 확인된 정보만 포함. 추측은 하지 마세요.
-2. 모르는 필드는 빈 문자열, 빈 배열 또는 null로 유지
-3. 매출액은 원(KRW) 단위 숫자로 반환 (예: 10억 = 1000000000)
-4. 사업자등록번호는 "000-00-00000" 형식
-5. 핵심역량과 인증은 구체적으로 작성
-6. SWOT 분석은 각 항목 3~5개씩 구체적으로 작성
-7. 정부지원금 적합성은 해당 기업의 실제 강점을 기반으로 분석
+2. 해당 기업을 찾을 수 없으면 {"name": null, "error": "기업 정보를 찾을 수 없습니다"}만 반환
+3. 모르는 필드는 빈 문자열, 빈 배열 또는 null로 유지
+4. 매출액은 원(KRW) 단위 숫자로 반환 (예: 10억 = 1000000000)
+5. 사업자등록번호는 "000-00-00000" 형식
+6. 핵심역량과 인증은 구체적으로 작성
+7. SWOT 분석은 각 항목 3~5개씩 구체적으로 작성
+8. 정부지원금 적합성은 해당 기업의 실제 강점을 기반으로 분석
 
 반드시 아래 JSON 형식만 반환하세요:
 {
@@ -2441,58 +2469,150 @@ router.post('/company/research', async (req: Request, res: Response) => {
       if (cfg.aiModel && typeof cfg.aiModel === 'string') userModel = cfg.aiModel;
     } catch { /* default model */ }
 
-    // 3단계 폴백으로 안정적 Gemini 호출
-    let result: { text: string } | undefined;
+    // ─── 3단계 폴백: JSON 모드 우선 → Google Search 보강 ──────────
+    // 핵심 변경: JSON 모드를 1차로 (안정적), Google Search를 2차로 (데이터 풍부)
     const errors: string[] = [];
+    let parsed: Record<string, unknown> | null = null;
 
-    // 1차: Google Search grounding + gemini-2.0-flash (googleSearch 지원 확실)
-    try {
-      result = await callGeminiDirect(prompt, {
+    /**
+     * 파싱 결과에 실질적으로 표시 가능한 데이터가 있는지 검증
+     * name만 있고 나머지 비어있으면 false (사용자에게 빈 화면이 되므로)
+     */
+    const hasValidContent = (obj: Record<string, unknown>): boolean => {
+      const hasName = !!obj.name && String(obj.name).trim().length > 0;
+      const hasDescription = !!obj.description && String(obj.description).trim().length > 1;
+      const hasIndustry = !!obj.industry && String(obj.industry).trim().length > 1;
+      const hasCompetencies = Array.isArray(obj.coreCompetencies) && obj.coreCompetencies.length > 0;
+      const hasStrategic = !!(obj.strategicAnalysis &&
+        typeof obj.strategicAnalysis === 'object' &&
+        (obj.strategicAnalysis as Record<string, unknown>).swot);
+      // name + 최소 1개 추가 정보 필수
+      return hasName && (hasDescription || hasIndustry || hasCompetencies || hasStrategic);
+    };
+
+    /** 단일 단계 실행 후 검증 */
+    const tryGeminiStep = async (
+      label: string,
+      config: Record<string, unknown>
+    ): Promise<boolean> => {
+      try {
+        const r = await callGeminiDirect(prompt, config);
+        const rawLen = r.text?.length || 0;
+        console.log(`[company/research] ${label}: 응답 ${rawLen}자`);
+        if (!r.text || rawLen < 10) {
+          errors.push(`${label}: 응답 없음 (${rawLen}자)`);
+          return false;
+        }
+        const candidate = cleanAndParseJSON(r.text) as Record<string, unknown>;
+        const keys = Object.keys(candidate).filter(k => {
+          const v = candidate[k];
+          return v !== null && v !== undefined && v !== '' &&
+            !(Array.isArray(v) && v.length === 0);
+        });
+        console.log(`[company/research] ${label}: 파싱 결과 유효 키 ${keys.length}개 [${keys.slice(0, 5).join(', ')}...]`);
+        if (hasValidContent(candidate)) {
+          parsed = candidate;
+          console.log(`[company/research] ${label}: ✓ 유효 데이터 확인`);
+          return true;
+        }
+        errors.push(`${label}: 파싱 성공, 유효 키 ${keys.length}개이나 필수 조건 미충족`);
+        return false;
+      } catch (e) {
+        errors.push(`${label}: ${String(e).substring(0, 100)}`);
+        return false;
+      }
+    };
+
+    // 1차: JSON 모드 + 사용자 모델 (가장 안정적 — 구조화된 JSON 보장)
+    await tryGeminiStep(`1-JSON+${userModel}`, {
+      model: userModel,
+      responseMimeType: 'application/json',
+    });
+
+    // 2차: Google Search grounding + JSON 모드 (웹 검색 + JSON 구조)
+    if (!parsed) {
+      await tryGeminiStep('2-Search+JSON', {
+        model: 'gemini-2.0-flash',
+        tools: [{ googleSearch: {} }],
+        responseMimeType: 'application/json',
+      });
+    }
+
+    // 3차: Google Search grounding만 (JSON 모드 없이 — 텍스트에서 JSON 추출)
+    if (!parsed) {
+      await tryGeminiStep('3-Search-only', {
         model: 'gemini-2.0-flash',
         tools: [{ googleSearch: {} }],
       });
-      if (!result.text) throw new Error('Empty response');
-    } catch (e1) {
-      errors.push(`Search: ${String(e1).substring(0, 80)}`);
-      result = undefined;
     }
 
-    // 2차: JSON 모드 + 사용자 모델
-    if (!result?.text) {
-      try {
-        result = await callGeminiDirect(prompt, {
-          model: userModel,
-          responseMimeType: 'application/json',
-        });
-        if (!result.text) throw new Error('Empty response');
-      } catch (e2) {
-        errors.push(`JSON+${userModel}: ${String(e2).substring(0, 80)}`);
-        result = undefined;
-      }
-    }
-
-    // 3차: JSON 모드 + gemini-2.0-flash (최후 수단)
-    if (!result?.text) {
-      try {
-        result = await callGeminiDirect(prompt, {
-          model: 'gemini-2.0-flash',
-          responseMimeType: 'application/json',
-        });
-      } catch (e3) {
-        errors.push(`Flash: ${String(e3).substring(0, 80)}`);
-        throw new Error(`Gemini 호출 실패 (3회 시도): ${errors.join(' | ')}`);
-      }
+    // 4차: gemini-2.0-flash JSON 모드 (최후 수단)
+    if (!parsed) {
+      await tryGeminiStep('4-Flash-JSON', {
+        model: 'gemini-2.0-flash',
+        responseMimeType: 'application/json',
+      });
     }
 
     if (errors.length > 0) {
-      console.warn('[vault/company/research] Fallback used:', errors.join(' | '));
+      console.warn(`[company/research] 폴백 로그 (${errors.length}회 시도):`, errors.join(' | '));
     }
 
-    const parsed = cleanAndParseJSON(result.text) as Record<string, unknown>;
+    // 모든 단계 실패 시 에러 반환
+    if (!parsed) {
+      console.error(`[company/research] "${companyName.trim()}" 전체 실패: ${errors.join(' | ')}`);
+      res.status(422).json({
+        error: `"${companyName.trim()}" 기업 정보를 가져오지 못했습니다. 다시 시도해주세요.`,
+        details: `AI 응답에서 유효한 기업 정보를 추출할 수 없습니다. (${errors.join(' | ')})`,
+      });
+      return;
+    }
 
-    // 결과 검증: 최소한 기업명이 있어야 함
+    // Gemini가 "못 찾음"을 반환한 경우
+    if (parsed.name == null || parsed.error) {
+      res.status(404).json({
+        error: `"${companyName.trim()}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
+        notFound: true,
+      });
+      return;
+    }
+
+    // ─── 회사명 매칭 검증 ───────────────────────────────────
+    // Gemini가 엉뚱한 회사 정보를 반환하는 경우 방지
+    const queryName = companyName.trim();
+    const returnedName = String(parsed.name || '').trim();
+
+    /** 한국 법인 접두사 제거 후 핵심 이름 추출 */
+    const normalizeName = (n: string) =>
+      n.replace(/^(주식회사|㈜|\(주\)|\(사\)|사단법인|재단법인|유한회사|합자회사)\s*/g, '')
+       .replace(/\s*(주식회사|㈜|\(주\))$/g, '')
+       .replace(/\s+/g, '')
+       .toLowerCase();
+
+    const normalQuery = normalizeName(queryName);
+    const normalReturned = normalizeName(returnedName);
+
+    const nameMatches = returnedName.length > 0 &&
+      (normalReturned.includes(normalQuery) ||
+       normalQuery.includes(normalReturned) ||
+       // 2글자 이상 공통 부분이면 매칭으로 간주
+       (normalQuery.length >= 2 && normalReturned.length >= 2 &&
+        (normalReturned.startsWith(normalQuery.substring(0, 2)) ||
+         normalQuery.startsWith(normalReturned.substring(0, 2)))));
+
+    if (!nameMatches && returnedName.length > 0) {
+      console.warn(`[vault/company/research] 회사명 불일치: 검색="${queryName}" → 반환="${returnedName}"`);
+      res.status(422).json({
+        error: `AI가 다른 기업 정보를 반환했습니다 ("${returnedName}"). "${queryName}"을(를) 다시 검색해주세요.`,
+        details: `검색: ${queryName} → 반환: ${returnedName}`,
+        mismatch: true,
+      });
+      return;
+    }
+
+    // 이름이 비어있으면 검색어로 채움
     if (!parsed.name) {
-      parsed.name = companyName.trim();
+      parsed.name = queryName;
     }
 
     // NPS 데이터 보강 (DATA_GO_KR_API_KEY가 설정된 경우)
@@ -3205,6 +3325,13 @@ router.post('/re-enrich/:slug', async (req: Request, res: Response) => {
       reEnrichedAt: new Date().toISOString(),
     };
 
+    // expectedGrant가 0이면 supportScale/totalBudget에서 재파싱 시도
+    if (!updatedFm.expectedGrant || Number(updatedFm.expectedGrant) === 0) {
+      const parsed = parseAmountFromScale(String(updatedFm.supportScale || ''))
+        || parseAmountFromScale(String(updatedFm.totalBudget || ''));
+      if (parsed > 0) updatedFm.expectedGrant = parsed;
+    }
+
     // 5. 마크다운 재생성
     const programData: ServerSupportProgram = {
       id: pf.id as string,
@@ -3350,6 +3477,13 @@ router.post('/re-enrich-all', async (req: Request, res: Response) => {
           dataSources: crawlResult.dataSources,
           reEnrichedAt: new Date().toISOString(),
         };
+
+        // expectedGrant가 0이면 supportScale/totalBudget에서 재파싱 시도
+        if (!updatedFm.expectedGrant || Number(updatedFm.expectedGrant) === 0) {
+          const parsed = parseAmountFromScale(String(updatedFm.supportScale || ''))
+            || parseAmountFromScale(String(updatedFm.totalBudget || ''));
+          if (parsed > 0) updatedFm.expectedGrant = parsed;
+        }
 
         // 마크다운 재생성
         const programData: ServerSupportProgram = {
@@ -3592,16 +3726,158 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
       } catch { /* skip */ }
     }
 
-    // NPS 데이터 조회 (실패해도 계속 진행)
-    let npsData = null;
-    try {
-      npsData = await fetchNpsEmployeeData(
-        company.name as string,
-        company.businessNumber as string | undefined
-      );
-    } catch (e) {
-      console.warn('[vault/benefits/tax-scan] NPS lookup failed, continuing without:', e);
+    // NPS 데이터 조회 + 60개월(5년) 히스토리 + 30일 캐시
+    let npsData: NpsLookupResult | null = null;
+    const bizNo6 = company.businessNumber
+      ? String(company.businessNumber).replace(/[^0-9]/g, '').substring(0, 6)
+      : '';
+    const npsCacheFile = bizNo6
+      ? path.join(getVaultRoot(), 'benefits', `nps-cache-${bizNo6}.md`)
+      : '';
+
+    // 캐시 체크 (30일 TTL)
+    let cacheHit = false;
+    if (npsCacheFile) {
+      try {
+        if (await noteExists(npsCacheFile)) {
+          const { frontmatter: cached } = await readNote(npsCacheFile);
+          const cachedAt = cached.cachedAt as string;
+          if (cachedAt) {
+            const ageMs = Date.now() - new Date(cachedAt).getTime();
+            const TTL_30_DAYS = 30 * 24 * 60 * 60 * 1000;
+            if (ageMs < TTL_30_DAYS) {
+              npsData = cached.npsData as NpsLookupResult;
+              cacheHit = true;
+              console.log(`[tax-scan] NPS 캐시 hit (${Math.round(ageMs / 86400000)}일 전)`);
+            }
+          }
+        }
+      } catch { /* cache miss */ }
     }
+
+    if (!cacheHit) {
+      try {
+        npsData = await fetchNpsEmployeeData(
+          company.name as string,
+          company.businessNumber as string | undefined
+        );
+
+        // 히스토리 조회
+        if (npsData?.found && npsData.workplace) {
+          const workplacesForHistory = npsData.allWorkplaces
+            ? npsData.allWorkplaces.filter(w => w.seq).map(w => ({
+                seq: w.seq!,
+                wkplNm: w.wkplNm,
+                dataCrtYm: w.dataCrtYm,
+                nrOfJnng: w.nrOfJnng,
+              }))
+            : npsData.workplace.seq
+              ? [{ seq: npsData.workplace.seq, wkplNm: npsData.workplace.wkplNm, dataCrtYm: npsData.workplace.dataCrtYm, nrOfJnng: npsData.workplace.nrOfJnng }]
+              : [];
+
+          if (workplacesForHistory.length > 0) {
+            console.log(`[tax-scan] NPS 히스토리 조회 시작: ${workplacesForHistory.length}개 사업장 × 60개월`);
+            const historical = await fetchNpsHistoricalData(workplacesForHistory, 60);
+            if (historical) {
+              npsData = { ...npsData, historical };
+              console.log(`[tax-scan] 히스토리 조회 완료: ${historical.monthlyData.length} 레코드`);
+            }
+          }
+
+          // 캐시 저장
+          if (npsCacheFile) {
+            try {
+              const cacheData: Record<string, unknown> = {
+                type: 'nps-cache',
+                cachedAt: new Date().toISOString(),
+                npsData,
+              };
+              await writeNote(npsCacheFile, cacheData, 'NPS 데이터 캐시');
+            } catch { /* cache save failure is non-critical */ }
+          }
+        }
+      } catch (e) {
+        console.warn('[vault/benefits/tax-scan] NPS lookup failed, continuing without:', e);
+      }
+    }
+
+    // DART 재무데이터 조회 (선택적 — DART_API_KEY 있을 때만)
+    let dartFinancials: DartFinancialYear[] = [];
+    if (process.env.DART_API_KEY && company.name) {
+      try {
+        console.log(`[tax-scan] DART 재무제표 조회 시작: ${company.name}`);
+        const corpCode = await findCorpCode(company.name as string);
+        if (corpCode) {
+          dartFinancials = await fetchFinancialStatements(corpCode, 5);
+          console.log(`[tax-scan] DART 재무제표 조회 완료: ${dartFinancials.length}년분`);
+        } else {
+          console.log(`[tax-scan] DART corp_code 미발견: ${company.name}`);
+        }
+      } catch (e) {
+        console.warn('[tax-scan] DART 재무 조회 실패:', e);
+      }
+    }
+
+    // --- 고용/산재보험 + 국세청 상태조회 (사업자번호 있을 때만) ---
+    let eiData: Awaited<ReturnType<typeof fetchEmploymentInsurance>> | null = null;
+    let bizStatusData: Awaited<ReturnType<typeof fetchBusinessStatus>> | null = null;
+    const fullBizNo = company.businessNumber ? String(company.businessNumber).replace(/[^0-9]/g, '') : '';
+    if (fullBizNo.length >= 10) {
+      const [eiResult, bizStatusResult] = await Promise.allSettled([
+        fetchEmploymentInsurance(fullBizNo, company.name as string),
+        fetchBusinessStatus(fullBizNo),
+      ]);
+      eiData = eiResult.status === 'fulfilled' ? eiResult.value : null;
+      bizStatusData = bizStatusResult.status === 'fulfilled' ? bizStatusResult.value : null;
+      if (eiData?.found) console.log(`[tax-scan] 고용보험 데이터 로드됨: ${eiData.info?.eiEmployeeCount}명`);
+      if (bizStatusData?.found) console.log(`[tax-scan] 국세청 상태 조회됨: ${bizStatusData.info?.businessStatusName}`);
+    }
+
+    // --- 추가 데이터 병렬 로딩 (AI 호출 전) ---
+    const [researchResult, analysisResult] = await Promise.allSettled([
+      // 1) company/research.md (AI 딥리서치)
+      (async () => {
+        const researchFile = path.join(getVaultRoot(), 'company', 'research.md');
+        if (await noteExists(researchFile)) {
+          const { content } = await readNote(researchFile);
+          return content || '';
+        }
+        return '';
+      })(),
+      // 2) analysis/*.md (적합도 분석 + 전략)
+      (async () => {
+        const analysisDir = path.join(getVaultRoot(), 'analysis');
+        const analysisFiles = await listNotes(analysisDir).catch(() => []);
+        const summaries: string[] = [];
+        for (const f of analysisFiles.slice(0, 10)) {
+          try {
+            const { frontmatter: af } = await readNote(f);
+            if (af.fitScore && af.programName) {
+              summaries.push(`- ${af.programName}: 적합도 ${af.fitScore}, 강점: ${(af.strengths as string[] || []).join(', ')}`);
+            }
+          } catch { /* skip */ }
+        }
+        return summaries.join('\n');
+      })(),
+    ]);
+
+    const researchContent = researchResult.status === 'fulfilled' ? researchResult.value : '';
+    const programFitData = analysisResult.status === 'fulfilled' ? analysisResult.value : '';
+
+    // documents 메타 (company profile에 이미 로드됨)
+    const documentsMeta = Array.isArray(company.documents)
+      ? (company.documents as Array<Record<string, unknown>>)
+          .map(d => `- ${d.fileType || d.name}: ${d.status || '미확인'} (${d.uploadDate || '날짜 없음'})`)
+          .join('\n')
+      : '';
+
+    // 고용보험/국세청 데이터 포맷
+    const eiPromptData = eiData ? formatEIDataForPrompt(eiData) : '';
+    const bizStatusPromptData = bizStatusData ? formatBusinessStatusForPrompt(bizStatusData) : '';
+
+    if (researchContent) console.log('[tax-scan] 리서치 데이터 로드됨');
+    if (programFitData) console.log('[tax-scan] 적합도 분석 데이터 로드됨');
+    if (documentsMeta) console.log('[tax-scan] 보유 문서 메타 로드됨');
 
     // AI 스캔
     const { scanMissedTaxBenefits } = await import('../services/analysisService.js');
@@ -3620,7 +3896,13 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
         description: company.description as string,
       },
       benefitHistory,
-      npsData
+      npsData,
+      dartFinancials,
+      researchContent,
+      documentsMeta,
+      programFitData,
+      eiPromptData,
+      bizStatusPromptData
     );
 
     // 결과 조합
@@ -3656,6 +3938,16 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
         npsData,
         dataCompleteness: npsData.dataCompleteness,
       } : {}),
+      ...(dartFinancials.length > 0 ? { dartFinancials } : {}),
+      dataSources: {
+        nps: !!npsData?.found,
+        dart: dartFinancials.length > 0,
+        ei: !!eiData?.found,
+        bizStatus: !!bizStatusData?.found,
+        research: !!researchContent,
+        documents: !!documentsMeta,
+        programFit: !!programFitData,
+      },
     };
 
     // vault에 저장

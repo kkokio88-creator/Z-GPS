@@ -567,7 +567,7 @@ export interface TaxRefundOpportunity {
   risks: string[];
   isAmendedReturn: boolean;
   status: 'identified' | 'in_progress' | 'reviewing' | 'filed' | 'received' | 'dismissed';
-  dataSource?: 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED';
+  dataSource?: 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED' | 'DART_API' | 'RESEARCH' | 'EI_API' | 'NTS_API';
   worksheet?: TaxCalculationWorksheet;
 }
 
@@ -582,6 +582,28 @@ export interface TaxScanResult {
   disclaimer: string;
   npsData?: NpsLookupResult;
   dataCompleteness?: number;
+  dartFinancials?: DartFinancialYear[];
+  dataSources?: {
+    nps: boolean;
+    dart: boolean;
+    ei: boolean;
+    bizStatus: boolean;
+    research: boolean;
+    documents: boolean;
+    programFit: boolean;
+  };
+}
+
+// DART 재무제표 데이터
+export interface DartFinancialYear {
+  year: number;
+  revenue: number;           // 매출액
+  operatingProfit: number;   // 영업이익
+  netIncome: number;         // 당기순이익
+  rndExpense: number;        // 연구개발비
+  personnelExpense: number;  // 인건비(급여)
+  totalAssets: number;       // 자산총계
+  totalEquity: number;       // 자본총계
 }
 
 export interface NpsWorkplaceInfo {
@@ -595,6 +617,29 @@ export interface NpsWorkplaceInfo {
   nwAcqzrCnt: number;
   lssJnngpCnt: number;
   dataCrtYm: string;
+  seq?: number;
+}
+
+export interface NpsPeriodData {
+  dataCrtYm: string;       // YYYYMM
+  employeeCount: number;   // 역산된 가입자수
+  newHires: number;        // 신규취득자
+  departures: number;      // 상실자
+}
+
+export interface NpsYearSummary {
+  year: number;
+  avgEmployees: number;
+  totalNewHires: number;
+  totalDepartures: number;
+  netChange: number;       // 순증감
+}
+
+export interface NpsHistoricalTrend {
+  monthlyData: NpsPeriodData[];    // 최대 60개월
+  yearSummary: NpsYearSummary[];   // 연도별 요약
+  totalWorkplaces: number;         // 통합된 사업장 수
+  dataRange: { from: string; to: string };
 }
 
 export interface NpsLookupResult {
@@ -603,4 +648,6 @@ export interface NpsLookupResult {
   workplace: NpsWorkplaceInfo | null;
   dataCompleteness: number;
   lastUpdated: string;
+  allWorkplaces?: NpsWorkplaceInfo[];
+  historical?: NpsHistoricalTrend;
 }

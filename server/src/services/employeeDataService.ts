@@ -23,6 +23,7 @@ export interface NpsWorkplaceInfo {
   nwAcqzrCnt: number;      // V2: period에서 조회
   lssJnngpCnt: number;     // V2: period에서 조회
   dataCrtYm: string;
+  seq?: number;            // 사업장 식별번호 (히스토리 조회용)
 }
 
 export interface NpsLookupResult {
@@ -31,6 +32,13 @@ export interface NpsLookupResult {
   workplace: NpsWorkplaceInfo | null;
   dataCompleteness: number;
   lastUpdated: string;
+  allWorkplaces?: NpsWorkplaceInfo[];
+  historical?: {
+    monthlyData: { dataCrtYm: string; employeeCount: number; newHires: number; departures: number }[];
+    yearSummary: { year: number; avgEmployees: number; totalNewHires: number; totalDepartures: number; netChange: number }[];
+    totalWorkplaces: number;
+    dataRange: { from: string; to: string };
+  };
 }
 
 const NPS_BASE = 'https://apis.data.go.kr/B552015/NpsBplcInfoInqireServiceV2';
@@ -101,7 +109,7 @@ async function searchBasic(opts: { wkplNm?: string; bzowrRgstNo?: string }): Pro
     serviceKey: apiKey,
     dataType: 'json',
     pageNo: '1',
-    numOfRows: '10',
+    numOfRows: '100',
   });
   if (opts.wkplNm) params.set('wkplNm', opts.wkplNm);
   if (opts.bzowrRgstNo) params.set('bzowrRgstNo', opts.bzowrRgstNo);
@@ -248,63 +256,100 @@ const NOT_FOUND: NpsLookupResult = {
 
 /**
  * 종합 조회: 3단계 (기본→상세→기간별)
- * 기존 인터페이스(NpsWorkplaceInfo) 유지하여 하위 호환
+ * 다중 사업장 통합: 동일 사업자번호 사업장 모두 조회 후 합산
  */
 export async function fetchNpsEmployeeData(
   companyName: string,
   businessNumber?: string
 ): Promise<NpsLookupResult> {
   try {
-    // Step 1: 기본 검색 (사업장명)
-    let basics = await searchBasic({ wkplNm: companyName });
+    let basics: NpsBasicItem[] = [];
+    let matchedByBizNo = false;
 
-    // 사업장명 검색 실패 시 사업자등록번호 앞6자리로 재시도
-    if (basics.length === 0 && businessNumber) {
+    // 1차: 사업자등록번호(앞6자리)로 우선 검색 (더 정확)
+    if (businessNumber) {
       const prefix = normalizeBizNo(businessNumber).substring(0, 6);
       if (prefix.length === 6) {
         basics = await searchBasic({ bzowrRgstNo: prefix });
+        if (basics.length > 0) matchedByBizNo = true;
       }
+    }
+
+    // 2차: 사업자번호 검색 실패 시 사업장명으로 검색
+    if (basics.length === 0) {
+      basics = await searchBasic({ wkplNm: companyName });
     }
 
     if (basics.length === 0) return NOT_FOUND;
 
-    // 가입 상태(1)인 사업장 우선 필터
+    // 가입 상태(1)인 사업장 필터
     const active = basics.filter(b => b.wkplJnngStcd === '1');
     const pool = active.length > 0 ? active : basics;
 
-    // 사업자등록번호 매칭
-    let best: NpsBasicItem;
-    let matchedByBizNo = false;
+    // 동일 사업자번호 사업장 그룹핑
+    let matchedPool: NpsBasicItem[];
     if (businessNumber) {
-      const matched = matchByBizNo(pool, businessNumber);
-      if (matched) {
-        best = matched;
-        matchedByBizNo = true;
-      } else {
-        best = pool[0];
-      }
+      const prefix = normalizeBizNo(businessNumber).substring(0, 6);
+      matchedPool = pool.filter(b => normalizeBizNo(b.bzowrRgstNo).startsWith(prefix));
+      if (matchedPool.length === 0) matchedPool = [pool[0]];
     } else {
-      best = pool[0];
+      // 사업자번호 없으면 첫 결과의 bzowrRgstNo로 그룹핑
+      const firstBzNo = normalizeBizNo(pool[0].bzowrRgstNo).substring(0, 6);
+      matchedPool = firstBzNo
+        ? pool.filter(b => normalizeBizNo(b.bzowrRgstNo).startsWith(firstBzNo))
+        : [pool[0]];
     }
 
-    // Step 2: 상세정보 (가입자수, 고지금액)
-    const detail = await getDetail(best.seq);
+    // 최대 5개 사업장만 조회 (rate limit 보호)
+    const targetWorkplaces = matchedPool.slice(0, 5);
+    console.log(`[employeeDataService] Found ${targetWorkplaces.length} workplace(s) for aggregation`);
 
-    // Step 3: 기간별 현황 (신규/상실)
-    const period = await getPeriodStatus(best.seq, best.dataCrtYm);
+    // 각 사업장별 상세 + 기간별 조회
+    const allWorkplaces: NpsWorkplaceInfo[] = [];
+    let totalEmployees = 0;
+    let totalNtcAmt = 0;
+    let totalNewHires = 0;
+    let totalDepartures = 0;
 
-    // NpsWorkplaceInfo로 통합 (기존 필드명 유지)
+    for (const basic of targetWorkplaces) {
+      const detail = await getDetail(basic.seq);
+      const period = await getPeriodStatus(basic.seq, basic.dataCrtYm);
+
+      const wp: NpsWorkplaceInfo = {
+        wkplNm: basic.wkplNm,
+        bzowrRgstNo: basic.bzowrRgstNo,
+        wkplRoadNmDtlAddr: basic.wkplRoadNmDtlAddr,
+        ldongAddr: '',
+        wkplJnngStdt: detail?.adptDt || '',
+        nrOfJnng: detail?.jnngpCnt || 0,
+        crtmNtcAmt: detail?.crrmmNtcAmt || 0,
+        nwAcqzrCnt: period?.nwAcqzrCnt || 0,
+        lssJnngpCnt: period?.lssJnngpCnt || 0,
+        dataCrtYm: basic.dataCrtYm,
+        seq: basic.seq,
+      };
+
+      allWorkplaces.push(wp);
+      totalEmployees += wp.nrOfJnng;
+      totalNtcAmt += wp.crtmNtcAmt;
+      totalNewHires += wp.nwAcqzrCnt;
+      totalDepartures += wp.lssJnngpCnt;
+    }
+
+    // 통합 workplace 생성 (합산)
+    const primary = allWorkplaces[0];
     const workplace: NpsWorkplaceInfo = {
-      wkplNm: best.wkplNm,
-      bzowrRgstNo: best.bzowrRgstNo,
-      wkplRoadNmDtlAddr: best.wkplRoadNmDtlAddr,
+      wkplNm: primary.wkplNm,
+      bzowrRgstNo: primary.bzowrRgstNo,
+      wkplRoadNmDtlAddr: primary.wkplRoadNmDtlAddr,
       ldongAddr: '',
-      wkplJnngStdt: detail?.adptDt || '',
-      nrOfJnng: detail?.jnngpCnt || 0,
-      crtmNtcAmt: detail?.crrmmNtcAmt || 0,
-      nwAcqzrCnt: period?.nwAcqzrCnt || 0,
-      lssJnngpCnt: period?.lssJnngpCnt || 0,
-      dataCrtYm: best.dataCrtYm,
+      wkplJnngStdt: primary.wkplJnngStdt,
+      nrOfJnng: totalEmployees,
+      crtmNtcAmt: totalNtcAmt,
+      nwAcqzrCnt: totalNewHires,
+      lssJnngpCnt: totalDepartures,
+      dataCrtYm: primary.dataCrtYm,
+      seq: primary.seq,
     };
 
     return {
@@ -312,7 +357,8 @@ export async function fetchNpsEmployeeData(
       matchedByBusinessNumber: matchedByBizNo,
       workplace,
       dataCompleteness: calculateDataCompleteness(workplace),
-      lastUpdated: best.dataCrtYm || '',
+      lastUpdated: primary.dataCrtYm || '',
+      allWorkplaces: allWorkplaces.length > 1 ? allWorkplaces : undefined,
     };
   } catch (e) {
     console.error('[employeeDataService] fetchNpsEmployeeData error:', e);
@@ -333,4 +379,145 @@ export function matchNpsWorkplaceByBizNo(
   const prefix = normalizeBizNo(businessNumber).substring(0, 6);
   if (!prefix) return null;
   return workplaces.find(w => normalizeBizNo(w.bzowrRgstNo).startsWith(prefix)) || null;
+}
+
+// ─── 60개월 히스토리 조회 (5년 경정청구 대비) ─────────────────
+
+interface NpsPeriodData {
+  dataCrtYm: string;
+  employeeCount: number;
+  newHires: number;
+  departures: number;
+}
+
+interface NpsYearSummary {
+  year: number;
+  avgEmployees: number;
+  totalNewHires: number;
+  totalDepartures: number;
+  netChange: number;
+}
+
+interface NpsHistoricalTrend {
+  monthlyData: NpsPeriodData[];
+  yearSummary: NpsYearSummary[];
+  totalWorkplaces: number;
+  dataRange: { from: string; to: string };
+}
+
+const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** YYYYMM 기준으로 과거 N개월 생성 (최신 → 과거 순) */
+function generatePastMonths(latestYm: string, count: number): string[] {
+  const months: string[] = [];
+  let year = parseInt(latestYm.substring(0, 4));
+  let month = parseInt(latestYm.substring(4, 6));
+
+  for (let i = 0; i < count; i++) {
+    months.push(`${year}${String(month).padStart(2, '0')}`);
+    month--;
+    if (month < 1) {
+      month = 12;
+      year--;
+    }
+  }
+  return months;
+}
+
+/**
+ * 60개월(5년) 히스토리 조회 — 경정청구 소급분석 대비
+ * 각 사업장 × 각 월에 getPeriodStatus 호출 → 합산 → 직원수 역산
+ */
+export async function fetchNpsHistoricalData(
+  workplaces: { seq: number; wkplNm: string; dataCrtYm: string; nrOfJnng: number }[],
+  monthsBack: number = 60
+): Promise<NpsHistoricalTrend | null> {
+  if (workplaces.length === 0) return null;
+
+  // 최대 5개 사업장 제한
+  const targets = workplaces.slice(0, 5);
+  const latestYm = targets.reduce(
+    (max, w) => (w.dataCrtYm > max ? w.dataCrtYm : max),
+    targets[0].dataCrtYm
+  );
+
+  if (!latestYm) return null;
+
+  const months = generatePastMonths(latestYm, monthsBack);
+  console.log(`[employeeDataService] NPS 히스토리 조회 시작: ${targets.length}개 사업장 × ${months.length}개월`);
+
+  // 월별 합산 데이터 맵 (YYYYMM → { newHires, departures })
+  const monthlyAgg: Record<string, { newHires: number; departures: number }> = {};
+  for (const ym of months) {
+    monthlyAgg[ym] = { newHires: 0, departures: 0 };
+  }
+
+  for (let wi = 0; wi < targets.length; wi++) {
+    const wp = targets[wi];
+    let completed = 0;
+
+    for (const ym of months) {
+      try {
+        const period = await getPeriodStatus(wp.seq, ym);
+        if (period) {
+          monthlyAgg[ym].newHires += period.nwAcqzrCnt;
+          monthlyAgg[ym].departures += period.lssJnngpCnt;
+        }
+      } catch { /* skip individual month errors */ }
+
+      completed++;
+      await delay(100); // rate limit 회피
+    }
+
+    console.log(`[employeeDataService] 사업장 ${wi + 1}/${targets.length}: ${wp.wkplNm} — ${completed}/${months.length} 완료`);
+  }
+
+  // 직원수 역산: 현재 가입자수에서 역방향으로 계산
+  const currentTotal = targets.reduce((sum, w) => sum + w.nrOfJnng, 0);
+  const monthlyData: NpsPeriodData[] = [];
+  let runningCount = currentTotal;
+
+  for (const ym of months) {
+    const agg = monthlyAgg[ym];
+    monthlyData.push({
+      dataCrtYm: ym,
+      employeeCount: runningCount,
+      newHires: agg.newHires,
+      departures: agg.departures,
+    });
+    // 역방향: employees(M-1) = employees(M) - newHires(M) + departures(M)
+    runningCount = runningCount - agg.newHires + agg.departures;
+  }
+
+  // 연도별 요약 계산
+  const yearMap: Record<number, { employees: number[]; newHires: number; departures: number }> = {};
+  for (const md of monthlyData) {
+    const year = parseInt(md.dataCrtYm.substring(0, 4));
+    if (!yearMap[year]) yearMap[year] = { employees: [], newHires: 0, departures: 0 };
+    yearMap[year].employees.push(md.employeeCount);
+    yearMap[year].newHires += md.newHires;
+    yearMap[year].departures += md.departures;
+  }
+
+  const yearSummary: NpsYearSummary[] = Object.entries(yearMap)
+    .map(([y, data]) => ({
+      year: parseInt(y),
+      avgEmployees: Math.round(data.employees.reduce((a, b) => a + b, 0) / data.employees.length),
+      totalNewHires: data.newHires,
+      totalDepartures: data.departures,
+      netChange: data.newHires - data.departures,
+    }))
+    .sort((a, b) => a.year - b.year);
+
+  console.log(`[employeeDataService] 히스토리 조회 완료: ${monthlyData.length} 레코드`);
+
+  return {
+    monthlyData,
+    yearSummary,
+    totalWorkplaces: targets.length,
+    dataRange: {
+      from: months[months.length - 1],
+      to: months[0],
+    },
+  };
 }

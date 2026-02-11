@@ -256,6 +256,7 @@ const ProgramExplorer: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   const [sortBy, setSortBy] = useState<'fitScore' | 'deadline' | 'grant'>('fitScore');
+  const [analyzingSlug, setAnalyzingSlug] = useState<string | null>(null);
   // VaultProgram 원본 데이터 (상세 패널 추가 정보용)
   const vaultDataRef = useRef<Map<string, VaultProgram>>(new Map());
 
@@ -565,6 +566,25 @@ const ProgramExplorer: React.FC = () => {
     return { label: `D-${diff}`, color: 'bg-gray-100 text-gray-600', urgent: false };
   };
 
+  // 재분석
+  const handleReAnalyze = async (e: React.MouseEvent, program: CategorizedProgram) => {
+    e.stopPropagation();
+    if (analyzingSlug) return;
+    setAnalyzingSlug(program.id);
+    try {
+      const result = await vaultService.analyzeProgram(program.id);
+      setAllPrograms(prev => prev.map(p =>
+        p.id === program.id
+          ? { ...p, fitScore: result.fitScore, eligibilityReason: result.eligibility }
+          : p
+      ));
+    } catch (err) {
+      console.error('재분석 실패:', err);
+    } finally {
+      setAnalyzingSlug(null);
+    }
+  };
+
   // 전략 보기
   const handleViewStrategy = async (slug: string) => {
     setIsLoadingStrategy(true);
@@ -789,34 +809,48 @@ const ProgramExplorer: React.FC = () => {
                               적합도 {program.fitScore}%
                             </p>
                           </div>
-                          {(activeTab === 'all' || activeTab === 'recommended') && (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleCategorizeInList(program, 'left'); }}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                                title="부적합"
-                              >
-                                <span className="material-icons-outlined text-gray-400 text-lg">close</span>
-                              </button>
-                              {activeTab === 'recommended' && (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={(e) => handleReAnalyze(e, program)}
+                              disabled={analyzingSlug === program.id}
+                              className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              title="재분석"
+                            >
+                              <span className={`material-icons-outlined text-blue-500 text-lg ${
+                                analyzingSlug === program.id ? 'animate-spin' : ''
+                              }`}>
+                                {analyzingSlug === program.id ? 'sync' : 'refresh'}
+                              </span>
+                            </button>
+                            {(activeTab === 'all' || activeTab === 'recommended') && (
+                              <>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleViewStrategy(program.id); }}
-                                  disabled={isLoadingStrategy}
-                                  className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                                  title="전략 보기"
+                                  onClick={(e) => { e.stopPropagation(); handleCategorizeInList(program, 'left'); }}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                                  title="부적합"
                                 >
-                                  <span className="material-icons-outlined text-amber-500 text-lg">auto_awesome</span>
+                                  <span className="material-icons-outlined text-gray-400 text-lg">close</span>
                                 </button>
-                              )}
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleCategorizeInList(program, 'right'); }}
-                                className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20"
-                                title="관심 등록"
-                              >
-                                <span className="material-icons-outlined text-primary text-lg">favorite</span>
-                              </button>
-                            </div>
-                          )}
+                                {activeTab === 'recommended' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleViewStrategy(program.id); }}
+                                    disabled={isLoadingStrategy}
+                                    className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                    title="전략 보기"
+                                  >
+                                    <span className="material-icons-outlined text-amber-500 text-lg">auto_awesome</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCategorizeInList(program, 'right'); }}
+                                  className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20"
+                                  title="관심 등록"
+                                >
+                                  <span className="material-icons-outlined text-primary text-lg">favorite</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                       {/* 추천 탭: dimensions 미니 바 차트 */}

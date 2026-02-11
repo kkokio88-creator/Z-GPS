@@ -57,6 +57,23 @@ app.listen(PORT, async () => {
         console.log('Loaded DART_API_KEY from vault config');
       }
     } catch { /* config.json 없으면 스킵 */ }
+
+    // 4시간 자동 동기화
+    const AUTO_SYNC_INTERVAL = 4 * 60 * 60 * 1000;
+    setInterval(async () => {
+      console.log('[auto-sync] 정기 동기화 시작...');
+      try {
+        const resp = await fetch(`http://localhost:${PORT}/api/vault/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await resp.json();
+        console.log('[auto-sync] 완료:', JSON.stringify(data).substring(0, 200));
+      } catch (e) {
+        console.error('[auto-sync] 실패:', e);
+      }
+    }, AUTO_SYNC_INTERVAL);
+    console.log(`Auto-sync enabled: every ${AUTO_SYNC_INTERVAL / 3600000}h`);
   } catch (err) {
     console.error('Vault structure init failed:', err);
   }
