@@ -83,8 +83,8 @@ const StatCard: React.FC<{ label: string; value: number | string; icon: string }
   </div>
 );
 
-const PHASE_LABELS = ['', 'API 수집', 'URL 크롤링', 'AI 강화', '적합도 분석'];
-const PHASE_COLORS = ['', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-emerald-500'];
+const PHASE_LABELS = ['', 'API 수집', 'AI 사전심사', 'URL 크롤링', 'AI 강화', '적합도 분석'];
+const PHASE_COLORS = ['', 'bg-blue-500', 'bg-cyan-500', 'bg-amber-500', 'bg-purple-500', 'bg-emerald-500'];
 
 const ProgressBar: React.FC<{
   active: boolean;
@@ -101,19 +101,19 @@ const ProgressBar: React.FC<{
       {/* 3단계 스텝 인디케이터 */}
       {phase > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3, 4, 5].map((step) => (
             <div key={step} className="flex items-center gap-1">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
                 step < phase ? 'bg-green-500 text-white' :
                 step === phase ? `${PHASE_COLORS[step]} text-white animate-pulse` :
                 'bg-gray-200 dark:bg-gray-700 text-gray-400'
               }`}>
                 {step < phase ? '\u2713' : step}
               </div>
-              <span className={`text-[10px] ${step === phase ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-400'}`}>
+              <span className={`text-[9px] ${step === phase ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-400'}`}>
                 {PHASE_LABELS[step]}
               </span>
-              {step < 4 && <div className={`w-3 h-0.5 ${step < phase ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />}
+              {step < 5 && <div className={`w-2 h-0.5 ${step < phase ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />}
             </div>
           ))}
         </div>
@@ -340,6 +340,7 @@ const Settings: React.FC = () => {
       syncAbortRef.current = abort;
       const result = await promise;
       const parts = [`완료: ${result.totalFetched}건 수집, ${result.created}건 생성, ${result.updated}건 갱신`];
+      if (result.preScreenPassed || result.preScreenRejected) parts.push(`사전심사 ${result.preScreenPassed || 0}건 통과/${result.preScreenRejected || 0}건 탈락`);
       if (result.phase2Crawled) parts.push(`${result.phase2Crawled}건 크롤`);
       if (result.phase3Enriched) parts.push(`${result.phase3Enriched}건 AI 강화`);
       if (result.phase4Analyzed) parts.push(`${result.phase4Analyzed}건 분석`);

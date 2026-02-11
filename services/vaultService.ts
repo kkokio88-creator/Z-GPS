@@ -119,6 +119,8 @@ export interface SyncResult {
   totalFetched: number;
   created: number;
   updated: number;
+  preScreenPassed?: number;
+  preScreenRejected?: number;
   phase2Crawled?: number;
   phase3Enriched?: number;
   phase4Analyzed?: number;

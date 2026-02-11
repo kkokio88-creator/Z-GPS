@@ -31,12 +31,14 @@ import {
   analyzeSections,
   generateDraftSectionV2,
   generateStrategyDocument,
+  preScreenPrograms,
 } from '../services/analysisService.js';
 import type {
   FitAnalysisResult,
   FitDimensions,
   EligibilityDetails,
   StrategyDocument,
+  PreScreenInput,
 } from '../services/analysisService.js';
 import { callGeminiDirect, cleanAndParseJSON } from '../services/geminiService.js';
 import {
@@ -664,11 +666,13 @@ function mergeHtmlCrawlData(
 
 /**
  * POST /api/vault/sync
- * 3단계 점진적 파이프라인:
+ * 5단계 점진적 파이프라인:
  *   1단계: API 수집 → 노트 저장 (enrichmentPhase: 1)
  *   클린업: 중복/창업/지역 제거
+ *   1.5단계: AI 사전심사 → 부적합 공고 제외 (enrichmentPhase: 99)
  *   2단계: URL 크롤링 → 메타데이터 머지 (enrichmentPhase: 2)
  *   3단계: 첨부파일 + AI 강화 (enrichmentPhase: 3)
+ *   4단계: 적합도 분석 (fitScore > 0)
  */
 router.post('/sync', async (req: Request, res: Response) => {
   const useSSE = req.headers.accept === 'text/event-stream';
@@ -800,6 +804,101 @@ router.post('/sync', async (req: Request, res: Response) => {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // 1.5단계: AI 사전심사 (Gemini 1회 배치 호출)
+    // enrichmentPhase === 1인 신규 공고만 대상
+    // ═══════════════════════════════════════════════════════════
+    let preScreenPassed = 0;
+    let preScreenRejected = 0;
+
+    // 기업 정보 로드 (사전심사용)
+    let companyForPreScreen: Record<string, unknown> = {};
+    try {
+      const companyPath = path.join('company', 'profile.md');
+      if (await noteExists(companyPath)) {
+        const { frontmatter: cf } = await readNote(companyPath);
+        companyForPreScreen = cf;
+      }
+    } catch { /* 기업 정보 없으면 무시 */ }
+
+    const hasCompanyInfo = !!(companyForPreScreen.name && companyForPreScreen.industry);
+
+    if (hasCompanyInfo) {
+      const preScreenVaultRoot = getVaultRoot();
+      const preScreenFiles = await listNotes(path.join(preScreenVaultRoot, 'programs'));
+      const preScreenTargets: { file: string; frontmatter: Record<string, unknown>; content: string; input: PreScreenInput }[] = [];
+
+      for (const file of preScreenFiles) {
+        try {
+          const { frontmatter: ef, content: ec } = await readNote(file);
+          const ep = Number(ef.enrichmentPhase) || 0;
+          if (ep !== 1) continue; // 신규 수집 공고만 대상
+          preScreenTargets.push({
+            file,
+            frontmatter: ef,
+            content: ec,
+            input: {
+              id: (ef.id as string) || path.basename(file, '.md'),
+              programName: (ef.programName as string) || '',
+              supportType: (ef.supportType as string) || '',
+              targetAudience: (ef.targetAudience as string) || '',
+              description: ((ef.fullDescription as string) || (ef.description as string) || '').substring(0, 200),
+            },
+          });
+        } catch { /* 읽기 실패 무시 */ }
+      }
+
+      if (preScreenTargets.length > 0) {
+        if (useSSE) sendProgress(res, 'AI 사전심사 중', 0, preScreenTargets.length, '', 2);
+
+        const companyInfo = {
+          name: (companyForPreScreen.name as string) || '미등록 기업',
+          industry: companyForPreScreen.industry as string,
+          description: companyForPreScreen.description as string,
+          revenue: companyForPreScreen.revenue as number,
+          employees: companyForPreScreen.employees as number,
+          address: companyForPreScreen.address as string,
+          certifications: companyForPreScreen.certifications as string[],
+          coreCompetencies: companyForPreScreen.coreCompetencies as string[],
+          mainProducts: companyForPreScreen.mainProducts as string[],
+          businessType: companyForPreScreen.businessType as string,
+        };
+
+        const screenResults = await preScreenPrograms(
+          companyInfo,
+          preScreenTargets.map(t => t.input)
+        );
+
+        // 결과를 ID로 매핑
+        const resultMap = new Map(screenResults.map(r => [r.id, r]));
+
+        for (let i = 0; i < preScreenTargets.length; i++) {
+          const { file, frontmatter: ef, content: ec, input } = preScreenTargets[i];
+          const result = resultMap.get(input.id);
+
+          if (useSSE) sendProgress(res, 'AI 사전심사 중', i + 1, preScreenTargets.length, input.programName, 2);
+
+          if (result && !result.pass) {
+            // 탈락 → 이후 모든 Phase 건너뜀
+            ef.fitScore = 3;
+            ef.eligibility = '부적합';
+            ef.enrichmentPhase = 99;
+            ef.preScreenReason = result.reason;
+            ef.status = 'pre_screen_rejected';
+            await writeNote(file, ef, ec);
+            preScreenRejected++;
+          } else {
+            // 통과 → enrichmentPhase 유지 (1)
+            preScreenPassed++;
+          }
+        }
+
+        console.log(`[vault/sync] 사전심사: ${preScreenPassed}건 통과, ${preScreenRejected}건 탈락`);
+      }
+    } else {
+      console.log('[vault/sync] 기업 정보 미등록 → 사전심사 건너뜀');
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // 2단계: URL 크롤링 (Gemini 호출 없음)
     // enrichmentPhase < 2 && detailUrl이 있는 노트만 대상
     // ═══════════════════════════════════════════════════════════
@@ -822,14 +921,14 @@ router.post('/sync', async (req: Request, res: Response) => {
     }
 
     const phase2Total = phase2Targets.length;
-    if (useSSE && phase2Total > 0) sendProgress(res, 'URL 크롤링 시작', 0, phase2Total, '', 2);
+    if (useSSE && phase2Total > 0) sendProgress(res, 'URL 크롤링 시작', 0, phase2Total, '', 3);
 
     for (let i = 0; i < phase2Targets.length; i++) {
       const { file, frontmatter: ef, content: ec } = phase2Targets[i];
       const pName = (ef.programName as string) || '';
       const detailUrl = (ef.detailUrl as string) || '';
 
-      if (useSSE) sendProgress(res, 'URL 크롤링 중', i + 1, phase2Total, pName, 2);
+      if (useSSE) sendProgress(res, 'URL 크롤링 중', i + 1, phase2Total, pName, 3);
 
       try {
         const crawlResult = await crawlHtmlOnly(detailUrl, pName);
@@ -870,7 +969,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     }
 
     const phase3Total = phase3Targets.length;
-    if (useSSE && phase3Total > 0) sendProgress(res, 'AI 강화 시작', 0, phase3Total, '', 3);
+    if (useSSE && phase3Total > 0) sendProgress(res, 'AI 강화 시작', 0, phase3Total, '', 4);
 
     for (let i = 0; i < phase3Targets.length; i++) {
       const { file, frontmatter: ef } = phase3Targets[i];
@@ -878,7 +977,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       const slug = (ef.slug as string) || '';
       const detailUrl = (ef.detailUrl as string) || '';
 
-      if (useSSE) sendProgress(res, 'AI 강화 중', i + 1, phase3Total, pName, 3);
+      if (useSSE) sendProgress(res, 'AI 강화 중', i + 1, phase3Total, pName, 4);
 
       try {
         // 크롤된 본문 + 메타데이터 복원
@@ -996,21 +1095,25 @@ router.post('/sync', async (req: Request, res: Response) => {
 
     // ═══════════════════════════════════════════════════════════
     // 4단계: AI 적합도 분석
-    // 미분석 프로그램만 대상 (fitScore === 0)
+    // 미분석 프로그램만 대상 (fitScore === 0, enrichmentPhase !== 99)
     // ═══════════════════════════════════════════════════════════
     let phase4Analyzed = 0;
     let phase4Errors = 0;
     let phase4Strategies = 0;
 
-    // 기업 정보 로드
-    let companyForAnalysis: Record<string, unknown> = {};
-    try {
-      const companyPath = path.join('company', 'profile.md');
-      if (await noteExists(companyPath)) {
-        const { frontmatter: cf } = await readNote(companyPath);
-        companyForAnalysis = cf;
-      }
-    } catch { /* 기업 정보 없으면 무시 */ }
+    // 기업 정보 로드 (사전심사에서 이미 로드했으면 재사용)
+    const companyForAnalysis = Object.keys(companyForPreScreen).length > 0
+      ? companyForPreScreen
+      : await (async () => {
+          try {
+            const companyPath = path.join('company', 'profile.md');
+            if (await noteExists(companyPath)) {
+              const { frontmatter: cf } = await readNote(companyPath);
+              return cf;
+            }
+          } catch { /* 기업 정보 없으면 무시 */ }
+          return {} as Record<string, unknown>;
+        })();
 
     const companyInfoForFit = {
       name: (companyForAnalysis.name as string) || '미등록 기업',
@@ -1036,15 +1139,16 @@ router.post('/sync', async (req: Request, res: Response) => {
       try {
         const { frontmatter: ef } = await readNote(file);
         const fitScore = Number(ef.fitScore) || 0;
+        const ep = Number(ef.enrichmentPhase) || 0;
         const status = (ef.status as string) || '';
-        // 이미 분석됨 → 건너뜀
-        if (fitScore > 0 || status === 'analyzed') continue;
+        // 이미 분석됨 또는 사전심사 탈락 → 건너뜀
+        if (fitScore > 0 || status === 'analyzed' || ep === 99) continue;
         phase4Targets.push({ file });
       } catch { /* 읽기 실패 무시 */ }
     }
 
     const phase4Total = phase4Targets.length;
-    if (useSSE && phase4Total > 0) sendProgress(res, 'AI 분석 시작', 0, phase4Total, '', 4);
+    if (useSSE && phase4Total > 0) sendProgress(res, 'AI 분석 시작', 0, phase4Total, '', 5);
 
     for (let i = 0; i < phase4Targets.length; i++) {
       const { file } = phase4Targets[i];
@@ -1054,7 +1158,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         if (!slug) continue;
 
         const pName = (pf.programName as string) || '';
-        if (useSSE) sendProgress(res, 'AI 분석 중', i + 1, phase4Total, pName, 4);
+        if (useSSE) sendProgress(res, 'AI 분석 중', i + 1, phase4Total, pName, 5);
 
         const programInfo = {
           programName: pName,
@@ -1115,7 +1219,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         // 고적합도 → 전략 문서 생성
         if (fitResult.fitScore >= 80) {
           try {
-            if (useSSE) sendProgress(res, '전략 문서 생성 중', i + 1, phase4Total, pName, 4);
+            if (useSSE) sendProgress(res, '전략 문서 생성 중', i + 1, phase4Total, pName, 5);
             const strategy = await generateStrategyDocument(companyInfoForFit, programInfo, fitResult, attachText || undefined);
             const { frontmatter: sFm, content: sContent } = strategyToMarkdown(pName, slug, fitResult.fitScore, fitResult.dimensions, strategy);
             await writeNote(path.join('strategies', `전략-${slug}.md`), sFm, sContent);
@@ -1147,6 +1251,8 @@ router.post('/sync', async (req: Request, res: Response) => {
       filteredByStartup: filterStats.filteredByStartup,
       created,
       updated,
+      preScreenPassed,
+      preScreenRejected,
       phase2Crawled: phase2Count,
       phase3Enriched: phase3Count,
       attachmentsDownloaded: phase3Attachments,

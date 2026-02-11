@@ -124,6 +124,103 @@ const DEFAULT_SECTIONS: SectionSchema[] = [
   { id: 'sec_expected_outcomes', title: '6. 기대효과', description: '지역 경제 활성화, 고용 창출 등 파급 효과를 기술하세요.', order: 6, required: true },
 ];
 
+// ===== AI 사전심사 =====
+
+export interface PreScreenInput {
+  id: string;
+  programName: string;
+  supportType: string;
+  targetAudience: string;
+  description: string;
+}
+
+export interface PreScreenResult {
+  id: string;
+  pass: boolean;
+  reason: string;
+}
+
+/** AI 사전심사: 공고 제목+간략 정보만으로 부적합 공고를 배치 제외 */
+export async function preScreenPrograms(
+  company: CompanyInfo,
+  programs: PreScreenInput[]
+): Promise<PreScreenResult[]> {
+  if (programs.length === 0) return [];
+
+  const companyBlock = [
+    `- 기업명: ${company.name}`,
+    `- 업종: ${company.industry || '미등록'}`,
+    `- 매출액: ${company.revenue ? (company.revenue / 100000000).toFixed(1) + '억원' : '미공개'}`,
+    `- 직원수: ${company.employees || 0}명`,
+    `- 소재지: ${company.address || '미등록'}`,
+    `- 핵심역량: ${company.coreCompetencies?.join(', ') || '미등록'}`,
+    company.mainProducts?.length ? `- 주력 제품/서비스: ${company.mainProducts.join(', ')}` : '',
+    company.businessType ? `- 기업형태: ${company.businessType}` : '',
+  ].filter(Boolean).join('\n');
+
+  // 50개씩 배치 분할
+  const BATCH_SIZE = 50;
+  const allResults: PreScreenResult[] = [];
+
+  for (let batchStart = 0; batchStart < programs.length; batchStart += BATCH_SIZE) {
+    const batch = programs.slice(batchStart, batchStart + BATCH_SIZE);
+
+    const programList = batch.map((p, i) => (
+      `${i + 1}. [ID: ${p.id}] "${p.programName}" | 유형: ${p.supportType} | 대상: ${p.targetAudience || '없음'} | 설명: ${(p.description || '').substring(0, 200)}`
+    )).join('\n');
+
+    const prompt = `당신은 한국 정부 지원사업 적합성 사전심사 전문가입니다.
+
+## 기업 정보
+${companyBlock}
+
+## 공고 목록 (${batch.length}건)
+${programList}
+
+## 작업
+위 기업 정보를 바탕으로 각 공고가 이 기업에 **명백히 부적합**한지 빠르게 판단하세요.
+
+## 판단 기준 (pass: false 조건)
+- 업종이 완전히 다른 분야 (예: IT기업인데 농업 전용 지원사업)
+- 기업 규모/형태가 명시적으로 제외됨
+- 대상이 개인/학생/비영리 등 기업이 아닌 경우
+- 지원 유형이 기업과 전혀 무관한 경우
+
+## 판단 기준 (pass: true 조건)
+- 조금이라도 관련 가능성이 있으면 통과
+- 판단 근거가 불충분하면 통과
+- 범용적 중소기업 지원사업은 통과
+
+반드시 아래 JSON 형식만 반환하세요:
+[
+  { "id": "공고ID", "pass": true/false, "reason": "판단 근거 한 줄" }
+]`;
+
+    try {
+      const response = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+      const parsed = cleanAndParseJSON(response.text) as PreScreenResult[];
+
+      if (Array.isArray(parsed)) {
+        allResults.push(...parsed);
+      } else {
+        // 파싱 실패 시 전부 통과 처리
+        allResults.push(...batch.map(p => ({ id: p.id, pass: true, reason: '사전심사 파싱 실패' })));
+      }
+    } catch (e) {
+      console.error(`[analysisService] preScreenPrograms batch error:`, e);
+      // API 실패 시 전부 통과 처리 (안전 우선)
+      allResults.push(...batch.map(p => ({ id: p.id, pass: true, reason: '사전심사 API 오류' })));
+    }
+
+    // 배치 간 rate limit 방지
+    if (batchStart + BATCH_SIZE < programs.length) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  return allResults;
+}
+
 /** 공고별 동적 섹션 스키마 분석 */
 export async function analyzeSections(
   programData: {
