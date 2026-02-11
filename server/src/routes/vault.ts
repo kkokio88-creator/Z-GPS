@@ -72,17 +72,123 @@ ensureVaultStructure().catch(e => console.error('[vault] Failed to ensure vault 
 
 // ─── Helper ────────────────────────────────────────────────────
 
-/** supportScale 텍스트에서 금액(원) 파싱 */
+/** 단위 적용 헬퍼 */
+function applyUnit(num: number, unit: string): number {
+  if (isNaN(num) || num === 0) return 0;
+  if (unit === '억') return num * 100_000_000;
+  if (unit === '천만') return num * 10_000_000;
+  if (unit === '백만') return num * 1_000_000;
+  if (unit === '만') return num * 10_000;
+  return num;
+}
+
+/** supportScale 텍스트에서 금액(원) 파싱 — 다중 패턴 매칭 */
 function parseAmountFromScale(raw: string): number {
   if (!raw) return 0;
+  // "별도안내", "공고참조", "미정" 등 비수치 텍스트 스킵
+  if (/^(별도|공고|추후|예산|미정|해당|없음|-)/i.test(raw.trim())) return 0;
+  // "총사업비의 50%이내" 같은 순수 퍼센트 패턴 제외
+  if (/^\D*\d+\s*%/.test(raw) && !/[만억천백]\s*원/.test(raw)) return 0;
+
   const cleaned = raw.replace(/[,\s]/g, '');
-  const num = parseFloat(cleaned.replace(/[^0-9.]/g, ''));
-  if (isNaN(num) || num === 0) return 0;
-  if (cleaned.includes('억')) return num * 100000000;
-  if (cleaned.includes('천만')) return num * 10000000;
-  if (cleaned.includes('백만')) return num * 1000000;
-  if (cleaned.includes('만')) return num * 10000;
-  return num;
+
+  // 범위: "1~3억원" → max값(3억) 사용
+  const rangeMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*[~\-–]\s*(\d+(?:\.\d+)?)\s*(억|천만|백만|만)?\s*원?/);
+  if (rangeMatch) return applyUnit(parseFloat(rangeMatch[2]), rangeMatch[3] || '');
+
+  // "최대 X억원", "X만원 이내"
+  const unitMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*(억|천만|백만|만)\s*원?/);
+  if (unitMatch) return applyUnit(parseFloat(unitMatch[1]), unitMatch[2]);
+
+  // 순수 숫자+원 ("50000000원")
+  const numMatch = cleaned.match(/(\d+)\s*원/);
+  if (numMatch && parseInt(numMatch[1]) >= 100000) return parseInt(numMatch[1]);
+
+  return 0;
+}
+
+/** 본문/설명 텍스트에서 기업당 지원금 패턴 추출 */
+function extractGrantFromText(text: string): number {
+  if (!text || text.length < 4) return 0;
+  // 기업당/업체당/팀당/1개사당 + 최대 + 금액 패턴 우선
+  const perCompanyPatterns = [
+    /(?:기업당|업체당|팀당|1개사당|개사당|社당|과제당)[^0-9]{0,20}(?:최대\s*)?(\d+(?:[.,]\d+)?)\s*(억|천만|백만|만)\s*원/g,
+    /(?:최대|한도)\s*(\d+(?:[.,]\d+)?)\s*(억|천만|백만|만)\s*원/g,
+    /(\d+(?:[.,]\d+)?)\s*(억|천만|백만|만)\s*원\s*(?:이내|한도|내외|지원|까지)/g,
+  ];
+
+  for (const pattern of perCompanyPatterns) {
+    const matches = [...text.matchAll(pattern)];
+    if (matches.length > 0) {
+      // 가장 작은 금액 선택 (기업당 지원금은 총 예산보다 작음)
+      let minAmount = Infinity;
+      for (const m of matches) {
+        const num = parseFloat(m[1].replace(/,/g, ''));
+        const unit = m[2];
+        const amount = applyUnit(num, unit);
+        if (amount > 0 && amount < minAmount) minAmount = amount;
+      }
+      if (minAmount < Infinity && minAmount >= 1_000_000) return minAmount;
+    }
+  }
+
+  // "X백만원" 단독 패턴 (숫자+백만원이 한 번만 나타나면 사용)
+  const singleMatch = text.match(/(\d+)\s*백만\s*원/);
+  if (singleMatch) {
+    const amount = parseInt(singleMatch[1]) * 1_000_000;
+    if (amount >= 1_000_000) return amount;
+  }
+
+  return 0;
+}
+
+/**
+ * 다중 소스에서 expectedGrant 재파싱
+ * supportScale → totalBudget → fullDescription → body content → PDF analysis 순서
+ */
+function reParseExpectedGrant(fm: Record<string, unknown>, bodyContent?: string, pdfText?: string): number {
+  // 1. supportScale
+  const fromScale = parseAmountFromScale(String(fm.supportScale || ''));
+  if (fromScale > 0) return fromScale;
+
+  // 2. totalBudget
+  const fromBudget = parseAmountFromScale(String(fm.totalBudget || ''));
+  if (fromBudget > 0) return fromBudget;
+
+  // 3. fullDescription
+  const fromDesc = extractGrantFromText(String(fm.fullDescription || ''));
+  if (fromDesc > 0) return fromDesc;
+
+  // 4. body content (마크다운 본문)
+  if (bodyContent) {
+    const fromBody = extractGrantFromText(bodyContent);
+    if (fromBody > 0) return fromBody;
+  }
+
+  // 5. PDF 분석 텍스트
+  if (pdfText) {
+    const fromPdf = extractGrantFromText(pdfText);
+    if (fromPdf > 0) return fromPdf;
+  }
+
+  return 0;
+}
+
+/** PDF 분석 텍스트를 슬러그 기반으로 로드 (동기적 볼트 탐색) */
+async function loadPdfAnalysisForSlug(slug: string): Promise<string> {
+  const analysisDir = path.join(getVaultRoot(), 'attachments', 'pdf-analysis');
+  try {
+    const files = await fs.readdir(analysisDir);
+    const matched = files.filter(f => f.startsWith(slug) && f.endsWith('.txt'));
+    let text = '';
+    for (const f of matched) {
+      try {
+        const content = await fs.readFile(path.join(analysisDir, f), 'utf-8');
+        text += content.substring(0, 3000) + '\n';
+      } catch { /* skip */ }
+    }
+    return text;
+  } catch { return ''; }
 }
 
 /** 첨부파일 분석 텍스트 로드 (pdf-analysis/*.txt) */
@@ -278,7 +384,7 @@ function programToFrontmatter(
     officialEndDate: p.officialEndDate,
     applicationStart: deepCrawl?.applicationPeriod?.start || p.applicationPeriod?.start || '',
     internalDeadline: p.internalDeadline,
-    expectedGrant: p.expectedGrant,
+    expectedGrant: p.expectedGrant || 0,
     fitScore: 0,
     eligibility: '검토 필요',
     detailUrl: p.detailUrl,
@@ -316,6 +422,19 @@ function programToFrontmatter(
     specialNotes: deepCrawl?.specialNotes || p.specialNotes || [],
     fullDescription: deepCrawl?.fullDescription || p.fullDescription || p.description || '',
   };
+
+  // expectedGrant가 0이면 supportScale/totalBudget에서 재파싱
+  if (!fm.expectedGrant || Number(fm.expectedGrant) === 0) {
+    const sources = [
+      String(fm.supportScale || ''),
+      String(fm.totalBudget || ''),
+    ];
+    for (const src of sources) {
+      const parsed = parseAmountFromScale(src);
+      if (parsed > 0) { fm.expectedGrant = parsed; break; }
+    }
+  }
+
   return fm;
 }
 
@@ -508,7 +627,7 @@ function buildFitSectionMarkdown(result: FitAnalysisResult, slug: string): strin
     md += `### 전략 요약\n${result.recommendedStrategy}\n\n`;
   }
 
-  if (result.fitScore >= 80) {
+  if (result.fitScore >= 60) {
     md += `> [!tip] 전략 문서\n> 상세 전략 문서: [[전략-${slug}]]\n`;
   }
 
@@ -1239,7 +1358,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         phase4Analyzed++;
 
         // 고적합도 → 전략 문서 생성
-        if (fitResult.fitScore >= 80) {
+        if (fitResult.fitScore >= 60) {
           try {
             if (useSSE) sendProgress(res, '전략 문서 생성 중', i + 1, phase4Total, pName, 5);
             const strategy = await generateStrategyDocument(companyInfoForFit, programInfo, fitResult, attachText || undefined);
@@ -1445,11 +1564,10 @@ router.get('/programs', async (_req: Request, res: Response) => {
       }
     }
 
-    // expectedGrant가 0인 프로그램은 supportScale/totalBudget에서 재파싱
+    // expectedGrant가 0인 프로그램은 다중 소스에서 재파싱
     for (const p of programs) {
       if (!p.expectedGrant || Number(p.expectedGrant) === 0) {
-        const parsed = parseAmountFromScale(String(p.supportScale || ''))
-          || parseAmountFromScale(String(p.totalBudget || ''));
+        const parsed = reParseExpectedGrant(p);
         if (parsed > 0) p.expectedGrant = parsed;
       }
     }
@@ -1480,6 +1598,14 @@ router.get('/program/:slug', async (req: Request, res: Response) => {
     }
 
     const { frontmatter, content } = await readNote(filePath);
+
+    // expectedGrant가 0이면 다중 소스에서 재파싱 (PDF 포함)
+    if (!frontmatter.expectedGrant || Number(frontmatter.expectedGrant) === 0) {
+      const pdfText = await loadPdfAnalysisForSlug(slug);
+      const parsed = reParseExpectedGrant(frontmatter, content, pdfText);
+      if (parsed > 0) frontmatter.expectedGrant = parsed;
+    }
+
     res.json({ frontmatter, content });
   } catch (error) {
     console.error('[vault/program] Error:', error);
@@ -1586,9 +1712,9 @@ router.post('/analyze/:slug', async (req: Request, res: Response) => {
     programFm.status = 'analyzed';
     await writeNote(programPath, programFm, updatedContent);
 
-    // fitScore >= 80이면 전략 문서 자동 생성
+    // fitScore >= 60이면 전략 문서 자동 생성
     let strategyGenerated = false;
-    if (result.fitScore >= 80) {
+    if (result.fitScore >= 60) {
       try {
         const strategy = await generateStrategyDocument(companyInfo, programInfo, result, attachmentText || undefined);
         const { frontmatter: sFm, content: sContent } = strategyToMarkdown(
@@ -1722,8 +1848,8 @@ router.post('/analyze-all', async (req: Request, res: Response) => {
 
         results.push({ slug, fitScore: result.fitScore, eligibility: result.eligibility as string });
 
-        // fitScore >= 80이면 전략 문서 생성
-        if (result.fitScore >= 80) {
+        // fitScore >= 60이면 전략 문서 생성
+        if (result.fitScore >= 60) {
           try {
             if (useSSE) sendProgress(res, '전략 문서 생성 중', i + 1, total, pf.programName as string);
             const strategy = await generateStrategyDocument(companyInfo, programInfo, result, attachmentText || undefined);
@@ -4542,6 +4668,67 @@ router.post('/benefits/analyze-all', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[vault/benefits/analyze-all] Error:', error);
     res.status(500).json({ error: '일괄 환급 분석 실패' });
+  }
+});
+
+/**
+ * POST /api/vault/migrate-grants
+ * 볼트 전체 프로그램의 expectedGrant 재파싱 (일회성 마이그레이션)
+ */
+router.post('/migrate-grants', async (_req: Request, res: Response) => {
+  try {
+    const files = await listNotes(path.join(getVaultRoot(), 'programs'));
+    let updated = 0;
+    let total = 0;
+    const details: { slug: string; before: number; after: number; source: string }[] = [];
+
+    for (const file of files) {
+      total++;
+      try {
+        const { frontmatter, content } = await readNote(file);
+        const current = Number(frontmatter.expectedGrant) || 0;
+        if (current > 0) continue;
+
+        const slug = String(frontmatter.slug || '');
+
+        // PDF 분석 텍스트 로드
+        const pdfText = slug ? await loadPdfAnalysisForSlug(slug) : '';
+
+        const parsed = reParseExpectedGrant(frontmatter, content, pdfText);
+        if (parsed > 0) {
+          frontmatter.expectedGrant = parsed;
+          await writeNote(file, frontmatter, content);
+          updated++;
+
+          // 어디서 찾았는지 식별
+          let source = 'unknown';
+          if (parseAmountFromScale(String(frontmatter.supportScale || '')) > 0) source = 'supportScale';
+          else if (parseAmountFromScale(String(frontmatter.totalBudget || '')) > 0) source = 'totalBudget';
+          else if (extractGrantFromText(String(frontmatter.fullDescription || '')) > 0) source = 'fullDescription';
+          else if (extractGrantFromText(content) > 0) source = 'bodyContent';
+          else if (extractGrantFromText(pdfText) > 0) source = 'pdfAnalysis';
+
+          details.push({
+            slug,
+            before: current,
+            after: parsed,
+            source,
+          });
+        }
+      } catch (e) {
+        console.warn('[migrate-grants] Skip file:', file, e);
+      }
+    }
+
+    res.json({
+      total,
+      updated,
+      remaining: total - updated,
+      details,
+    });
+  } catch (error) {
+    console.error('[vault/migrate-grants] Error:', error);
+    res.status(500).json({ error: '마이그레이션 실패' });
   }
 });
 

@@ -162,7 +162,9 @@ const Dashboard: React.FC = () => {
   const heroStats = useMemo(() => {
     // 적합 프로그램: eligibility가 '부적합'이 아닌 것
     const eligiblePrograms = activePrograms.filter(p => p.eligibility !== '부적합');
-    const totalGrant = eligiblePrograms.reduce((sum, p) => sum + (p.expectedGrant || 0), 0);
+    const programsWithGrant = eligiblePrograms.filter(p => (p.expectedGrant || 0) > 0);
+    const totalGrant = programsWithGrant.reduce((sum, p) => sum + p.expectedGrant, 0);
+    const unknownGrantCount = eligiblePrograms.length - programsWithGrant.length;
     const analyzedPrograms = activePrograms.filter(p => p.fitScore > 0);
     const avgFit = analyzedPrograms.length > 0
       ? Math.round(analyzedPrograms.reduce((sum, p) => sum + p.fitScore, 0) / analyzedPrograms.length)
@@ -172,6 +174,7 @@ const Dashboard: React.FC = () => {
     return {
       totalPrograms: activePrograms.length,
       totalGrant,
+      unknownGrantCount,
       avgFit,
       analyzedCount: analyzedPrograms.length,
       recommendedCount,
@@ -263,7 +266,12 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <p className="text-gray-400 text-xs font-medium mb-1">총 수령 가능 금액</p>
-                  <p className="text-emerald-400 text-3xl font-bold">{formatKRW(heroStats.totalGrant)}</p>
+                  <p className="text-emerald-400 text-3xl font-bold">
+                    {heroStats.totalGrant > 0 ? formatKRW(heroStats.totalGrant) : '-'}
+                  </p>
+                  {heroStats.unknownGrantCount > 0 && (
+                    <p className="text-gray-500 text-[10px] mt-1">+{heroStats.unknownGrantCount}건 금액 미확정</p>
+                  )}
                 </div>
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <p className="text-gray-400 text-xs font-medium mb-1">평균 적합도</p>
@@ -311,7 +319,7 @@ const Dashboard: React.FC = () => {
                           <span className="text-2xl font-bold">{area.matchCount}</span>
                         </div>
                         <div className="flex justify-between mt-2 text-xs text-white/80">
-                          <span>{formatKRW(area.totalGrant)}</span>
+                          <span>{area.totalGrant > 0 ? formatKRW(area.totalGrant) : '금액 미확정'}</span>
                           {area.nearestDeadline && (
                             <span className={area.nearestDeadline.days <= 7 ? 'text-yellow-200 font-bold' : ''}>
                               {area.nearestDeadline.label}
@@ -333,7 +341,7 @@ const Dashboard: React.FC = () => {
                             >
                               <div className="flex-1 min-w-0 mr-2">
                                 <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{prog.programName}</p>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400">{prog.organizer} · {formatKRW(prog.expectedGrant)}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">{prog.organizer} · {prog.expectedGrant > 0 ? formatKRW(prog.expectedGrant) : '공고 참조'}</p>
                               </div>
                               <div className="flex-shrink-0 text-right">
                                 {prog.fitScore > 0 && (
