@@ -431,20 +431,20 @@ const Settings: React.FC = () => {
 
         const updated: typeof company = {
           ...company,
-          name: (c.name as string) ?? company.name,
-          businessNumber: (c.businessNumber as string) ?? company.businessNumber,
-          industry: (c.industry as string) ?? company.industry,
-          address: (c.address as string) ?? company.address,
-          revenue: (c.revenue != null ? Number(c.revenue) : company.revenue),
-          employees: (c.employees != null ? Number(c.employees) : company.employees),
-          description: (c.description as string) ?? company.description,
-          coreCompetencies: Array.isArray(c.coreCompetencies) ? c.coreCompetencies as string[] : company.coreCompetencies,
-          certifications: Array.isArray(c.certifications) ? c.certifications as string[] : company.certifications,
-          mainProducts: Array.isArray(c.mainProducts) ? c.mainProducts as string[] : company.mainProducts,
-          representative: (c.representative as string) ?? company.representative,
+          name: (c.name as string) || company.name,
+          businessNumber: (c.businessNumber as string) || company.businessNumber,
+          industry: (c.industry as string) || company.industry,
+          address: (c.address as string) || company.address,
+          revenue: (c.revenue != null && Number(c.revenue) > 0 ? Number(c.revenue) : company.revenue),
+          employees: (c.employees != null && Number(c.employees) > 0 ? Number(c.employees) : company.employees),
+          description: (c.description as string) || company.description,
+          coreCompetencies: Array.isArray(c.coreCompetencies) && c.coreCompetencies.length > 0 ? c.coreCompetencies as string[] : company.coreCompetencies,
+          certifications: Array.isArray(c.certifications) && c.certifications.length > 0 ? c.certifications as string[] : company.certifications,
+          mainProducts: Array.isArray(c.mainProducts) && c.mainProducts.length > 0 ? c.mainProducts as string[] : company.mainProducts,
+          representative: (c.representative as string) || company.representative,
           foundedYear: foundedYear ?? company.foundedYear,
-          businessType: (c.businessType as string) ?? company.businessType,
-          history: (c.history as string) ?? company.history,
+          businessType: (c.businessType as string) || company.businessType,
+          history: (c.history as string) || company.history,
         };
         setCompany(updated);
 

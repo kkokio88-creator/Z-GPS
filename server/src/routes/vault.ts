@@ -2432,8 +2432,45 @@ router.post('/company/research', async (req: Request, res: Response) => {
   "ipList": []
 }`;
 
-    const result = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+    // 사용자 설정 모델 읽기
+    let userModel = 'gemini-2.0-flash';
+    try {
+      const cfgPath = path.join(getVaultRoot(), 'config.json');
+      const cfgRaw = await fs.readFile(cfgPath, 'utf-8');
+      const cfg = JSON.parse(cfgRaw);
+      if (cfg.aiModel && typeof cfg.aiModel === 'string') userModel = cfg.aiModel;
+    } catch { /* default model */ }
+
+    // Google Search grounding으로 실시간 기업 정보 검색
+    const result = await callGeminiDirect(prompt, {
+      model: userModel,
+      tools: [{ googleSearch: {} }],
+    });
     const parsed = cleanAndParseJSON(result.text) as Record<string, unknown>;
+
+    // 결과 검증: 최소한 기업명이 있어야 함
+    if (!parsed.name) {
+      parsed.name = companyName.trim();
+    }
+
+    // NPS 데이터 보강 (DATA_GO_KR_API_KEY가 설정된 경우)
+    if (process.env.DATA_GO_KR_API_KEY) {
+      try {
+        const npsData = await fetchNpsEmployeeData(
+          companyName.trim(),
+          (parsed.businessNumber as string) || undefined
+        );
+        if (npsData.found && npsData.workplace) {
+          // NPS 실데이터로 직원수 보강
+          if (npsData.workplace.nrOfJnng > 0) {
+            parsed.employees = npsData.workplace.nrOfJnng;
+          }
+          parsed.npsData = npsData;
+        }
+      } catch (e) {
+        console.warn('[vault/company/research] NPS lookup during research failed:', e);
+      }
+    }
 
     // Vault에 리서치 결과 마크다운으로 저장
     try {
