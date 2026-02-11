@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { vaultService } from '../services/vaultService';
-import type { BenefitRecord, BenefitAnalysisResult, BenefitSummary, BenefitCategory, BenefitStatus, TaxScanResult, TaxRefundDifficulty } from '../types';
+import type { BenefitRecord, BenefitAnalysisResult, BenefitSummary, BenefitCategory, BenefitStatus, TaxScanResult, TaxRefundDifficulty, TaxRefundOpportunity, TaxCalculationLineItem } from '../types';
 import Header from './Header';
 
 const CATEGORIES: BenefitCategory[] = ['고용지원', 'R&D', '수출', '창업', '시설투자', '교육훈련', '기타'];
@@ -24,6 +25,40 @@ const DIFFICULTY_LABELS: Record<TaxRefundDifficulty, { label: string; color: str
   COMPLEX: { label: '복잡', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
+const OPP_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  identified: { label: '발견', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  in_progress: { label: '검토중', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  reviewing: { label: '검토중', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  filed: { label: '신고완료', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
+  received: { label: '환급완료', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  dismissed: { label: '해당없음', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
+};
+
+const SCAN_STEPS = [
+  { label: '기업 정보 수집', icon: 'business' },
+  { label: '국민연금 데이터 조회', icon: 'cloud_download' },
+  { label: 'AI 세금 분석', icon: 'psychology' },
+  { label: '결과 정리', icon: 'checklist' },
+];
+
+const DATA_SOURCE_BADGES: Record<string, { label: string; color: string }> = {
+  NPS_API: { label: '실제 데이터', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  COMPANY_PROFILE: { label: '프로필 기반', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
+  ESTIMATED: { label: '추정치', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+};
+
+const getConfidenceColor = (confidence: number): string => {
+  if (confidence >= 70) return 'text-green-600 dark:text-green-400';
+  if (confidence >= 40) return 'text-amber-600 dark:text-amber-400';
+  return 'text-red-500 dark:text-red-400';
+};
+
+const getConfidenceBarColor = (confidence: number): string => {
+  if (confidence >= 70) return 'bg-green-500';
+  if (confidence >= 40) return 'bg-amber-500';
+  return 'bg-red-500';
+};
+
 const TAX_BENEFIT_ICONS: Record<string, string> = {
   EMPLOYMENT_INCREASE: 'group_add',
   SME_SPECIAL: 'business',
@@ -37,6 +72,14 @@ const TAX_BENEFIT_ICONS: Record<string, string> = {
   AMENDED_RETURN: 'history',
 };
 
+const LINE_ITEM_SOURCE_BADGE: Record<string, { icon: string; color: string; label: string }> = {
+  NPS_API: { icon: '🔵', color: 'text-blue-600 dark:text-blue-400', label: 'NPS' },
+  COMPANY_PROFILE: { icon: '🏢', color: 'text-gray-600 dark:text-gray-400', label: '프로필' },
+  USER_INPUT: { icon: '✏️', color: 'text-amber-600 dark:text-amber-400', label: '입력' },
+  CALCULATED: { icon: '🔄', color: 'text-indigo-600 dark:text-indigo-400', label: '계산' },
+  TAX_LAW: { icon: '📕', color: 'text-red-600 dark:text-red-400', label: '법정' },
+};
+
 const formatKRW = (amount: number): string => {
   if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
   if (amount >= 10000) return `${(amount / 10000).toFixed(0)}만원`;
@@ -44,6 +87,7 @@ const formatKRW = (amount: number): string => {
 };
 
 const BenefitTracker: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'tax' | 'data' | 'analysis' | 'summary'>('tax');
   const [benefits, setBenefits] = useState<BenefitRecord[]>([]);
   const [analyses, setAnalyses] = useState<Record<string, BenefitAnalysisResult>>({});
@@ -60,6 +104,10 @@ const BenefitTracker: React.FC = () => {
   const [taxScanning, setTaxScanning] = useState(false);
   const [expandedOpportunity, setExpandedOpportunity] = useState<string | null>(null);
   const [taxError, setTaxError] = useState<string | null>(null);
+  const [taxErrorCode, setTaxErrorCode] = useState<number | null>(null);
+  const [scanStep, setScanStep] = useState<0 | 1 | 2 | 3>(0);
+  const [generatingWorksheet, setGeneratingWorksheet] = useState<string | null>(null);
+  const autoScanTriggered = useRef(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -110,7 +158,22 @@ const BenefitTracker: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadData();
+    loadData().then(() => {
+      // 첫 방문 자동 스캔: 기존 스캔 결과 없을 때
+      if (!autoScanTriggered.current) {
+        autoScanTriggered.current = true;
+        // taxScan state는 아직 반영 안 됐을 수 있으므로 setTimeout으로 대기
+        setTimeout(() => {
+          // 직접 DOM 외부에서 체크하지 않고, 콜백 안에서 최신 state 접근
+          setTaxScan(prev => {
+            if (prev === null) {
+              handleRunTaxScan();
+            }
+            return prev;
+          });
+        }, 100);
+      }
+    });
   }, [loadData]);
 
   const filteredBenefits = useMemo(() => {
@@ -230,17 +293,94 @@ const BenefitTracker: React.FC = () => {
   const handleRunTaxScan = async () => {
     setTaxScanning(true);
     setTaxError(null);
+    setTaxErrorCode(null);
+    setScanStep(1);
     try {
+      const stepTimer1 = setTimeout(() => setScanStep(2), 500);
+      const stepTimer2 = setTimeout(() => setScanStep(3), 2000);
       const result = await vaultService.runTaxScan();
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+      setScanStep(4);
+      await new Promise(r => setTimeout(r, 300));
       setTaxScan(result);
     } catch (e: unknown) {
-      const errMsg = (e && typeof e === 'object' && 'response' in e)
-        ? ((e as { response?: { data?: { error?: string } } }).response?.data?.error || '스캔 중 오류가 발생했습니다.')
-        : '서버 연결에 실패했습니다.';
-      setTaxError(errMsg);
+      const resp = (e && typeof e === 'object' && 'response' in e)
+        ? (e as { response?: { status?: number; data?: { error?: string } } }).response
+        : null;
+      const status = resp?.status || 0;
+      const serverMsg = resp?.data?.error;
+      setTaxErrorCode(status);
+
+      if (status === 503) {
+        setTaxError(serverMsg || 'Gemini API 키가 설정되지 않았습니다.');
+      } else if (status === 400) {
+        setTaxError(serverMsg || '기업 정보가 등록되지 않았습니다.');
+      } else if (status >= 500) {
+        setTaxError(serverMsg || '세금 환급 스캔에 실패했습니다.');
+      } else {
+        setTaxError('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
+      }
       if (import.meta.env.DEV) console.error('[BenefitTracker] Tax scan error:', e);
     }
+    setScanStep(0);
     setTaxScanning(false);
+  };
+
+  const handleGenerateWorksheet = async (oppId: string) => {
+    if (!taxScan) return;
+    setGeneratingWorksheet(oppId);
+    try {
+      const worksheet = await vaultService.generateWorksheet(taxScan.id, oppId);
+      setTaxScan(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          opportunities: prev.opportunities.map(o =>
+            o.id === oppId ? { ...o, status: 'reviewing' as const, worksheet } : o
+          ),
+        };
+      });
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[BenefitTracker] Generate worksheet error:', e);
+    }
+    setGeneratingWorksheet(null);
+  };
+
+  const handleUpdateWorksheetInput = async (oppId: string, key: string, value: number | string) => {
+    if (!taxScan) return;
+    try {
+      const { worksheet } = await vaultService.updateWorksheetOverrides(taxScan.id, oppId, { [key]: value });
+      setTaxScan(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          opportunities: prev.opportunities.map(o =>
+            o.id === oppId ? { ...o, worksheet, estimatedRefund: worksheet.totalRefund } : o
+          ),
+        };
+      });
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[BenefitTracker] Update worksheet input error:', e);
+    }
+  };
+
+  const handleUpdateOppStatus = async (oppId: string, newStatus: TaxRefundOpportunity['status']) => {
+    if (!taxScan) return;
+    try {
+      await vaultService.updateOpportunityStatus(taxScan.id, oppId, newStatus);
+      setTaxScan(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          opportunities: prev.opportunities.map(o =>
+            o.id === oppId ? { ...o, status: newStatus } : o
+          ),
+        };
+      });
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[BenefitTracker] Update opp status error:', e);
+    }
   };
 
   const tabs = [
@@ -837,12 +977,36 @@ const BenefitTracker: React.FC = () => {
                 </button>
               </div>
 
-              {/* Scanning Animation */}
+              {/* Scanning Stepper */}
               {taxScanning && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-8 text-center">
-                  <span className="material-icons-outlined text-5xl text-indigo-400 animate-pulse block mb-3">account_balance</span>
-                  <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">10대 세금 혜택 항목을 분석하고 있습니다...</p>
-                  <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">기업 정보와 수령 이력을 기반으로 적용 가능한 혜택을 탐색합니다</p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-6">
+                  <div className="flex items-center justify-center gap-2 mb-5">
+                    {SCAN_STEPS.map((step, i) => {
+                      const stepNum = i + 1;
+                      const isActive = scanStep === stepNum;
+                      const isDone = scanStep > stepNum;
+                      return (
+                        <React.Fragment key={i}>
+                          {i > 0 && (
+                            <div className={`w-8 h-0.5 rounded ${isDone ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                          )}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                              isDone ? 'bg-indigo-500 text-white' : isActive ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                            }`}>
+                              <span className={`material-icons-outlined text-base ${isActive ? 'animate-spin' : ''}`}>
+                                {isDone ? 'check' : isActive ? 'autorenew' : step.icon}
+                              </span>
+                            </div>
+                            <span className={`text-[10px] font-medium whitespace-nowrap ${
+                              isDone ? 'text-indigo-600 dark:text-indigo-400' : isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-400'
+                            }`}>{step.label}</span>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-indigo-500 dark:text-indigo-400 text-center">기업 정보와 수령 이력을 기반으로 적용 가능한 혜택을 탐색합니다</p>
                 </div>
               )}
 
@@ -851,13 +1015,55 @@ const BenefitTracker: React.FC = () => {
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-5 text-center">
                   <span className="material-icons-outlined text-3xl text-red-400 block mb-2">error_outline</span>
                   <p className="text-sm font-medium text-red-700 dark:text-red-400">{taxError}</p>
-                  <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">설정에서 기업 프로필과 Gemini API 키를 확인해주세요.</p>
+                  {taxErrorCode === 503 && (
+                    <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">Gemini API 키를 설정해야 AI 스캔을 이용할 수 있습니다.</p>
+                  )}
+                  {taxErrorCode === 400 && (
+                    <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">기업 프로필을 먼저 등록해주세요.</p>
+                  )}
+                  {(taxErrorCode === 503 || taxErrorCode === 400) && (
+                    <button
+                      onClick={() => navigate('/settings')}
+                      className="mt-3 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                    >
+                      <span className="material-icons-outlined text-sm align-middle mr-1">settings</span>
+                      설정으로 이동
+                    </button>
+                  )}
+                  {(!taxErrorCode || taxErrorCode >= 500) && taxErrorCode !== 503 && (
+                    <button
+                      onClick={handleRunTaxScan}
+                      className="mt-3 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                    >
+                      <span className="material-icons-outlined text-sm align-middle mr-1">refresh</span>
+                      다시 시도
+                    </button>
+                  )}
                 </div>
               )}
 
               {/* Results */}
               {!taxScanning && taxScan && (
                 <>
+                  {/* Data Source Badge */}
+                  {taxScan.npsData?.found ? (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-lg">
+                      <span className="material-icons-outlined text-blue-500 text-base">verified</span>
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                        국민연금 데이터 확인 ({taxScan.npsData.workplace?.nrOfJnng}명 가입)
+                        {taxScan.npsData.matchedByBusinessNumber && ' · 사업자번호 매칭'}
+                      </span>
+                      {typeof taxScan.dataCompleteness === 'number' && (
+                        <span className="ml-auto text-[10px] text-blue-500 dark:text-blue-400">완성도 {taxScan.dataCompleteness}%</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg">
+                      <span className="material-icons-outlined text-amber-500 text-base">warning</span>
+                      <span className="text-xs font-medium text-amber-700 dark:text-amber-400">추정치 기반 분석 — 국민연금 데이터 미조회</span>
+                    </div>
+                  )}
+
                   {/* KPI Cards */}
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-4">
@@ -892,7 +1098,7 @@ const BenefitTracker: React.FC = () => {
                   {taxScan.opportunities.length > 0 ? (
                     <div className="space-y-3">
                       {[...taxScan.opportunities]
-                        .sort((a, b) => b.estimatedRefund - a.estimatedRefund)
+                        .sort((a, b) => (b.estimatedRefund * b.confidence / 100) - (a.estimatedRefund * a.confidence / 100))
                         .map(opp => {
                           const isExpanded = expandedOpportunity === opp.id;
                           const icon = TAX_BENEFIT_ICONS[opp.taxBenefitCode] || 'payments';
@@ -912,8 +1118,18 @@ const BenefitTracker: React.FC = () => {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <h4 className="font-bold text-sm text-gray-900 dark:text-white">{opp.taxBenefitName}</h4>
+                                      {opp.status && OPP_STATUS_LABELS[opp.status] && (
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${OPP_STATUS_LABELS[opp.status].color}`}>
+                                          {OPP_STATUS_LABELS[opp.status].label}
+                                        </span>
+                                      )}
                                       {opp.isAmendedReturn && (
                                         <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-[10px] font-bold">경정청구</span>
+                                      )}
+                                      {opp.dataSource && DATA_SOURCE_BADGES[opp.dataSource] && (
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${DATA_SOURCE_BADGES[opp.dataSource].color}`}>
+                                          {DATA_SOURCE_BADGES[opp.dataSource].label}
+                                        </span>
                                       )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -929,11 +1145,11 @@ const BenefitTracker: React.FC = () => {
                                       <div className="flex items-center gap-1 mt-1">
                                         <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                           <div
-                                            className="h-full bg-indigo-500 rounded-full"
+                                            className={`h-full rounded-full ${getConfidenceBarColor(opp.confidence)}`}
                                             style={{ width: `${Math.min(opp.confidence, 100)}%` }}
                                           />
                                         </div>
-                                        <span className="text-[10px] text-gray-400">{opp.confidence}%</span>
+                                        <span className={`text-[10px] font-medium ${getConfidenceColor(opp.confidence)}`}>{opp.confidence}%</span>
                                       </div>
                                     </div>
                                     <span className={`material-icons-outlined text-gray-400 text-base transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
@@ -1018,6 +1234,139 @@ const BenefitTracker: React.FC = () => {
                                       </ul>
                                     </div>
                                   )}
+
+                                  {/* Worksheet Inline Display */}
+                                  {opp.worksheet && (opp.status === 'reviewing' || opp.status === 'in_progress') && (
+                                    <div className="border border-purple-200 dark:border-purple-800/40 rounded-lg overflow-hidden">
+                                      <div className="px-3 py-2 bg-purple-50 dark:bg-purple-900/20 flex items-center gap-2">
+                                        <span className="material-icons-outlined text-purple-600 dark:text-purple-400 text-base">calculate</span>
+                                        <h5 className="text-xs font-bold text-purple-700 dark:text-purple-400">{opp.worksheet.title}</h5>
+                                      </div>
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="bg-gray-50 dark:bg-gray-800/50">
+                                              <th className="text-left px-3 py-1.5 font-medium text-gray-600 dark:text-gray-400">항목</th>
+                                              <th className="text-right px-3 py-1.5 font-medium text-gray-600 dark:text-gray-400">값</th>
+                                              <th className="text-center px-3 py-1.5 font-medium text-gray-600 dark:text-gray-400 w-16">출처</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {opp.worksheet.lineItems.map((item: TaxCalculationLineItem) => {
+                                              const srcBadge = LINE_ITEM_SOURCE_BADGE[item.source] || LINE_ITEM_SOURCE_BADGE.CALCULATED;
+                                              return (
+                                                <tr key={item.key} className="border-t border-gray-100 dark:border-gray-700/50">
+                                                  <td className="px-3 py-1.5 text-gray-700 dark:text-gray-300">{item.label}</td>
+                                                  <td className="px-3 py-1.5 text-right">
+                                                    {item.editable ? (
+                                                      <input
+                                                        type="number"
+                                                        defaultValue={typeof item.value === 'number' ? item.value : parseFloat(String(item.value)) || 0}
+                                                        onBlur={(e) => {
+                                                          e.stopPropagation();
+                                                          const v = parseFloat(e.target.value);
+                                                          if (!isNaN(v)) handleUpdateWorksheetInput(opp.id, item.key, v);
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="w-20 px-1.5 py-0.5 text-right border border-amber-300 dark:border-amber-600 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-xs font-medium focus:ring-1 focus:ring-amber-400"
+                                                      />
+                                                    ) : (
+                                                      <span className="font-medium text-gray-900 dark:text-white">
+                                                        {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
+                                                      </span>
+                                                    )}
+                                                    <span className="text-gray-400 ml-1">{item.unit}</span>
+                                                  </td>
+                                                  <td className="px-3 py-1.5 text-center">
+                                                    <span className={`text-[10px] ${srcBadge.color}`} title={srcBadge.label}>
+                                                      {srcBadge.icon}
+                                                    </span>
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                          {opp.worksheet.subtotals.length > 0 && (
+                                            <tfoot>
+                                              {opp.worksheet.subtotals.map((sub, i) => (
+                                                <tr key={i} className="border-t-2 border-purple-200 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                                  <td className="px-3 py-1.5 font-bold text-purple-700 dark:text-purple-400">{sub.label}</td>
+                                                  <td className="px-3 py-1.5 text-right font-bold text-purple-700 dark:text-purple-400" colSpan={2}>
+                                                    {formatKRW(sub.amount)}
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tfoot>
+                                          )}
+                                        </table>
+                                      </div>
+                                      <div className="px-3 py-2 bg-purple-50/50 dark:bg-purple-900/10 border-t border-purple-200 dark:border-purple-800/40">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-xs font-bold text-gray-700 dark:text-gray-300">예상 공제/환급액</span>
+                                          <span className="text-sm font-bold text-purple-700 dark:text-purple-400">{formatKRW(opp.worksheet.totalRefund)}</span>
+                                        </div>
+                                      </div>
+                                      {opp.worksheet.assumptions.length > 0 && (
+                                        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-700/50">
+                                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-medium">가정:</p>
+                                          <ul className="space-y-0.5">
+                                            {opp.worksheet.assumptions.map((a, i) => (
+                                              <li key={i} className="text-[10px] text-gray-400 dark:text-gray-500">• {a}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-200 dark:border-amber-800/30">
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                                          <span className="material-icons-outlined text-[10px] align-middle mr-0.5">warning</span>
+                                          본인 책임하에 검토 및 신고하시기 바랍니다. 복잡한 사안은 세무 전문가 자문을 권장합니다.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* CTA Buttons */}
+                                  {opp.status !== 'received' && opp.status !== 'dismissed' && (
+                                    <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                      {opp.status === 'identified' && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleGenerateWorksheet(opp.id); }}
+                                          disabled={generatingWorksheet === opp.id}
+                                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-lg text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors disabled:opacity-50"
+                                        >
+                                          <span className={`material-icons-outlined text-sm ${generatingWorksheet === opp.id ? 'animate-spin' : ''}`}>
+                                            {generatingWorksheet === opp.id ? 'autorenew' : 'calculate'}
+                                          </span>
+                                          {generatingWorksheet === opp.id ? '생성 중...' : '계산서 생성'}
+                                        </button>
+                                      )}
+                                      {(opp.status === 'reviewing' || opp.status === 'in_progress') && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleUpdateOppStatus(opp.id, 'filed'); }}
+                                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg text-xs font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+                                        >
+                                          <span className="material-icons-outlined text-sm">send</span>
+                                          신고
+                                        </button>
+                                      )}
+                                      {opp.status === 'filed' && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleUpdateOppStatus(opp.id, 'received'); }}
+                                          className="flex items-center gap-1 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-xs font-medium hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                                        >
+                                          <span className="material-icons-outlined text-sm">check_circle</span>
+                                          환급 확인
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleUpdateOppStatus(opp.id, 'dismissed'); }}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                      >
+                                        <span className="material-icons-outlined text-sm">block</span>
+                                        해당 없음
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1044,17 +1393,11 @@ const BenefitTracker: React.FC = () => {
               )}
 
               {/* Empty state: 스캔 전 */}
-              {!taxScanning && !taxScan && (
+              {!taxScanning && !taxScan && !taxError && (
                 <div className="text-center py-16">
                   <span className="material-icons-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3 block">account_balance</span>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">아직 세금 환급 스캔을 실행하지 않았습니다</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">자동으로 스캔을 시작합니다...</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">기업 프로필을 기반으로 놓치고 있는 세금 혜택을 찾아보세요</p>
-                  <button
-                    onClick={handleRunTaxScan}
-                    className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-                  >
-                    스캔 시작하기
-                  </button>
                 </div>
               )}
             </div>

@@ -32,6 +32,8 @@ import {
   generateDraftSectionV2,
   generateStrategyDocument,
   preScreenPrograms,
+  generateTaxCalculationWorksheet,
+  recalculateWorksheet,
 } from '../services/analysisService.js';
 import type {
   FitAnalysisResult,
@@ -39,8 +41,11 @@ import type {
   EligibilityDetails,
   StrategyDocument,
   PreScreenInput,
+  TaxCalculationWorksheet,
 } from '../services/analysisService.js';
 import { callGeminiDirect, cleanAndParseJSON } from '../services/geminiService.js';
+import { fetchNpsEmployeeData } from '../services/employeeDataService.js';
+import type { NpsLookupResult } from '../services/employeeDataService.js';
 import {
   deepCrawlProgramFull,
   enrichFromApiOnly,
@@ -2201,6 +2206,70 @@ router.put('/application/:slug', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/vault/config
+ * 런타임 설정 읽기 (API 키 등)
+ */
+router.get('/config', async (_req: Request, res: Response) => {
+  try {
+    const configPath = path.join(getVaultRoot(), 'config.json');
+    try {
+      const raw = await fs.readFile(configPath, 'utf-8');
+      const config = JSON.parse(raw);
+      // API 키는 마스킹해서 반환
+      const masked: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(config)) {
+        if (typeof val === 'string' && key.toLowerCase().includes('key') && val.length > 8) {
+          masked[key] = val.substring(0, 4) + '***' + val.substring(val.length - 4);
+        } else {
+          masked[key] = val;
+        }
+      }
+      res.json({ config: masked });
+    } catch {
+      res.json({ config: {} });
+    }
+  } catch (error) {
+    console.error('[vault/config] GET error:', error);
+    res.status(500).json({ error: '설정 읽기 실패' });
+  }
+});
+
+/**
+ * PUT /api/vault/config
+ * 런타임 설정 저장 (API 키 등)
+ */
+router.put('/config', async (req: Request, res: Response) => {
+  try {
+    const updates = req.body as Record<string, unknown>;
+    const configPath = path.join(getVaultRoot(), 'config.json');
+
+    // 기존 config 로드
+    let config: Record<string, unknown> = {};
+    try {
+      const raw = await fs.readFile(configPath, 'utf-8');
+      config = JSON.parse(raw);
+    } catch { /* 첫 저장 */ }
+
+    // 병합 저장
+    Object.assign(config, updates);
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    // Gemini API 키가 업데이트되면 process.env에도 반영
+    if (updates.geminiApiKey && typeof updates.geminiApiKey === 'string') {
+      process.env.GEMINI_API_KEY = updates.geminiApiKey;
+    }
+    if (updates.dartApiKey && typeof updates.dartApiKey === 'string') {
+      process.env.DART_API_KEY = updates.dartApiKey;
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[vault/config] PUT error:', error);
+    res.status(500).json({ error: '설정 저장 실패' });
+  }
+});
+
+/**
  * PUT /api/vault/company
  * 기업 정보 저장
  */
@@ -3356,6 +3425,56 @@ router.get('/benefits/summary', async (_req: Request, res: Response) => {
   }
 });
 
+/** 국민연금 사업장 데이터 조회 */
+router.get('/company/nps-lookup', async (_req: Request, res: Response) => {
+  try {
+    const companyFile = path.join(getVaultRoot(), 'company', 'profile.md');
+    if (!(await noteExists(companyFile))) {
+      return res.status(400).json({ error: '기업 정보가 등록되지 않았습니다.' });
+    }
+    const { frontmatter: company } = await readNote(companyFile);
+    const companyName = company.name as string;
+    const businessNumber = company.businessNumber as string | undefined;
+
+    if (!companyName) {
+      return res.status(400).json({ error: '기업명이 등록되지 않았습니다.' });
+    }
+
+    const npsData = await fetchNpsEmployeeData(companyName, businessNumber);
+
+    // vault에 스냅샷 캐시
+    if (npsData.found && npsData.workplace) {
+      const ym = npsData.workplace.dataCrtYm || new Date().toISOString().slice(0, 7).replace('-', '');
+      const snapshotPath = path.join(getVaultRoot(), 'company', `nps-snapshot-${ym}.md`);
+      const snapshotFm: Record<string, unknown> = {
+        type: 'nps-snapshot',
+        ...npsData.workplace,
+        queriedAt: new Date().toISOString(),
+        matchedByBusinessNumber: npsData.matchedByBusinessNumber,
+      };
+      await writeNote(snapshotPath, snapshotFm, `국민연금 사업장 데이터 (${ym})`);
+    }
+
+    // 과거 캐시된 스냅샷도 로드
+    const companyDir = path.join(getVaultRoot(), 'company');
+    const companyFiles = await listNotes(companyDir);
+    const snapshots: Record<string, unknown>[] = [];
+    for (const f of companyFiles) {
+      if (path.basename(f).startsWith('nps-snapshot-')) {
+        try {
+          const { frontmatter } = await readNote(f);
+          if (frontmatter.type === 'nps-snapshot') snapshots.push(frontmatter);
+        } catch { /* skip */ }
+      }
+    }
+
+    res.json({ npsData, snapshots });
+  } catch (error) {
+    console.error('[vault/company/nps-lookup] Error:', error);
+    res.status(500).json({ error: 'NPS 데이터 조회 실패' });
+  }
+});
+
 /** 세금 환급 AI 스캔 실행 */
 router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
   try {
@@ -3391,6 +3510,17 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
       } catch { /* skip */ }
     }
 
+    // NPS 데이터 조회 (실패해도 계속 진행)
+    let npsData = null;
+    try {
+      npsData = await fetchNpsEmployeeData(
+        company.name as string,
+        company.businessNumber as string | undefined
+      );
+    } catch (e) {
+      console.warn('[vault/benefits/tax-scan] NPS lookup failed, continuing without:', e);
+    }
+
     // AI 스캔
     const { scanMissedTaxBenefits } = await import('../services/analysisService.js');
     const result = await scanMissedTaxBenefits(
@@ -3407,7 +3537,8 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
         mainProducts: company.mainProducts as string[],
         description: company.description as string,
       },
-      benefitHistory
+      benefitHistory,
+      npsData
     );
 
     // 결과 조합
@@ -3439,6 +3570,10 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
       },
       summary: result.summary,
       disclaimer: result.disclaimer,
+      ...(npsData?.found ? {
+        npsData,
+        dataCompleteness: npsData.dataCompleteness,
+      } : {}),
     };
 
     // vault에 저장
@@ -3487,6 +3622,160 @@ router.get('/benefits/tax-scan/latest', async (_req: Request, res: Response) => 
   } catch (error) {
     console.error('[vault/benefits/tax-scan/latest] Error:', error);
     res.status(500).json({ error: '세금 환급 스캔 결과 조회 실패' });
+  }
+});
+
+/** 기회 상태 업데이트 */
+router.patch('/benefits/tax-scan/:scanId/opportunities/:oppId', async (req: Request, res: Response) => {
+  try {
+    const { scanId, oppId } = req.params;
+    const { status, userOverrides } = req.body;
+    const validStatuses = ['identified', 'in_progress', 'reviewing', 'filed', 'received', 'dismissed'];
+    if (!status && !userOverrides) {
+      return res.status(400).json({ error: 'status 또는 userOverrides가 필요합니다.' });
+    }
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: `유효하지 않은 상태입니다. 허용 값: ${validStatuses.join(', ')}` });
+    }
+
+    // 스캔 파일 찾기
+    const scanFilePath = path.join(getVaultRoot(), 'benefits', `세금환급-스캔-${scanId}.md`);
+    if (!(await noteExists(scanFilePath))) {
+      return res.status(404).json({ error: '해당 스캔 결과를 찾을 수 없습니다.' });
+    }
+
+    const { frontmatter, content } = await readNote(scanFilePath);
+    const opportunities = frontmatter.opportunities as Record<string, unknown>[];
+    if (!Array.isArray(opportunities)) {
+      return res.status(500).json({ error: '스캔 데이터 형식이 잘못되었습니다.' });
+    }
+
+    const oppIndex = opportunities.findIndex((o: Record<string, unknown>) => o.id === oppId);
+    if (oppIndex === -1) {
+      return res.status(404).json({ error: '해당 기회를 찾을 수 없습니다.' });
+    }
+
+    if (status) {
+      opportunities[oppIndex].status = status;
+    }
+
+    // userOverrides가 있으면 worksheet 재계산
+    if (userOverrides && typeof userOverrides === 'object') {
+      const worksheet = opportunities[oppIndex].worksheet as TaxCalculationWorksheet | undefined;
+      if (worksheet) {
+        const recalculated = recalculateWorksheet(worksheet, userOverrides);
+        opportunities[oppIndex].worksheet = recalculated as unknown as Record<string, unknown>;
+        // 총 환급액도 동기화
+        opportunities[oppIndex].estimatedRefund = recalculated.totalRefund;
+      }
+    }
+
+    frontmatter.opportunities = opportunities;
+    await writeNote(scanFilePath, frontmatter, content);
+
+    const updatedOpp = opportunities[oppIndex];
+    res.json({ success: true, oppId, status: updatedOpp.status, worksheet: updatedOpp.worksheet || null });
+  } catch (error) {
+    console.error('[vault/benefits/tax-scan/patch] Error:', error);
+    res.status(500).json({ error: '기회 상태 업데이트 실패' });
+  }
+});
+
+/** 계산서 생성 */
+router.post('/benefits/tax-scan/:scanId/opportunities/:oppId/worksheet', async (req: Request, res: Response) => {
+  try {
+    const { scanId, oppId } = req.params;
+
+    // 스캔 파일 로드
+    const scanFilePath = path.join(getVaultRoot(), 'benefits', `세금환급-스캔-${scanId}.md`);
+    if (!(await noteExists(scanFilePath))) {
+      return res.status(404).json({ error: '해당 스캔 결과를 찾을 수 없습니다.' });
+    }
+
+    const { frontmatter, content } = await readNote(scanFilePath);
+    const opportunities = frontmatter.opportunities as Record<string, unknown>[];
+    if (!Array.isArray(opportunities)) {
+      return res.status(500).json({ error: '스캔 데이터 형식이 잘못되었습니다.' });
+    }
+
+    const oppIndex = opportunities.findIndex((o: Record<string, unknown>) => o.id === oppId);
+    if (oppIndex === -1) {
+      return res.status(404).json({ error: '해당 기회를 찾을 수 없습니다.' });
+    }
+
+    // 기업 프로필 로드
+    const companyDir = path.join(getVaultRoot(), 'company');
+    const companyFiles = await listNotes(companyDir);
+    let companyInfo: Record<string, unknown> = {};
+    for (const f of companyFiles) {
+      try {
+        const { frontmatter: fm } = await readNote(f);
+        if (fm.type === 'company') {
+          companyInfo = fm;
+          break;
+        }
+      } catch { /* skip */ }
+    }
+
+    if (!companyInfo.name) {
+      return res.status(400).json({ error: '기업 정보가 등록되지 않았습니다.' });
+    }
+
+    // NPS 데이터: scan 결과에서 가져오거나 재조회
+    let npsData = frontmatter.npsData as Record<string, unknown> | null;
+    if (!npsData) {
+      try {
+        const bizNo = (companyInfo.businessNumber as string) || '';
+        const name = (companyInfo.name as string) || '';
+        if (bizNo || name) {
+          npsData = await fetchNpsEmployeeData(bizNo, name) as unknown as Record<string, unknown>;
+        }
+      } catch { /* NPS 조회 실패 무시 */ }
+    }
+
+    // AI 계산서 생성
+    const opp = opportunities[oppIndex] as unknown as Record<string, unknown>;
+    const worksheet = await generateTaxCalculationWorksheet(
+      {
+        name: companyInfo.name as string,
+        industry: companyInfo.industry as string | undefined,
+        revenue: companyInfo.revenue as number | undefined,
+        employees: companyInfo.employees as number | undefined,
+        address: companyInfo.address as string | undefined,
+        foundedYear: companyInfo.foundedYear as number | undefined,
+        businessType: companyInfo.businessType as string | undefined,
+      },
+      {
+        id: opp.id as string,
+        taxBenefitName: opp.taxBenefitName as string,
+        taxBenefitCode: opp.taxBenefitCode as string,
+        estimatedRefund: opp.estimatedRefund as number,
+        applicableYears: opp.applicableYears as number[],
+        difficulty: opp.difficulty as 'EASY' | 'MODERATE' | 'COMPLEX',
+        confidence: opp.confidence as number,
+        legalBasis: opp.legalBasis as string[],
+        description: opp.description as string,
+        eligibilityReason: opp.eligibilityReason as string,
+        requiredActions: opp.requiredActions as string[],
+        requiredDocuments: opp.requiredDocuments as string[],
+        estimatedProcessingTime: opp.estimatedProcessingTime as string,
+        risks: opp.risks as string[],
+        isAmendedReturn: opp.isAmendedReturn as boolean,
+        status: (opp.status as string) as 'identified' | 'in_progress' | 'reviewing' | 'filed' | 'received' | 'dismissed',
+      },
+      npsData as unknown as NpsLookupResult | null
+    );
+
+    // 기회에 worksheet 저장, status → reviewing
+    opportunities[oppIndex].worksheet = worksheet as unknown as Record<string, unknown>;
+    opportunities[oppIndex].status = 'reviewing';
+    frontmatter.opportunities = opportunities;
+    await writeNote(scanFilePath, frontmatter, content);
+
+    res.json({ success: true, worksheet, status: 'reviewing' });
+  } catch (error) {
+    console.error('[vault/benefits/tax-scan/worksheet] Error:', error);
+    res.status(500).json({ error: '계산서 생성 실패' });
   }
 });
 

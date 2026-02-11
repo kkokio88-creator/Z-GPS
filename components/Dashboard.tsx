@@ -439,17 +439,25 @@ const Dashboard: React.FC = () => {
           </section>
 
           {/* ===== 놓친 세금 환급 ===== */}
-          <section
-            onClick={() => navigate('/benefits')}
-            className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800/30 shadow-sm p-5 cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
+          <section className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800/30 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div
+              onClick={() => navigate('/benefits')}
+              className="flex items-center justify-between cursor-pointer"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                   <span className="material-icons-outlined text-white text-lg">account_balance</span>
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">놓친 세금 환급</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">놓친 세금 환급</h3>
+                    {taxScan && (() => {
+                      const daysSince = Math.floor((Date.now() - new Date(taxScan.scannedAt).getTime()) / (1000 * 60 * 60 * 24));
+                      return daysSince >= 7 ? (
+                        <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-[10px] font-bold">재스캔 권장</span>
+                      ) : null;
+                    })()}
+                  </div>
                   {taxScan ? (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {taxScan.opportunityCount}건 발견 · 추정 환급액 {formatKRW(taxScan.totalEstimatedRefund)}
@@ -473,6 +481,39 @@ const Dashboard: React.FC = () => {
                 <span className="material-icons-outlined text-gray-400 text-base">chevron_right</span>
               </div>
             </div>
+
+            {/* Top 3 기회 미니목록 */}
+            {taxScan && taxScan.opportunities.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-indigo-200/50 dark:border-indigo-800/30 space-y-1.5">
+                {[...taxScan.opportunities]
+                  .sort((a, b) => (b.estimatedRefund * b.confidence / 100) - (a.estimatedRefund * a.confidence / 100))
+                  .slice(0, 3)
+                  .map((opp, i) => (
+                    <div
+                      key={opp.id || i}
+                      onClick={() => navigate('/benefits')}
+                      className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/60 dark:bg-gray-800/40 cursor-pointer hover:bg-white/80 dark:hover:bg-gray-800/60 transition-colors"
+                    >
+                      <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{opp.taxBenefitName}</span>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 ml-2 flex-shrink-0">{formatKRW(opp.estimatedRefund)}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* 스캔 결과 없을 때: 지금 스캔 버튼 */}
+            {!taxScan && (
+              <div className="mt-3 pt-3 border-t border-indigo-200/50 dark:border-indigo-800/30 text-center">
+                <button
+                  onClick={() => navigate('/benefits')}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  <span className="material-icons-outlined text-sm align-middle mr-1">search</span>
+                  지금 스캔하기
+                </button>
+              </div>
+            )}
           </section>
 
           {/* ===== 과거 수령 이력 요약 ===== */}

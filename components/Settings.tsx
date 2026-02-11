@@ -249,9 +249,27 @@ const Settings: React.FC = () => {
   // ─── Effects ─────────────────────────────────
 
   useEffect(() => {
-    setApiKey(getStoredApiKey());
-    setDartApiKey(getStoredDartApiKey());
-    setAiModel(getStoredAiModel());
+    const localApiKey = getStoredApiKey();
+    const localDartKey = getStoredDartApiKey();
+    const localModel = getStoredAiModel();
+    setApiKey(localApiKey);
+    setDartApiKey(localDartKey);
+    setAiModel(localModel);
+
+    // localStorage가 비어있으면 서버에서 복원 시도
+    if (!localApiKey && !localDartKey) {
+      vaultService.getConfig().then(config => {
+        if (config.geminiApiKey && typeof config.geminiApiKey === 'string') {
+          setApiKey(config.geminiApiKey);
+        }
+        if (config.dartApiKey && typeof config.dartApiKey === 'string') {
+          setDartApiKey(config.dartApiKey);
+        }
+        if (config.aiModel && typeof config.aiModel === 'string') {
+          setAiModel(config.aiModel as string);
+        }
+      }).catch(() => { /* 서버 연결 실패 무시 */ });
+    }
 
     const handleUpdate = () => setIsQaRunning(getQAState().isActive);
     window.addEventListener('zmis-qa-update', handleUpdate);
@@ -295,15 +313,19 @@ const Settings: React.FC = () => {
           const c = result.company;
           setCompany(prev => ({
             ...prev,
-            name: (c.name as string) || prev.name,
-            businessNumber: (c.businessNumber as string) || prev.businessNumber,
-            industry: (c.industry as string) || prev.industry,
-            address: (c.address as string) || prev.address,
-            revenue: (c.revenue as number) || prev.revenue,
-            employees: (c.employees as number) || prev.employees,
-            description: (c.description as string) || prev.description,
-            coreCompetencies: (c.coreCompetencies as string[]) || prev.coreCompetencies,
-            certifications: (c.certifications as string[]) || prev.certifications,
+            name: (c.name as string) ?? prev.name,
+            businessNumber: (c.businessNumber as string) ?? prev.businessNumber,
+            industry: (c.industry as string) ?? prev.industry,
+            address: (c.address as string) ?? prev.address,
+            revenue: (c.revenue != null ? Number(c.revenue) : prev.revenue),
+            employees: (c.employees != null ? Number(c.employees) : prev.employees),
+            description: (c.description as string) ?? prev.description,
+            coreCompetencies: Array.isArray(c.coreCompetencies) ? c.coreCompetencies as string[] : prev.coreCompetencies,
+            certifications: Array.isArray(c.certifications) ? c.certifications as string[] : prev.certifications,
+            foundedYear: (c.foundedYear != null ? Number(c.foundedYear) : prev.foundedYear),
+            businessType: (c.businessType as string) ?? prev.businessType,
+            mainProducts: Array.isArray(c.mainProducts) ? c.mainProducts as string[] : prev.mainProducts,
+            representative: (c.representative as string) ?? prev.representative,
           }));
         }
       }).catch(() => {
@@ -386,22 +408,62 @@ const Settings: React.FC = () => {
       const result = await vaultService.researchCompany(researchQuery.trim());
       if (result.success && result.company) {
         const c = result.company;
-        setCompany(prev => ({
-          ...prev,
-          name: (c.name as string) || prev.name,
-          businessNumber: (c.businessNumber as string) || prev.businessNumber,
-          industry: (c.industry as string) || prev.industry,
-          address: (c.address as string) || prev.address,
-          revenue: (c.revenue as number) || prev.revenue,
-          employees: (c.employees as number) || prev.employees,
-          description: (c.description as string) || prev.description,
-          coreCompetencies: (c.coreCompetencies as string[]) || prev.coreCompetencies,
-          certifications: (c.certifications as string[]) || prev.certifications,
-        }));
+        // foundedYear 추출: "YYYY-MM-DD" 또는 숫자
+        let foundedYear: number | undefined;
+        if (c.foundedDate && typeof c.foundedDate === 'string') {
+          const y = parseInt(c.foundedDate.substring(0, 4), 10);
+          if (!isNaN(y) && y > 1900) foundedYear = y;
+        } else if (c.foundedYear && typeof c.foundedYear === 'number') {
+          foundedYear = c.foundedYear as number;
+        }
+
+        const updated: typeof company = {
+          ...company,
+          name: (c.name as string) ?? company.name,
+          businessNumber: (c.businessNumber as string) ?? company.businessNumber,
+          industry: (c.industry as string) ?? company.industry,
+          address: (c.address as string) ?? company.address,
+          revenue: (c.revenue != null ? Number(c.revenue) : company.revenue),
+          employees: (c.employees != null ? Number(c.employees) : company.employees),
+          description: (c.description as string) ?? company.description,
+          coreCompetencies: Array.isArray(c.coreCompetencies) ? c.coreCompetencies as string[] : company.coreCompetencies,
+          certifications: Array.isArray(c.certifications) ? c.certifications as string[] : company.certifications,
+          mainProducts: Array.isArray(c.mainProducts) ? c.mainProducts as string[] : company.mainProducts,
+          representative: (c.representative as string) ?? company.representative,
+          foundedYear: foundedYear ?? company.foundedYear,
+          businessType: (c.businessType as string) ?? company.businessType,
+          history: (c.history as string) ?? company.history,
+        };
+        setCompany(updated);
+
+        // 리서치 완료 시 자동 저장
+        saveStoredCompany(updated);
+        try {
+          await vaultService.saveCompany({
+            name: updated.name,
+            businessNumber: updated.businessNumber,
+            industry: updated.industry,
+            address: updated.address,
+            revenue: updated.revenue,
+            employees: updated.employees,
+            description: updated.description,
+            coreCompetencies: updated.coreCompetencies,
+            certifications: updated.certifications,
+            foundedYear: updated.foundedYear,
+            businessType: updated.businessType,
+            mainProducts: updated.mainProducts,
+            representative: updated.representative,
+          });
+        } catch { /* vault 저장 실패는 toast에서 처리 */ }
+
         // 딥리서치 전체 데이터 저장
         setDeepResearchData(c);
-        setExpandedSections(new Set(['swot', 'funding'])); // 기본 펼침
+        setExpandedSections(new Set(['swot', 'funding']));
         setResearchQuery('');
+
+        window.dispatchEvent(new CustomEvent('zmis-toast', {
+          detail: { message: '기업 리서치 완료 — 자동 저장되었습니다.', type: 'success' },
+        }));
       }
     } catch (e) {
       setResearchError(`리서치 실패: ${String(e)}`);
@@ -432,9 +494,18 @@ const Settings: React.FC = () => {
         description: company.description,
         coreCompetencies: company.coreCompetencies,
         certifications: company.certifications,
+        foundedYear: company.foundedYear,
+        businessType: company.businessType,
+        mainProducts: company.mainProducts,
+        representative: company.representative,
       });
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: '기업 정보가 서버에 저장되었습니다.', type: 'success' },
+      }));
     } catch {
-      // vault 저장 실패 시 localStorage 에만 저장
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: '서버 저장에 실패했습니다. 로컬에만 저장됩니다.', type: 'warning' },
+      }));
     }
     setCompanySaved(true);
     setTimeout(() => setCompanySaved(false), 2000);
@@ -490,10 +561,24 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleSaveApi = () => {
+  const handleSaveApi = async () => {
     saveStoredApiKey(apiKey);
     saveStoredDartApiKey(dartApiKey);
     saveStoredAiModel(aiModel);
+
+    // 서버에도 저장 (process.env에 반영)
+    try {
+      await vaultService.saveConfig({
+        geminiApiKey: apiKey || undefined,
+        dartApiKey: dartApiKey || undefined,
+        aiModel: aiModel || undefined,
+      });
+    } catch {
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: '서버에 API 키를 저장하지 못했습니다. 로컬에만 저장됩니다.', type: 'warning' },
+      }));
+    }
+
     setApiSaved(true);
     setTimeout(() => setApiSaved(false), 2000);
   };

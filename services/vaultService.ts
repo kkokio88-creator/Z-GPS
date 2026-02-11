@@ -5,7 +5,7 @@
 
 import { apiClient } from './apiClient';
 import { connectSSE, SSEProgressEvent } from './sseClient';
-import type { SectionSchema, ApplicationSectionSchema, BenefitRecord, BenefitAnalysisResult, BenefitSummary, TaxScanResult } from '../types';
+import type { SectionSchema, ApplicationSectionSchema, BenefitRecord, BenefitAnalysisResult, BenefitSummary, TaxScanResult, NpsLookupResult, TaxCalculationWorksheet } from '../types';
 
 export interface VaultProgram {
   id: string;
@@ -403,6 +403,20 @@ export const vaultService = {
     return data;
   },
 
+  // ===== Runtime Config =====
+
+  /** 런타임 설정 저장 (API 키 등) */
+  async saveConfig(config: Record<string, unknown>): Promise<{ success: boolean }> {
+    const { data } = await apiClient.put<{ success: boolean }>('/api/vault/config', config);
+    return data;
+  },
+
+  /** 런타임 설정 읽기 */
+  async getConfig(): Promise<Record<string, unknown>> {
+    const { data } = await apiClient.get<{ config: Record<string, unknown> }>('/api/vault/config');
+    return data.config;
+  },
+
   // ===== Benefit Tracking =====
 
   /** 수령 이력 전체 목록 */
@@ -491,5 +505,49 @@ export const vaultService = {
       '/api/vault/benefits/tax-scan/latest'
     );
     return data.scan;
+  },
+
+  /** 국민연금 사업장 데이터 조회 */
+  async npsLookup(): Promise<NpsLookupResult> {
+    const { data } = await apiClient.get<{ npsData: NpsLookupResult }>('/api/vault/company/nps-lookup');
+    return data.npsData;
+  },
+
+  /** 기회 상태 업데이트 */
+  async updateOpportunityStatus(
+    scanId: string,
+    oppId: string,
+    status: string
+  ): Promise<{ success: boolean }> {
+    const { data } = await apiClient.patch<{ success: boolean }>(
+      `/api/vault/benefits/tax-scan/${encodeURIComponent(scanId)}/opportunities/${encodeURIComponent(oppId)}`,
+      { status }
+    );
+    return data;
+  },
+
+  /** 계산서 생성 */
+  async generateWorksheet(
+    scanId: string,
+    oppId: string
+  ): Promise<TaxCalculationWorksheet> {
+    const { data } = await apiClient.post<{ success: boolean; worksheet: TaxCalculationWorksheet; status: string }>(
+      `/api/vault/benefits/tax-scan/${encodeURIComponent(scanId)}/opportunities/${encodeURIComponent(oppId)}/worksheet`,
+      {}
+    );
+    return data.worksheet;
+  },
+
+  /** 계산서 사용자 수정 값 업데이트 + 재계산 */
+  async updateWorksheetOverrides(
+    scanId: string,
+    oppId: string,
+    overrides: Record<string, number | string>
+  ): Promise<{ worksheet: TaxCalculationWorksheet }> {
+    const { data } = await apiClient.patch<{ success: boolean; worksheet: TaxCalculationWorksheet }>(
+      `/api/vault/benefits/tax-scan/${encodeURIComponent(scanId)}/opportunities/${encodeURIComponent(oppId)}`,
+      { userOverrides: overrides }
+    );
+    return { worksheet: data.worksheet };
   },
 };

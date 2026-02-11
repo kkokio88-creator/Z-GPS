@@ -8,6 +8,7 @@ const serverRoot = path.resolve(__dirname, '..');
 // .env.local 우선, .env 폴백
 dotenv.config({ path: path.join(serverRoot, '.env.local') });
 dotenv.config({ path: path.join(serverRoot, '.env') });
+import fs from 'fs/promises';
 import express from 'express';
 import { createCorsMiddleware } from './middleware/cors.js';
 import healthRouter from './routes/health.js';
@@ -16,7 +17,7 @@ import dataGoKrRouter from './routes/dataGoKr.js';
 import dartRouter from './routes/dart.js';
 import geminiRouter from './routes/gemini.js';
 import vaultRouter from './routes/vault.js';
-import { ensureVaultStructure } from './services/vaultFileService.js';
+import { ensureVaultStructure, getVaultRoot } from './services/vaultFileService.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5001', 10);
@@ -41,6 +42,21 @@ app.listen(PORT, async () => {
   try {
     await ensureVaultStructure();
     console.log('Vault structure initialized');
+
+    // config.json에서 API 키 로드 (env var 미설정 시 fallback)
+    try {
+      const configPath = path.join(getVaultRoot(), 'config.json');
+      const raw = await fs.readFile(configPath, 'utf-8');
+      const config = JSON.parse(raw);
+      if (!process.env.GEMINI_API_KEY && config.geminiApiKey) {
+        process.env.GEMINI_API_KEY = config.geminiApiKey;
+        console.log('Loaded GEMINI_API_KEY from vault config');
+      }
+      if (!process.env.DART_API_KEY && config.dartApiKey) {
+        process.env.DART_API_KEY = config.dartApiKey;
+        console.log('Loaded DART_API_KEY from vault config');
+      }
+    } catch { /* config.json 없으면 스킵 */ }
   } catch (err) {
     console.error('Vault structure init failed:', err);
   }

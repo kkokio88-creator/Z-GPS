@@ -39,14 +39,16 @@ export interface Company {
   isVerified?: boolean; // New: True if data came from Gov API
   certifications?: string[]; 
   history?: string; 
-  // Ontology Fields: Learned patterns
-  coreCompetencies?: string[]; // AI inferred strengths
-  preferredKeywords?: string[]; // Keywords frequently used in successful drafts
-  
-  // New Positioning Fields
+  coreCompetencies?: string[];
+  preferredKeywords?: string[];
+  // 세금 스캔에 필요한 확장 필드
+  foundedYear?: number;
+  businessType?: string;
+  mainProducts?: string[];
+  representative?: string;
   financials?: FinancialData[];
   ipList?: IntellectualProperty[];
-  documents?: VaultDocument[]; // Added Vault
+  documents?: VaultDocument[];
 }
 
 export enum EligibilityStatus {
@@ -524,6 +526,29 @@ export interface BenefitSummary {
 
 export type TaxRefundDifficulty = 'EASY' | 'MODERATE' | 'COMPLEX';
 
+export interface TaxCalculationLineItem {
+  key: string;
+  label: string;
+  value: number | string;
+  unit: string;
+  source: 'NPS_API' | 'COMPANY_PROFILE' | 'USER_INPUT' | 'CALCULATED' | 'TAX_LAW';
+  editable: boolean;
+  formula?: string;
+  note?: string;
+}
+
+export interface TaxCalculationWorksheet {
+  generatedAt: string;
+  benefitCode: string;
+  title: string;
+  lineItems: TaxCalculationLineItem[];
+  subtotals: { label: string; amount: number; formula?: string }[];
+  totalRefund: number;
+  assumptions: string[];
+  userOverrides: Record<string, number | string>;
+  lastRecalculatedAt?: string;
+}
+
 export interface TaxRefundOpportunity {
   id: string;
   taxBenefitName: string;
@@ -541,7 +566,9 @@ export interface TaxRefundOpportunity {
   estimatedProcessingTime: string;
   risks: string[];
   isAmendedReturn: boolean;
-  status: 'identified' | 'in_progress' | 'filed' | 'received' | 'dismissed';
+  status: 'identified' | 'in_progress' | 'reviewing' | 'filed' | 'received' | 'dismissed';
+  dataSource?: 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED';
+  worksheet?: TaxCalculationWorksheet;
 }
 
 export interface TaxScanResult {
@@ -553,4 +580,27 @@ export interface TaxScanResult {
   companySnapshot: { name: string; industry: string; employees: number; revenue: number; foundedYear?: number };
   summary: string;
   disclaimer: string;
+  npsData?: NpsLookupResult;
+  dataCompleteness?: number;
+}
+
+export interface NpsWorkplaceInfo {
+  wkplNm: string;
+  bzowrRgstNo: string;
+  wkplRoadNmDtlAddr: string;
+  ldongAddr: string;
+  wkplJnngStdt: string;
+  nrOfJnng: number;
+  crtmNtcAmt: number;
+  nwAcqzrCnt: number;
+  lssJnngpCnt: number;
+  dataCrtYm: string;
+}
+
+export interface NpsLookupResult {
+  found: boolean;
+  matchedByBusinessNumber: boolean;
+  workplace: NpsWorkplaceInfo | null;
+  dataCompleteness: number;
+  lastUpdated: string;
 }

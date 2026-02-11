@@ -5,6 +5,7 @@
 
 import { callGeminiDirect, cleanAndParseJSON } from './geminiService.js';
 import { extractRegionFromAddress, isRegionMismatch } from './programFetcher.js';
+import type { NpsLookupResult } from './employeeDataService.js';
 
 interface CompanyInfo {
   name: string;
@@ -1003,7 +1004,8 @@ export interface TaxRefundOpportunity {
   estimatedProcessingTime: string;
   risks: string[];
   isAmendedReturn: boolean;
-  status: 'identified' | 'in_progress' | 'filed' | 'received' | 'dismissed';
+  status: 'identified' | 'in_progress' | 'reviewing' | 'filed' | 'received' | 'dismissed';
+  dataSource?: 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED';
 }
 
 export interface TaxScanResult {
@@ -1020,7 +1022,8 @@ export interface TaxScanResult {
 /** AI 세금 환급 스캔: 놓친 세금 혜택 탐지 */
 export async function scanMissedTaxBenefits(
   company: CompanyInfo,
-  benefitHistory: { programName: string; category: string; receivedAmount: number; receivedDate: string }[]
+  benefitHistory: { programName: string; category: string; receivedAmount: number; receivedDate: string }[],
+  npsData?: NpsLookupResult | null
 ): Promise<{ opportunities: TaxRefundOpportunity[]; summary: string; disclaimer: string }> {
   const companyBlock = [
     `- 기업명: ${company.name}`,
@@ -1050,6 +1053,20 @@ ${companyBlock}
 ## 과거 지원금 수령 이력
 ${historyBlock}
 
+## 국민연금 사업장 데이터 (실제 조회)
+${npsData?.found && npsData.workplace ? [
+    `- 데이터 출처: 국민연금공단 사업장 API (실제 데이터)`,
+    `- 사업장명: ${npsData.workplace.wkplNm}`,
+    `- 매칭 방식: ${npsData.matchedByBusinessNumber ? '사업자등록번호 정확매칭' : '사업장명 검색'}`,
+    `- 현재 직원수(가입자수): ${npsData.workplace.nrOfJnng}명`,
+    `- 당월 국민연금 고지액: ${npsData.workplace.crtmNtcAmt.toLocaleString()}원`,
+    `- 연간 추정 국민연금: ${(npsData.workplace.crtmNtcAmt * 12).toLocaleString()}원`,
+    `- 신규 입사(취득자): ${npsData.workplace.nwAcqzrCnt}명`,
+    `- 퇴사(상실자): ${npsData.workplace.lssJnngpCnt}명`,
+    `- 기준연월: ${npsData.workplace.dataCrtYm}`,
+    `- 데이터 완성도: ${npsData.dataCompleteness}%`,
+  ].join('\n') : '국민연금 데이터 조회 불가 — 모든 수치는 추정치입니다.'}
+
 ## 스캔 대상: 10대 세금 혜택
 
 1. **고용증대 세액공제** (조특법 §29의7) - 코드: EMPLOYMENT_INCREASE
@@ -1077,10 +1094,20 @@ ${historyBlock}
 - 각 혜택별로 이 기업에 적용 가능한지 구체적으로 판단
 - 적용 가능성이 있는 항목만 반환 (명백히 해당 없는 항목은 제외)
 - 각 기회에 대해 추정 환급액, 적용 연도, 난이도, 확신도를 산출
-- confidence는 0-100 (기업 정보가 부족하면 낮게, 명확하면 높게)
-- 경정청구(AMENDED_RETURN) 항목은 isAmendedReturn: true로 표시
+- taxBenefitCode가 "AMENDED_RETURN"인 항목은 반드시 "isAmendedReturn": true로 설정
+- 그 외 항목은 "isAmendedReturn": false
+- 과거 수령한 지원금 중 추가 공제/환급 가능한 건도 경정청구 대상에 포함
 - estimatedRefund는 원(KRW) 단위
 - applicableYears는 ${currentYear - 5}~${currentYear} 범위
+
+### dataSource 및 confidence 규칙 (중요)
+- 국민연금 데이터가 있는 경우:
+  - 고용증대/사회보험료 등 직원수·보험료 기반 항목: dataSource를 "NPS_API"로, confidence 70 이상
+  - estimatedRefund 산출 시 실제 직원수·고지액 기반 계산 근거를 eligibilityReason에 명시
+- 국민연금 데이터가 없는 경우:
+  - 프로필(업종·매출·설립연도)만으로 판단 가능한 항목: dataSource를 "COMPANY_PROFILE"로, confidence 40~60
+  - 나머지 항목: dataSource를 "ESTIMATED"로, confidence 50 이하, eligibilityReason에 "(추정치)" 표시
+- 국민연금 데이터가 있어도 직원수·보험료와 무관한 항목(R&D, 투자 등): dataSource를 "COMPANY_PROFILE" 또는 "ESTIMATED"로
 
 반드시 아래 JSON 형식만 반환하세요:
 {
@@ -1101,8 +1128,9 @@ ${historyBlock}
       "filingDeadline": "신고 기한 (해당 시)",
       "estimatedProcessingTime": "예상 처리 기간",
       "risks": ["리스크"],
-      "isAmendedReturn": false,
-      "status": "identified"
+      "isAmendedReturn": true,
+      "status": "identified",
+      "dataSource": "NPS_API"|"COMPANY_PROFILE"|"ESTIMATED"
     }
   ],
   "summary": "전체 분석 요약 300자 이상",
@@ -1113,9 +1141,26 @@ ${historyBlock}
     const response = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
     const result = cleanAndParseJSON(response.text) as Record<string, unknown>;
 
-    const opportunities = (result.opportunities as TaxRefundOpportunity[]) || [];
+    const rawOpps = (result.opportunities as Record<string, unknown>[]) || [];
+    // 후처리: isAmendedReturn 보장 + boolean 강제 변환
+    const opportunities: TaxRefundOpportunity[] = rawOpps.map((o, i) => {
+      const code = (o.taxBenefitCode as string) || '';
+      const isAmended = code === 'AMENDED_RETURN' || o.isAmendedReturn === true || o.isAmendedReturn === 'true';
+      return {
+        ...o,
+        id: (o.id as string) || `tax-opp-${String(i + 1).padStart(3, '0')}`,
+        isAmendedReturn: isAmended,
+        confidence: Math.min(Math.max(Number(o.confidence) || 0, 0), 100),
+        estimatedRefund: Number(o.estimatedRefund) || 0,
+        applicableYears: Array.isArray(o.applicableYears) ? o.applicableYears.map(Number) : [],
+        status: (o.status as string) || 'identified',
+        dataSource: (['NPS_API', 'COMPANY_PROFILE', 'ESTIMATED'].includes(o.dataSource as string)
+          ? o.dataSource as 'NPS_API' | 'COMPANY_PROFILE' | 'ESTIMATED'
+          : (npsData?.found ? 'COMPANY_PROFILE' : 'ESTIMATED')),
+      } as TaxRefundOpportunity;
+    });
     const summary = (result.summary as string) || '';
-    const disclaimer = (result.disclaimer as string) || '본 분석은 AI 기반 참고 자료이며, 실제 세무 처리는 반드시 세무사와 상담하시기 바랍니다.';
+    const disclaimer = (result.disclaimer as string) || '본 분석은 AI 기반 참고 자료이며, 본인 책임하에 검토 및 신고하시기 바랍니다. 복잡한 사안은 세무 전문가 자문을 권장합니다.';
 
     return { opportunities, summary, disclaimer };
   } catch (e) {
@@ -1123,9 +1168,213 @@ ${historyBlock}
     return {
       opportunities: [],
       summary: 'AI 세금 혜택 스캔 중 오류가 발생했습니다.',
-      disclaimer: '본 분석은 AI 기반 참고 자료이며, 실제 세무 처리는 반드시 세무사와 상담하시기 바랍니다.',
+      disclaimer: '본 분석은 AI 기반 참고 자료이며, 본인 책임하에 검토 및 신고하시기 바랍니다. 복잡한 사안은 세무 전문가 자문을 권장합니다.',
     };
   }
+}
+
+// ===== Tax Calculation Worksheet =====
+
+export interface TaxCalculationLineItem {
+  key: string;
+  label: string;
+  value: number | string;
+  unit: string;
+  source: 'NPS_API' | 'COMPANY_PROFILE' | 'USER_INPUT' | 'CALCULATED' | 'TAX_LAW';
+  editable: boolean;
+  formula?: string;
+  note?: string;
+}
+
+export interface TaxCalculationWorksheet {
+  generatedAt: string;
+  benefitCode: string;
+  title: string;
+  lineItems: TaxCalculationLineItem[];
+  subtotals: { label: string; amount: number; formula?: string }[];
+  totalRefund: number;
+  assumptions: string[];
+  userOverrides: Record<string, number | string>;
+  lastRecalculatedAt?: string;
+}
+
+/** AI 세금 계산서 생성 */
+export async function generateTaxCalculationWorksheet(
+  company: CompanyInfo,
+  opportunity: TaxRefundOpportunity,
+  npsData?: NpsLookupResult | null
+): Promise<TaxCalculationWorksheet> {
+  const companyBlock = [
+    `- 기업명: ${company.name}`,
+    `- 업종: ${company.industry || '미등록'}`,
+    `- 매출액: ${company.revenue ? (company.revenue / 100000000).toFixed(1) + '억원' : '미공개'}`,
+    `- 직원수: ${company.employees || 0}명`,
+    `- 소재지: ${company.address || '미등록'}`,
+    company.foundedYear ? `- 설립연도: ${company.foundedYear}년` : '',
+    company.businessType ? `- 기업형태: ${company.businessType}` : '',
+  ].filter(Boolean).join('\n');
+
+  const npsBlock = npsData?.found && npsData.workplace ? [
+    `- 현재 직원수(가입자수): ${npsData.workplace.nrOfJnng}명`,
+    `- 당월 국민연금 고지액: ${npsData.workplace.crtmNtcAmt.toLocaleString()}원`,
+    `- 신규 입사(취득자): ${npsData.workplace.nwAcqzrCnt}명`,
+    `- 퇴사(상실자): ${npsData.workplace.lssJnngpCnt}명`,
+    `- 기준연월: ${npsData.workplace.dataCrtYm}`,
+  ].join('\n') : '국민연금 데이터 없음 — 추정치 기반';
+
+  const prompt = `당신은 한국 중소기업 세무 전문가입니다. 아래 기업 정보와 세금 혜택 기회를 기반으로 상세 계산서를 생성하세요.
+
+## 기업 정보
+${companyBlock}
+
+## 국민연금 데이터
+${npsBlock}
+
+## 세금 혜택 기회
+- 혜택명: ${opportunity.taxBenefitName}
+- 혜택코드: ${opportunity.taxBenefitCode}
+- 법적 근거: ${opportunity.legalBasis.join(', ')}
+- 추정 환급액: ${opportunity.estimatedRefund.toLocaleString()}원
+- 적용 연도: ${opportunity.applicableYears.join(', ')}
+- 적용 사유: ${opportunity.eligibilityReason}
+
+## 계산서 생성 규칙
+1. 혜택코드(${opportunity.taxBenefitCode})에 맞는 세금 계산 항목을 나열하세요
+2. 각 항목(lineItem)에는:
+   - key: 영문 camelCase 식별자 (예: currentEmployees, previousEmployees)
+   - label: 한국어 항목명
+   - value: 숫자 또는 문자열 값
+   - unit: 단위 (명, 원, %, 개월 등)
+   - source: 데이터 출처
+     - "NPS_API": 국민연금 데이터에서 가져온 값
+     - "COMPANY_PROFILE": 기업 프로필에서 가져온 값
+     - "USER_INPUT": 사용자가 직접 입력해야 하는 값 (추정치로 초기화)
+     - "CALCULATED": 다른 항목의 값으로 계산된 값
+     - "TAX_LAW": 법정 단가/비율
+   - editable: 사용자가 수정 가능한지 (USER_INPUT, COMPANY_PROFILE → true, TAX_LAW → false, CALCULATED → false)
+   - formula: CALCULATED 항목의 경우 계산 수식 (다른 lineItem의 key를 변수로 사용, 예: "currentEmployees - previousEmployees")
+   - note: 참고 사항 (선택)
+3. subtotals: 소계 항목들 (label, amount, formula)
+4. totalRefund: 최종 예상 환급/공제액 (원 단위)
+5. assumptions: 계산에 사용된 가정 목록
+6. formula에서 사용하는 변수명은 반드시 lineItems의 key와 일치해야 합니다
+
+반드시 아래 JSON 형식만 반환하세요:
+{
+  "title": "${opportunity.taxBenefitName} 계산서",
+  "lineItems": [
+    { "key": "...", "label": "...", "value": 0, "unit": "...", "source": "...", "editable": true/false, "formula": "...", "note": "..." }
+  ],
+  "subtotals": [
+    { "label": "...", "amount": 0, "formula": "..." }
+  ],
+  "totalRefund": 0,
+  "assumptions": ["가정 1", "가정 2"]
+}`;
+
+  try {
+    const response = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+    const result = cleanAndParseJSON(response.text) as Record<string, unknown>;
+
+    const lineItems = (Array.isArray(result.lineItems) ? result.lineItems : []) as TaxCalculationLineItem[];
+    const subtotals = (Array.isArray(result.subtotals) ? result.subtotals : []) as { label: string; amount: number; formula?: string }[];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      benefitCode: opportunity.taxBenefitCode,
+      title: (result.title as string) || `${opportunity.taxBenefitName} 계산서`,
+      lineItems,
+      subtotals,
+      totalRefund: Number(result.totalRefund) || 0,
+      assumptions: Array.isArray(result.assumptions) ? result.assumptions as string[] : [],
+      userOverrides: {},
+    };
+  } catch (e) {
+    console.error('[analysisService] generateTaxCalculationWorksheet error:', e);
+    return {
+      generatedAt: new Date().toISOString(),
+      benefitCode: opportunity.taxBenefitCode,
+      title: `${opportunity.taxBenefitName} 계산서`,
+      lineItems: [],
+      subtotals: [],
+      totalRefund: 0,
+      assumptions: [],
+      userOverrides: {},
+    };
+  }
+}
+
+/** 사용자 수정 값 기반 재계산 (AI 재호출 없이 서버에서 즉시 계산) */
+export function recalculateWorksheet(
+  worksheet: TaxCalculationWorksheet,
+  overrides: Record<string, number | string>
+): TaxCalculationWorksheet {
+  // 현재 값 맵 구성: lineItem key → value
+  const valueMap: Record<string, number> = {};
+  for (const item of worksheet.lineItems) {
+    const v = overrides[item.key] !== undefined ? overrides[item.key] : item.value;
+    valueMap[item.key] = typeof v === 'number' ? v : parseFloat(String(v)) || 0;
+  }
+
+  // formula 평가: 안전한 수식만 허용 (+, -, *, / 와 lineItem key 변수)
+  const safeEval = (formula: string): number => {
+    try {
+      // 변수명을 값으로 치환
+      let expr = formula;
+      for (const [key, val] of Object.entries(valueMap)) {
+        expr = expr.replace(new RegExp(`\\b${key}\\b`, 'g'), String(val));
+      }
+      // 안전 검증: 숫자, 연산자, 괄호, 공백만 허용
+      if (!/^[\d\s+\-*/().]+$/.test(expr)) return 0;
+      return Function(`"use strict"; return (${expr})`)() as number;
+    } catch {
+      return 0;
+    }
+  };
+
+  // lineItems 재계산
+  const updatedItems = worksheet.lineItems.map(item => {
+    if (overrides[item.key] !== undefined && item.editable) {
+      const newVal = overrides[item.key];
+      valueMap[item.key] = typeof newVal === 'number' ? newVal : parseFloat(String(newVal)) || 0;
+      return { ...item, value: newVal };
+    }
+    return item;
+  });
+
+  // CALCULATED 항목 재계산 (순서 보장을 위해 2회 패스)
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < updatedItems.length; i++) {
+      const item = updatedItems[i];
+      if (item.source === 'CALCULATED' && item.formula) {
+        const newVal = safeEval(item.formula);
+        valueMap[item.key] = newVal;
+        updatedItems[i] = { ...item, value: newVal };
+      }
+    }
+  }
+
+  // subtotals 재계산
+  const updatedSubtotals = worksheet.subtotals.map(sub => {
+    if (sub.formula) {
+      return { ...sub, amount: safeEval(sub.formula) };
+    }
+    return sub;
+  });
+
+  // totalRefund: 마지막 subtotal의 amount 또는 직접 계산
+  const totalRefund = updatedSubtotals.length > 0
+    ? updatedSubtotals[updatedSubtotals.length - 1].amount
+    : worksheet.totalRefund;
+
+  return {
+    ...worksheet,
+    lineItems: updatedItems,
+    subtotals: updatedSubtotals,
+    totalRefund,
+    userOverrides: { ...worksheet.userOverrides, ...overrides },
+    lastRecalculatedAt: new Date().toISOString(),
+  };
 }
 
 /** 일관성 검사 */

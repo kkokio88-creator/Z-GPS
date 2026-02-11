@@ -59,7 +59,7 @@ export const apiClient = {
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
       const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: unknown }).response = errBody;
+      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
       throw error;
     }
 
@@ -86,7 +86,34 @@ export const apiClient = {
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
       const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: unknown }).response = errBody;
+      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
+      throw error;
+    }
+
+    const data = await response.json();
+    return { data: data as T, ok: true, status: response.status };
+  },
+
+  async patch<T = unknown>(path: string, body: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
+    const url = `${getBaseUrl()}${path}`;
+    if (import.meta.env.DEV) {
+      console.log(`[apiClient] PATCH ${path}`);
+    }
+
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+      body: JSON.stringify(body),
+      ...options,
+    });
+
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      const error = new Error(`HTTP ${response.status}`);
+      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
       throw error;
     }
 
@@ -108,7 +135,7 @@ export const apiClient = {
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
       const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: unknown }).response = errBody;
+      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
       throw error;
     }
 
