@@ -3257,4 +3257,620 @@ router.post('/re-enrich-all', async (req: Request, res: Response) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// Benefit Tracking (과거 수령 이력 관리)
+// ═══════════════════════════════════════════════════════════════
+
+/** 수령 이력 전체 목록 */
+router.get('/benefits', async (_req: Request, res: Response) => {
+  try {
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+    const benefits: Record<string, unknown>[] = [];
+
+    for (const file of files) {
+      const basename = path.basename(file);
+      if (!basename.startsWith('수령-')) continue;
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'benefit') {
+          benefits.push(frontmatter);
+        }
+      } catch { /* skip */ }
+    }
+
+    res.json({ benefits });
+  } catch (error) {
+    console.error('[vault/benefits] List error:', error);
+    res.status(500).json({ error: '수령 이력 목록 조회 실패' });
+  }
+});
+
+/** 수령 이력 통계 요약 — /benefits/summary는 :id보다 먼저 등록 */
+router.get('/benefits/summary', async (_req: Request, res: Response) => {
+  try {
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+    const benefits: Record<string, unknown>[] = [];
+
+    for (const file of files) {
+      const basename = path.basename(file);
+      if (!basename.startsWith('수령-')) continue;
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'benefit') benefits.push(frontmatter);
+      } catch { /* skip */ }
+    }
+
+    let totalReceived = 0;
+    const catMap: Record<string, { amount: number; count: number }> = {};
+    const yearMap: Record<number, { amount: number; count: number }> = {};
+    let refundEligible = 0;
+    let estimatedTotalRefund = 0;
+
+    for (const b of benefits) {
+      const amount = Number(b.receivedAmount) || 0;
+      totalReceived += amount;
+
+      const cat = (b.category as string) || '기타';
+      if (!catMap[cat]) catMap[cat] = { amount: 0, count: 0 };
+      catMap[cat].amount += amount;
+      catMap[cat].count++;
+
+      const year = new Date(b.receivedDate as string).getFullYear();
+      if (!isNaN(year)) {
+        if (!yearMap[year]) yearMap[year] = { amount: 0, count: 0 };
+        yearMap[year].amount += amount;
+        yearMap[year].count++;
+      }
+
+      if (b.status === 'refund_eligible') {
+        refundEligible++;
+        // 분석 노트에서 estimatedRefund 읽기 시도
+        const benefitId = b.id as string;
+        const analysisFile = path.join(getVaultRoot(), 'benefits', `분석-${benefitId}.md`);
+        try {
+          if (await noteExists(analysisFile)) {
+            const { frontmatter: af } = await readNote(analysisFile);
+            estimatedTotalRefund += Number(af.estimatedRefund) || 0;
+          }
+        } catch { /* skip */ }
+      }
+    }
+
+    const summary = {
+      totalReceived,
+      totalCount: benefits.length,
+      byCategory: Object.entries(catMap).map(([category, v]) => ({ category, ...v })),
+      byYear: Object.entries(yearMap)
+        .map(([year, v]) => ({ year: Number(year), ...v }))
+        .sort((a, b) => a.year - b.year),
+      refundEligible,
+      estimatedTotalRefund,
+    };
+
+    res.json({ summary });
+  } catch (error) {
+    console.error('[vault/benefits/summary] Error:', error);
+    res.status(500).json({ error: '수령 이력 통계 조회 실패' });
+  }
+});
+
+/** 세금 환급 AI 스캔 실행 */
+router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다' });
+    }
+
+    // 기업 프로필 로드
+    const companyFile = path.join(getVaultRoot(), '기업정보.md');
+    if (!(await noteExists(companyFile))) {
+      return res.status(400).json({ error: '기업 정보가 등록되지 않았습니다. 설정에서 기업 프로필을 먼저 등록해주세요.' });
+    }
+    const { frontmatter: company } = await readNote(companyFile);
+
+    // 수령 이력 로드
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+    const benefitHistory: { programName: string; category: string; receivedAmount: number; receivedDate: string }[] = [];
+
+    for (const file of files) {
+      const basename = path.basename(file);
+      if (!basename.startsWith('수령-')) continue;
+      try {
+        const { frontmatter: bf } = await readNote(file);
+        if (bf.type === 'benefit') {
+          benefitHistory.push({
+            programName: bf.programName as string,
+            category: bf.category as string,
+            receivedAmount: Number(bf.receivedAmount) || 0,
+            receivedDate: bf.receivedDate as string,
+          });
+        }
+      } catch { /* skip */ }
+    }
+
+    // AI 스캔
+    const { scanMissedTaxBenefits } = await import('../services/analysisService.js');
+    const result = await scanMissedTaxBenefits(
+      {
+        name: company.name as string,
+        industry: company.industry as string,
+        revenue: Number(company.revenue) || 0,
+        employees: Number(company.employees) || 0,
+        address: company.address as string,
+        certifications: company.certifications as string[],
+        coreCompetencies: company.coreCompetencies as string[],
+        foundedYear: company.foundedYear ? Number(company.foundedYear) : undefined,
+        businessType: company.businessType as string,
+        mainProducts: company.mainProducts as string[],
+        description: company.description as string,
+      },
+      benefitHistory
+    );
+
+    // 결과 조합
+    const scanId = `scan-${crypto.randomBytes(6).toString('hex')}`;
+    const now = new Date().toISOString();
+    const totalEstimatedRefund = result.opportunities.reduce((sum, o) => sum + (o.estimatedRefund || 0), 0);
+
+    const scan = {
+      id: scanId,
+      scannedAt: now,
+      opportunities: result.opportunities,
+      totalEstimatedRefund,
+      opportunityCount: result.opportunities.length,
+      companySnapshot: {
+        name: company.name as string,
+        industry: (company.industry as string) || '',
+        employees: Number(company.employees) || 0,
+        revenue: Number(company.revenue) || 0,
+        foundedYear: company.foundedYear ? Number(company.foundedYear) : undefined,
+      },
+      summary: result.summary,
+      disclaimer: result.disclaimer,
+    };
+
+    // vault에 저장
+    const scanFrontmatter: Record<string, unknown> = {
+      type: 'tax-scan',
+      ...scan,
+    };
+    const scanFilePath = path.join(getVaultRoot(), 'benefits', `세금환급-스캔-${scanId}.md`);
+    await writeNote(scanFilePath, scanFrontmatter, result.summary);
+
+    res.json({ success: true, scan });
+  } catch (error) {
+    console.error('[vault/benefits/tax-scan] Error:', error);
+    res.status(500).json({ error: '세금 환급 스캔 실패' });
+  }
+});
+
+/** 최근 세금 환급 스캔 결과 조회 */
+router.get('/benefits/tax-scan/latest', async (_req: Request, res: Response) => {
+  try {
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+    const scanFiles: { file: string; scannedAt: string }[] = [];
+
+    for (const file of files) {
+      const basename = path.basename(file);
+      if (!basename.startsWith('세금환급-스캔-')) continue;
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'tax-scan') {
+          scanFiles.push({ file, scannedAt: frontmatter.scannedAt as string });
+        }
+      } catch { /* skip */ }
+    }
+
+    if (scanFiles.length === 0) {
+      return res.json({ scan: null });
+    }
+
+    // 최신 스캔 결과 반환
+    scanFiles.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime());
+    const { frontmatter } = await readNote(scanFiles[0].file);
+    const { type: _type, ...scan } = frontmatter;
+
+    res.json({ scan });
+  } catch (error) {
+    console.error('[vault/benefits/tax-scan/latest] Error:', error);
+    res.status(500).json({ error: '세금 환급 스캔 결과 조회 실패' });
+  }
+});
+
+/** 수령 이력 단일 조회 */
+router.get('/benefits/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+
+    for (const file of files) {
+      try {
+        const { frontmatter, content } = await readNote(file);
+        if (frontmatter.type === 'benefit' && frontmatter.id === id) {
+          return res.json({ benefit: frontmatter, content });
+        }
+      } catch { /* skip */ }
+    }
+
+    res.status(404).json({ error: '수령 이력을 찾을 수 없습니다' });
+  } catch (error) {
+    console.error('[vault/benefits/:id] Error:', error);
+    res.status(500).json({ error: '수령 이력 조회 실패' });
+  }
+});
+
+/** 수령 이력 등록 */
+router.post('/benefits', async (req: Request, res: Response) => {
+  try {
+    const { programName, category, receivedAmount, receivedDate, organizer, conditions, expiryDate, tags, programSlug, conditionsMet, status: inputStatus } = req.body;
+    if (!programName || !receivedAmount || !receivedDate || !organizer) {
+      return res.status(400).json({ error: '필수 필드 누락 (programName, receivedAmount, receivedDate, organizer)' });
+    }
+
+    const id = `benefit-${crypto.randomBytes(6).toString('hex')}`;
+    const slug = generateSlug(programName, id);
+    const now = new Date().toISOString();
+
+    const frontmatter: Record<string, unknown> = {
+      type: 'benefit',
+      id,
+      programName,
+      programSlug: programSlug || '',
+      category: category || '기타',
+      receivedAmount: Number(receivedAmount),
+      receivedDate,
+      expiryDate: expiryDate || '',
+      organizer,
+      conditions: conditions || '',
+      conditionsMet: conditionsMet ?? null,
+      status: inputStatus || 'completed',
+      attachments: [],
+      registeredAt: now,
+      tags: tags || [],
+    };
+
+    const filePath = path.join(getVaultRoot(), 'benefits', `수령-${slug}.md`);
+    await writeNote(filePath, frontmatter, '\n# 수령 내역 메모\n\n');
+
+    res.json({ success: true, benefit: frontmatter });
+  } catch (error) {
+    console.error('[vault/benefits] Create error:', error);
+    res.status(500).json({ error: '수령 이력 등록 실패' });
+  }
+});
+
+/** 수령 이력 수정 */
+router.put('/benefits/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+
+    for (const file of files) {
+      try {
+        const { frontmatter, content } = await readNote(file);
+        if (frontmatter.type === 'benefit' && frontmatter.id === id) {
+          const updated = { ...frontmatter, ...updates, id, type: 'benefit' };
+          await writeNote(file, updated, content);
+          return res.json({ success: true, benefit: updated });
+        }
+      } catch { /* skip */ }
+    }
+
+    res.status(404).json({ error: '수령 이력을 찾을 수 없습니다' });
+  } catch (error) {
+    console.error('[vault/benefits/:id] Update error:', error);
+    res.status(500).json({ error: '수령 이력 수정 실패' });
+  }
+});
+
+/** 수령 이력 삭제 */
+router.delete('/benefits/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+
+    for (const file of files) {
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'benefit' && frontmatter.id === id) {
+          await fs.unlink(file);
+          // 분석 노트도 삭제
+          const analysisFile = path.join(benefitsDir, `분석-${id}.md`);
+          try { await fs.unlink(analysisFile); } catch { /* 없으면 무시 */ }
+          return res.json({ success: true });
+        }
+      } catch { /* skip */ }
+    }
+
+    res.status(404).json({ error: '수령 이력을 찾을 수 없습니다' });
+  } catch (error) {
+    console.error('[vault/benefits/:id] Delete error:', error);
+    res.status(500).json({ error: '수령 이력 삭제 실패' });
+  }
+});
+
+/** 저장된 분석 결과 조회 */
+router.get('/benefits/:id/analysis', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const analysisFile = path.join(getVaultRoot(), 'benefits', `분석-${id}.md`);
+
+    if (!(await noteExists(analysisFile))) {
+      return res.status(404).json({ error: '분석 결과가 없습니다' });
+    }
+
+    const { frontmatter, content } = await readNote(analysisFile);
+    res.json({
+      analysis: {
+        benefitId: frontmatter.benefitId,
+        isEligible: frontmatter.isEligible,
+        estimatedRefund: Number(frontmatter.estimatedRefund) || 0,
+        riskLevel: frontmatter.riskLevel || 'MEDIUM',
+        legalBasis: frontmatter.legalBasis || [],
+        requiredDocuments: frontmatter.requiredDocuments || [],
+        risks: frontmatter.risks || [],
+        timeline: frontmatter.timeline || '',
+        advice: frontmatter.advice || '',
+        analyzedAt: frontmatter.analyzedAt || '',
+        content,
+      },
+    });
+  } catch (error) {
+    console.error('[vault/benefits/:id/analysis] Error:', error);
+    res.status(500).json({ error: '분석 결과 조회 실패' });
+  }
+});
+
+/** 단일 환급 분석 (AI) */
+router.post('/benefits/:id/analyze', async (req: Request, res: Response) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY 미설정' });
+    }
+
+    const { id } = req.params;
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+
+    let benefitData: Record<string, unknown> | null = null;
+    for (const file of files) {
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'benefit' && frontmatter.id === id) {
+          benefitData = frontmatter;
+          break;
+        }
+      } catch { /* skip */ }
+    }
+
+    if (!benefitData) {
+      return res.status(404).json({ error: '수령 이력을 찾을 수 없습니다' });
+    }
+
+    // 기업 정보 로드
+    let companyInfo: Record<string, unknown> = {};
+    const companyFile = path.join(getVaultRoot(), 'company', 'profile.md');
+    try {
+      if (await noteExists(companyFile)) {
+        const { frontmatter: cf } = await readNote(companyFile);
+        companyInfo = cf;
+      }
+    } catch { /* skip */ }
+
+    // AI 분석 실행
+    const { analyzeRefundEligibility } = await import('../services/analysisService.js');
+    const analysis = await analyzeRefundEligibility(
+      companyInfo as any,
+      {
+        programName: benefitData.programName as string,
+        category: benefitData.category as string,
+        receivedAmount: Number(benefitData.receivedAmount),
+        receivedDate: benefitData.receivedDate as string,
+        conditions: (benefitData.conditions as string) || undefined,
+        conditionsMet: benefitData.conditionsMet as boolean | null | undefined,
+      }
+    );
+
+    // 분석 결과 저장
+    const analysisFile = path.join(benefitsDir, `분석-${id}.md`);
+    const analysisFrontmatter: Record<string, unknown> = {
+      type: 'benefit-analysis',
+      benefitId: id,
+      analyzedAt: analysis.analyzedAt,
+      isEligible: analysis.isEligible,
+      estimatedRefund: analysis.estimatedRefund,
+      riskLevel: analysis.riskLevel,
+      legalBasis: analysis.legalBasis,
+      requiredDocuments: analysis.requiredDocuments,
+      risks: analysis.risks,
+      timeline: analysis.timeline,
+      advice: analysis.advice,
+    };
+
+    await writeNote(analysisFile, analysisFrontmatter, `\n# AI 환급 분석 결과\n\n${analysis.advice}\n`);
+
+    // benefit 상태 업데이트
+    if (analysis.isEligible) {
+      for (const file of files) {
+        try {
+          const { frontmatter, content } = await readNote(file);
+          if (frontmatter.type === 'benefit' && frontmatter.id === id) {
+            frontmatter.status = 'refund_eligible';
+            await writeNote(file, frontmatter, content);
+            break;
+          }
+        } catch { /* skip */ }
+      }
+    }
+
+    res.json({ success: true, analysis });
+  } catch (error) {
+    console.error('[vault/benefits/:id/analyze] Error:', error);
+    res.status(500).json({ error: '환급 분석 실패', details: String(error) });
+  }
+});
+
+/** 포트폴리오 인사이트 생성 */
+router.post('/benefits/summary-insight', async (_req: Request, res: Response) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY 미설정' });
+    }
+
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+    const benefits: Record<string, unknown>[] = [];
+
+    for (const file of files) {
+      const basename = path.basename(file);
+      if (!basename.startsWith('수령-')) continue;
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'benefit') benefits.push(frontmatter);
+      } catch { /* skip */ }
+    }
+
+    if (benefits.length === 0) {
+      return res.json({ insight: '등록된 수령 이력이 없습니다.', recommendations: [] });
+    }
+
+    // 통계 계산
+    let totalReceived = 0;
+    const catMap: Record<string, { amount: number; count: number }> = {};
+    for (const b of benefits) {
+      const amount = Number(b.receivedAmount) || 0;
+      totalReceived += amount;
+      const cat = (b.category as string) || '기타';
+      if (!catMap[cat]) catMap[cat] = { amount: 0, count: 0 };
+      catMap[cat].amount += amount;
+      catMap[cat].count++;
+    }
+
+    // 기업 정보 로드
+    let companyInfo: Record<string, unknown> = {};
+    const companyFile = path.join(getVaultRoot(), 'company', 'profile.md');
+    try {
+      if (await noteExists(companyFile)) {
+        const { frontmatter: cf } = await readNote(companyFile);
+        companyInfo = cf;
+      }
+    } catch { /* skip */ }
+
+    const { generateBenefitSummaryInsight } = await import('../services/analysisService.js');
+    const result = await generateBenefitSummaryInsight(
+      companyInfo as any,
+      benefits.map(b => ({
+        programName: b.programName as string,
+        category: b.category as string,
+        receivedAmount: Number(b.receivedAmount),
+        receivedDate: b.receivedDate as string,
+      })),
+      {
+        totalReceived,
+        totalCount: benefits.length,
+        byCategory: Object.entries(catMap).map(([category, v]) => ({ category, ...v })),
+      }
+    );
+
+    res.json(result);
+  } catch (error) {
+    console.error('[vault/benefits/summary-insight] Error:', error);
+    res.status(500).json({ error: '인사이트 생성 실패' });
+  }
+});
+
+/** 전체 일괄 환급 분석 */
+router.post('/benefits/analyze-all', async (req: Request, res: Response) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY 미설정' });
+    }
+
+    const benefitsDir = path.join(getVaultRoot(), 'benefits');
+    const files = await listNotes(benefitsDir);
+    const benefits: { file: string; frontmatter: Record<string, unknown> }[] = [];
+
+    for (const file of files) {
+      const basename = path.basename(file);
+      if (!basename.startsWith('수령-')) continue;
+      try {
+        const { frontmatter } = await readNote(file);
+        if (frontmatter.type === 'benefit') {
+          benefits.push({ file, frontmatter });
+        }
+      } catch { /* skip */ }
+    }
+
+    // 기업 정보 로드
+    let companyInfo: Record<string, unknown> = {};
+    const companyFile = path.join(getVaultRoot(), 'company', 'profile.md');
+    try {
+      if (await noteExists(companyFile)) {
+        const { frontmatter: cf } = await readNote(companyFile);
+        companyInfo = cf;
+      }
+    } catch { /* skip */ }
+
+    const { analyzeRefundEligibility } = await import('../services/analysisService.js');
+    const results: any[] = [];
+
+    for (const { file, frontmatter: b } of benefits) {
+      try {
+        const analysis = await analyzeRefundEligibility(
+          companyInfo as any,
+          {
+            programName: b.programName as string,
+            category: b.category as string,
+            receivedAmount: Number(b.receivedAmount),
+            receivedDate: b.receivedDate as string,
+            conditions: (b.conditions as string) || undefined,
+            conditionsMet: b.conditionsMet as boolean | null | undefined,
+          }
+        );
+
+        // 분석 결과 저장
+        const analysisFile = path.join(benefitsDir, `분석-${b.id}.md`);
+        await writeNote(analysisFile, {
+          type: 'benefit-analysis',
+          benefitId: b.id,
+          analyzedAt: analysis.analyzedAt,
+          isEligible: analysis.isEligible,
+          estimatedRefund: analysis.estimatedRefund,
+          riskLevel: analysis.riskLevel,
+          legalBasis: analysis.legalBasis,
+          requiredDocuments: analysis.requiredDocuments,
+          risks: analysis.risks,
+          timeline: analysis.timeline,
+          advice: analysis.advice,
+        }, `\n# AI 환급 분석 결과\n\n${analysis.advice}\n`);
+
+        if (analysis.isEligible) {
+          const { frontmatter: bf, content: bc } = await readNote(file);
+          bf.status = 'refund_eligible';
+          await writeNote(file, bf, bc);
+        }
+
+        results.push(analysis);
+        // rate limit
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (e) {
+        console.error(`[benefit analyze-all] Error for ${b.id}:`, e);
+      }
+    }
+
+    res.json({ analyzed: results.length, results });
+  } catch (error) {
+    console.error('[vault/benefits/analyze-all] Error:', error);
+    res.status(500).json({ error: '일괄 환급 분석 실패' });
+  }
+});
+
 export default router;

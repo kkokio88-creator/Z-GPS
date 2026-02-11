@@ -5,7 +5,7 @@
 
 import { apiClient } from './apiClient';
 import { connectSSE, SSEProgressEvent } from './sseClient';
-import type { SectionSchema, ApplicationSectionSchema } from '../types';
+import type { SectionSchema, ApplicationSectionSchema, BenefitRecord, BenefitAnalysisResult, BenefitSummary, TaxScanResult } from '../types';
 
 export interface VaultProgram {
   id: string;
@@ -401,5 +401,95 @@ export const vaultService = {
       { companyName }
     );
     return data;
+  },
+
+  // ===== Benefit Tracking =====
+
+  /** 수령 이력 전체 목록 */
+  async getBenefits(): Promise<BenefitRecord[]> {
+    const { data } = await apiClient.get<{ benefits: BenefitRecord[] }>('/api/vault/benefits');
+    return data.benefits;
+  },
+
+  /** 수령 이력 단일 조회 */
+  async getBenefit(id: string): Promise<BenefitRecord> {
+    const { data } = await apiClient.get<{ benefit: BenefitRecord }>(`/api/vault/benefits/${encodeURIComponent(id)}`);
+    return data.benefit;
+  },
+
+  /** 수령 이력 등록 */
+  async createBenefit(input: Omit<BenefitRecord, 'id' | 'registeredAt'>): Promise<BenefitRecord> {
+    const { data } = await apiClient.post<{ success: boolean; benefit: BenefitRecord }>('/api/vault/benefits', input);
+    return data.benefit;
+  },
+
+  /** 수령 이력 수정 */
+  async updateBenefit(id: string, updates: Partial<BenefitRecord>): Promise<BenefitRecord> {
+    const { data } = await apiClient.put<{ success: boolean; benefit: BenefitRecord }>(
+      `/api/vault/benefits/${encodeURIComponent(id)}`,
+      updates
+    );
+    return data.benefit;
+  },
+
+  /** 수령 이력 삭제 */
+  async deleteBenefit(id: string): Promise<{ success: boolean }> {
+    const { data } = await apiClient.delete<{ success: boolean }>(`/api/vault/benefits/${encodeURIComponent(id)}`);
+    return data;
+  },
+
+  /** 수령 이력 통계 요약 */
+  async getBenefitSummary(): Promise<BenefitSummary> {
+    const { data } = await apiClient.get<{ summary: BenefitSummary }>('/api/vault/benefits/summary');
+    return data.summary;
+  },
+
+  /** 단일 환급 분석 (AI) */
+  async analyzeBenefit(id: string): Promise<BenefitAnalysisResult> {
+    const { data } = await apiClient.post<{ success: boolean; analysis: BenefitAnalysisResult }>(
+      `/api/vault/benefits/${encodeURIComponent(id)}/analyze`,
+      {}
+    );
+    return data.analysis;
+  },
+
+  /** 저장된 분석 결과 조회 */
+  async getBenefitAnalysis(id: string): Promise<BenefitAnalysisResult | null> {
+    try {
+      const { data } = await apiClient.get<{ analysis: BenefitAnalysisResult }>(
+        `/api/vault/benefits/${encodeURIComponent(id)}/analysis`
+      );
+      return data.analysis;
+    } catch {
+      return null;
+    }
+  },
+
+  /** 전체 일괄 환급 분석 */
+  async analyzeAllBenefits(): Promise<{ analyzed: number; results: BenefitAnalysisResult[] }> {
+    const { data } = await apiClient.post<{ analyzed: number; results: BenefitAnalysisResult[] }>(
+      '/api/vault/benefits/analyze-all',
+      {}
+    );
+    return data;
+  },
+
+  // ===== Tax Refund Scan =====
+
+  /** 세금 환급 AI 스캔 실행 */
+  async runTaxScan(): Promise<TaxScanResult> {
+    const { data } = await apiClient.post<{ success: boolean; scan: TaxScanResult }>(
+      '/api/vault/benefits/tax-scan',
+      {}
+    );
+    return data.scan;
+  },
+
+  /** 최근 세금 환급 스캔 결과 조회 */
+  async getLatestTaxScan(): Promise<TaxScanResult | null> {
+    const { data } = await apiClient.get<{ scan: TaxScanResult | null }>(
+      '/api/vault/benefits/tax-scan/latest'
+    );
+    return data.scan;
   },
 };

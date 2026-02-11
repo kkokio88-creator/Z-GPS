@@ -475,3 +475,82 @@ export interface DeepResearchResult {
   };
   dataSources?: { name: string; url: string; dataTypes: string[]; lastUpdated: string }[];
 }
+
+// ===== Retroactive Benefit Tracking =====
+
+export type BenefitCategory = '고용지원' | 'R&D' | '수출' | '창업' | '시설투자' | '교육훈련' | '기타';
+export type BenefitStatus = 'completed' | 'ongoing' | 'refund_eligible' | 'claimed';
+
+export interface BenefitRecord {
+  id: string;
+  programName: string;
+  programSlug?: string;
+  category: BenefitCategory;
+  receivedAmount: number;
+  receivedDate: string;
+  expiryDate?: string;
+  organizer: string;
+  conditions?: string;
+  conditionsMet?: boolean | null;
+  status: BenefitStatus;
+  attachments: string[];
+  registeredAt: string;
+  tags: string[];
+}
+
+export interface BenefitAnalysisResult {
+  benefitId: string;
+  isEligible: boolean;
+  estimatedRefund: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  legalBasis: string[];
+  requiredDocuments: string[];
+  risks: string[];
+  timeline: string;
+  advice: string;
+  analyzedAt: string;
+}
+
+export interface BenefitSummary {
+  totalReceived: number;
+  totalCount: number;
+  byCategory: { category: BenefitCategory; amount: number; count: number }[];
+  byYear: { year: number; amount: number; count: number }[];
+  refundEligible: number;
+  estimatedTotalRefund: number;
+}
+
+// ===== Tax Refund Scan =====
+
+export type TaxRefundDifficulty = 'EASY' | 'MODERATE' | 'COMPLEX';
+
+export interface TaxRefundOpportunity {
+  id: string;
+  taxBenefitName: string;
+  taxBenefitCode: string;
+  estimatedRefund: number;
+  applicableYears: number[];
+  difficulty: TaxRefundDifficulty;
+  confidence: number;
+  legalBasis: string[];
+  description: string;
+  eligibilityReason: string;
+  requiredActions: string[];
+  requiredDocuments: string[];
+  filingDeadline?: string;
+  estimatedProcessingTime: string;
+  risks: string[];
+  isAmendedReturn: boolean;
+  status: 'identified' | 'in_progress' | 'filed' | 'received' | 'dismissed';
+}
+
+export interface TaxScanResult {
+  id: string;
+  scannedAt: string;
+  opportunities: TaxRefundOpportunity[];
+  totalEstimatedRefund: number;
+  opportunityCount: number;
+  companySnapshot: { name: string; industry: string; employees: number; revenue: number; foundedYear?: number };
+  summary: string;
+  disclaimer: string;
+}

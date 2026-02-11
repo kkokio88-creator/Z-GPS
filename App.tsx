@@ -9,6 +9,7 @@ import ProgramDetail from './components/ProgramDetail';
 import CalendarView from './components/CalendarView';
 import ApplicationList from './components/ApplicationList';
 import Settings from './components/Settings';
+import BenefitTracker from './components/BenefitTracker';
 import GlobalSearch from './components/GlobalSearch';
 import ExpertMatch from './components/ExpertMatch';
 // ExecutionManager removed - vault-based workflow
@@ -238,6 +239,7 @@ const App: React.FC = () => {
           {/* execution route removed - vault-based workflow */}
           <Route path="knowledge" element={<Community />} />
           <Route path="pitch" element={<PitchTrainer />} />
+          <Route path="benefits" element={<BenefitTracker />} />
           <Route path="settings" element={<Settings />} />
           <Route path="editor/:programId/:companyId" element={<ApplicationEditor />} />
           <Route path="editor/:slug" element={<ApplicationEditor />} />

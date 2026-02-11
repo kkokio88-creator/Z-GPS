@@ -828,6 +828,306 @@ ${attachmentBlock}
   }
 }
 
+// ===== Benefit Tracking AI Analysis =====
+
+export interface BenefitAnalysisResult {
+  benefitId: string;
+  isEligible: boolean;
+  estimatedRefund: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  legalBasis: string[];
+  requiredDocuments: string[];
+  risks: string[];
+  timeline: string;
+  advice: string;
+  analyzedAt: string;
+}
+
+/** 단일 환급/추가 청구 분석 */
+export async function analyzeRefundEligibility(
+  company: CompanyInfo,
+  benefit: {
+    programName: string;
+    category: string;
+    receivedAmount: number;
+    receivedDate: string;
+    conditions?: string;
+    conditionsMet?: boolean | null;
+  }
+): Promise<BenefitAnalysisResult> {
+  const prompt = `당신은 한국 정부 지원금 환급 및 추가 청구 전문가입니다.
+
+## 기업 정보
+- 기업명: ${company.name}
+- 업종: ${company.industry || '미등록'}
+- 매출액: ${company.revenue ? (company.revenue / 100000000).toFixed(1) + '억원' : '미공개'}
+- 직원수: ${company.employees || 0}명
+- 핵심역량: ${company.coreCompetencies?.join(', ') || '없음'}
+- 보유 인증: ${company.certifications?.join(', ') || '없음'}
+
+## 과거 수령 지원금 정보
+- 사업명: ${benefit.programName}
+- 카테고리: ${benefit.category}
+- 수령 금액: ${(benefit.receivedAmount / 10000).toFixed(0)}만원
+- 수령일: ${benefit.receivedDate}
+${benefit.conditions ? `- 의무 조건: ${benefit.conditions}` : ''}
+- 의무이행 여부: ${benefit.conditionsMet === true ? '이행 완료' : benefit.conditionsMet === false ? '미이행' : '확인 안 됨'}
+
+## 분석 요청
+아래 항목을 분석하세요:
+1. 환급 또는 추가 청구가 가능한지 여부
+2. 추정 환급/추가 청구 가능 금액
+3. 관련 법적 근거 (법률, 시행령, 지침 등)
+4. 필요한 서류 목록
+5. 리스크 평가 (LOW/MEDIUM/HIGH)
+6. 예상 처리 기간
+7. 실무 조언
+
+반드시 아래 JSON 형식만 반환하세요:
+{
+  "isEligible": true|false,
+  "estimatedRefund": 0,
+  "riskLevel": "LOW"|"MEDIUM"|"HIGH",
+  "legalBasis": ["관련 법적 근거 목록"],
+  "requiredDocuments": ["필요 서류 목록"],
+  "risks": ["리스크 항목"],
+  "timeline": "예상 처리 기간 설명",
+  "advice": "실무 조언 300자 이상"
+}`;
+
+  try {
+    const response = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+    const result = cleanAndParseJSON(response.text) as Record<string, unknown>;
+
+    return {
+      benefitId: '',
+      isEligible: (result.isEligible as boolean) ?? false,
+      estimatedRefund: (result.estimatedRefund as number) || 0,
+      riskLevel: (result.riskLevel as 'LOW' | 'MEDIUM' | 'HIGH') || 'MEDIUM',
+      legalBasis: (result.legalBasis as string[]) || [],
+      requiredDocuments: (result.requiredDocuments as string[]) || [],
+      risks: (result.risks as string[]) || [],
+      timeline: (result.timeline as string) || '',
+      advice: (result.advice as string) || '',
+      analyzedAt: new Date().toISOString(),
+    };
+  } catch (e) {
+    console.error('[analysisService] analyzeRefundEligibility error:', e);
+    return {
+      benefitId: '',
+      isEligible: false,
+      estimatedRefund: 0,
+      riskLevel: 'HIGH',
+      legalBasis: [],
+      requiredDocuments: [],
+      risks: ['AI 분석 중 오류가 발생했습니다.'],
+      timeline: '',
+      advice: 'AI 분석 중 오류가 발생했습니다. 다시 시도해 주세요.',
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/** 전체 포트폴리오 인사이트 */
+export async function generateBenefitSummaryInsight(
+  company: CompanyInfo,
+  benefits: { programName: string; category: string; receivedAmount: number; receivedDate: string }[],
+  summary: { totalReceived: number; totalCount: number; byCategory: { category: string; amount: number; count: number }[] }
+): Promise<{ insight: string; recommendations: string[] }> {
+  const benefitsList = benefits
+    .map(b => `- ${b.programName} (${b.category}) : ${(b.receivedAmount / 10000).toFixed(0)}만원 (${b.receivedDate})`)
+    .join('\n');
+
+  const categoryBreakdown = summary.byCategory
+    .map(c => `- ${c.category}: ${c.count}건, ${(c.amount / 10000).toFixed(0)}만원`)
+    .join('\n');
+
+  const prompt = `당신은 정부 지원금 포트폴리오 분석가입니다.
+
+## 기업 정보
+- 기업명: ${company.name}
+- 업종: ${company.industry || '미등록'}
+- 매출액: ${company.revenue ? (company.revenue / 100000000).toFixed(1) + '억원' : '미공개'}
+
+## 과거 수령 이력 (총 ${summary.totalCount}건, ${(summary.totalReceived / 10000).toFixed(0)}만원)
+${benefitsList}
+
+## 카테고리별 분포
+${categoryBreakdown}
+
+## 분석 요청
+과거 수령 패턴을 분석하고, 향후 지원금 신청 전략을 제안하세요.
+- 수령 패턴의 강점과 약점
+- 놓치고 있는 지원금 카테고리
+- 향후 추천 신청 전략 3-5개
+
+반드시 아래 JSON 형식만 반환하세요:
+{
+  "insight": "전체 인사이트 분석 500자 이상",
+  "recommendations": ["추천 전략 1", "추천 전략 2", ...]
+}`;
+
+  try {
+    const response = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+    const result = cleanAndParseJSON(response.text) as Record<string, unknown>;
+
+    return {
+      insight: (result.insight as string) || '',
+      recommendations: (result.recommendations as string[]) || [],
+    };
+  } catch (e) {
+    console.error('[analysisService] generateBenefitSummaryInsight error:', e);
+    return {
+      insight: '인사이트 생성 중 오류가 발생했습니다.',
+      recommendations: [],
+    };
+  }
+}
+
+// ===== Tax Refund Scan =====
+
+export interface TaxRefundOpportunity {
+  id: string;
+  taxBenefitName: string;
+  taxBenefitCode: string;
+  estimatedRefund: number;
+  applicableYears: number[];
+  difficulty: 'EASY' | 'MODERATE' | 'COMPLEX';
+  confidence: number;
+  legalBasis: string[];
+  description: string;
+  eligibilityReason: string;
+  requiredActions: string[];
+  requiredDocuments: string[];
+  filingDeadline?: string;
+  estimatedProcessingTime: string;
+  risks: string[];
+  isAmendedReturn: boolean;
+  status: 'identified' | 'in_progress' | 'filed' | 'received' | 'dismissed';
+}
+
+export interface TaxScanResult {
+  id: string;
+  scannedAt: string;
+  opportunities: TaxRefundOpportunity[];
+  totalEstimatedRefund: number;
+  opportunityCount: number;
+  companySnapshot: { name: string; industry: string; employees: number; revenue: number; foundedYear?: number };
+  summary: string;
+  disclaimer: string;
+}
+
+/** AI 세금 환급 스캔: 놓친 세금 혜택 탐지 */
+export async function scanMissedTaxBenefits(
+  company: CompanyInfo,
+  benefitHistory: { programName: string; category: string; receivedAmount: number; receivedDate: string }[]
+): Promise<{ opportunities: TaxRefundOpportunity[]; summary: string; disclaimer: string }> {
+  const companyBlock = [
+    `- 기업명: ${company.name}`,
+    `- 업종: ${company.industry || '미등록'}`,
+    `- 매출액: ${company.revenue ? (company.revenue / 100000000).toFixed(1) + '억원' : '미공개'}`,
+    `- 직원수: ${company.employees || 0}명`,
+    `- 소재지: ${company.address || '미등록'}`,
+    `- 핵심역량: ${company.coreCompetencies?.join(', ') || '없음'}`,
+    `- 보유 인증: ${company.certifications?.join(', ') || '없음'}`,
+    company.foundedYear ? `- 설립연도: ${company.foundedYear}년` : '',
+    company.businessType ? `- 기업형태: ${company.businessType}` : '',
+    company.mainProducts?.length ? `- 주력 제품/서비스: ${company.mainProducts.join(', ')}` : '',
+    company.financialTrend ? `- 매출 추이: ${company.financialTrend}` : '',
+  ].filter(Boolean).join('\n');
+
+  const historyBlock = benefitHistory.length > 0
+    ? benefitHistory.map(b => `- ${b.programName} (${b.category}): ${(b.receivedAmount / 10000).toFixed(0)}만원 (${b.receivedDate})`).join('\n')
+    : '과거 수령 이력 없음';
+
+  const currentYear = new Date().getFullYear();
+
+  const prompt = `당신은 한국 중소기업 세무 전문가입니다. 아래 기업 정보와 과거 수령 이력을 분석하여, 이 기업이 놓치고 있을 가능성이 있는 세금 혜택(세액공제/감면/경정청구)을 스캔하세요.
+
+## 기업 정보
+${companyBlock}
+
+## 과거 지원금 수령 이력
+${historyBlock}
+
+## 스캔 대상: 10대 세금 혜택
+
+1. **고용증대 세액공제** (조특법 §29의7) - 코드: EMPLOYMENT_INCREASE
+   - 직전 연도 대비 상시근로자 수 증가 시 1인당 최대 1,550만원 공제
+2. **중소기업 특별세액감면** (조특법 §7) - 코드: SME_SPECIAL
+   - 업종별 5~30% 소득세/법인세 감면 (수도권 외 추가 감면)
+3. **연구·인력개발비 세액공제** (조특법 §10) - 코드: RND_CREDIT
+   - R&D 비용의 최대 25% 세액공제
+4. **투자세액공제** (조특법 §24) - 코드: INVESTMENT_CREDIT
+   - 시설투자 금액의 3~12% 세액공제
+5. **사회보험료 세액공제** (조특법 §30의4) - 코드: SOCIAL_INSURANCE
+   - 신규 채용 시 사회보험료 사업주 부담분 공제
+6. **정규직 전환 세액공제** (조특법 §30의2) - 코드: PERMANENT_CONVERSION
+   - 비정규직→정규직 전환 시 1인당 최대 1,300만원
+7. **경력단절여성 고용 세액공제** (조특법 §29의3) - 코드: CAREER_BREAK_WOMEN
+   - 경력단절여성 채용 시 인건비의 30% 공제
+8. **중소기업 접대비 한도 특례** (법인세법 시행령 §45) - 코드: ENTERTAINMENT_SPECIAL
+   - 중소기업 접대비 한도 추가 적용
+9. **창업중소기업 세액감면** (조특법 §6) - 코드: STARTUP_EXEMPTION
+   - 창업 후 5년간 소득세/법인세 50~100% 감면
+10. **경정청구** (국세기본법 §45의2) - 코드: AMENDED_RETURN
+    - 최근 5년간 과다 납부 세금 환급 청구
+
+## 분석 규칙
+- 각 혜택별로 이 기업에 적용 가능한지 구체적으로 판단
+- 적용 가능성이 있는 항목만 반환 (명백히 해당 없는 항목은 제외)
+- 각 기회에 대해 추정 환급액, 적용 연도, 난이도, 확신도를 산출
+- confidence는 0-100 (기업 정보가 부족하면 낮게, 명확하면 높게)
+- 경정청구(AMENDED_RETURN) 항목은 isAmendedReturn: true로 표시
+- estimatedRefund는 원(KRW) 단위
+- applicableYears는 ${currentYear - 5}~${currentYear} 범위
+
+반드시 아래 JSON 형식만 반환하세요:
+{
+  "opportunities": [
+    {
+      "id": "tax-opp-001",
+      "taxBenefitName": "혜택명",
+      "taxBenefitCode": "코드",
+      "estimatedRefund": 0,
+      "applicableYears": [${currentYear - 1}, ${currentYear}],
+      "difficulty": "EASY"|"MODERATE"|"COMPLEX",
+      "confidence": 0-100,
+      "legalBasis": ["법조문"],
+      "description": "혜택 설명",
+      "eligibilityReason": "이 기업에 적용 가능한 이유",
+      "requiredActions": ["실행 단계"],
+      "requiredDocuments": ["필요 서류"],
+      "filingDeadline": "신고 기한 (해당 시)",
+      "estimatedProcessingTime": "예상 처리 기간",
+      "risks": ["리스크"],
+      "isAmendedReturn": false,
+      "status": "identified"
+    }
+  ],
+  "summary": "전체 분석 요약 300자 이상",
+  "disclaimer": "면책 조항"
+}`;
+
+  try {
+    const response = await callGeminiDirect(prompt, { responseMimeType: 'application/json' });
+    const result = cleanAndParseJSON(response.text) as Record<string, unknown>;
+
+    const opportunities = (result.opportunities as TaxRefundOpportunity[]) || [];
+    const summary = (result.summary as string) || '';
+    const disclaimer = (result.disclaimer as string) || '본 분석은 AI 기반 참고 자료이며, 실제 세무 처리는 반드시 세무사와 상담하시기 바랍니다.';
+
+    return { opportunities, summary, disclaimer };
+  } catch (e) {
+    console.error('[analysisService] scanMissedTaxBenefits error:', e);
+    return {
+      opportunities: [],
+      summary: 'AI 세금 혜택 스캔 중 오류가 발생했습니다.',
+      disclaimer: '본 분석은 AI 기반 참고 자료이며, 실제 세무 처리는 반드시 세무사와 상담하시기 바랍니다.',
+    };
+  }
+}
+
 /** 일관성 검사 */
 export async function checkConsistency(
   sections: Record<string, string>

@@ -22,6 +22,7 @@ export async function ensureVaultStructure(): Promise<void> {
     'attachments/pdf-analysis',
     'strategies',
     'templates',
+    'benefits',
   ];
 
   for (const dir of dirs) {

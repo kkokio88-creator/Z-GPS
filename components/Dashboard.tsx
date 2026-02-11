@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
+import type { BenefitSummary } from '../types';
 import { getStoredCompany } from '../services/storageService';
 import { Company } from '../types';
 import Header from './Header';
@@ -88,14 +89,16 @@ const Dashboard: React.FC = () => {
   const [myApplications, setMyApplications] = useState<VaultApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
+  const [benefitSummary, setBenefitSummary] = useState<BenefitSummary | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [progs, apps, companyResult] = await Promise.allSettled([
+      const [progs, apps, companyResult, benefitResult] = await Promise.allSettled([
         vaultService.getPrograms(),
         vaultService.getApplications(),
         vaultService.getCompany(),
+        vaultService.getBenefitSummary(),
       ]);
 
       if (progs.status === 'fulfilled') {
@@ -103,6 +106,9 @@ const Dashboard: React.FC = () => {
       }
       if (apps.status === 'fulfilled') {
         setMyApplications(apps.value);
+      }
+      if (benefitResult.status === 'fulfilled') {
+        setBenefitSummary(benefitResult.value);
       }
       if (companyResult.status === 'fulfilled' && companyResult.value.company) {
         const c = companyResult.value.company;
@@ -426,6 +432,41 @@ const Dashboard: React.FC = () => {
               )}
             </div>
           </section>
+
+          {/* ===== 과거 수령 이력 요약 ===== */}
+          {benefitSummary && benefitSummary.totalCount > 0 && (
+            <section
+              onClick={() => navigate('/benefits')}
+              className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5 cursor-pointer hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <span className="material-icons-outlined text-white text-lg">receipt_long</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">과거 수령 이력</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      총 {benefitSummary.totalCount}건 | 누적 {formatKRW(benefitSummary.totalReceived)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {benefitSummary.refundEligible > 0 && (
+                    <div className="text-right">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                        환급 가능 {benefitSummary.refundEligible}건
+                      </p>
+                      {benefitSummary.estimatedTotalRefund > 0 && (
+                        <p className="text-xs text-amber-500">약 {formatKRW(benefitSummary.estimatedTotalRefund)}</p>
+                      )}
+                    </div>
+                  )}
+                  <span className="material-icons-outlined text-gray-400 text-base">chevron_right</span>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* ===== 내 지원 현황 (Compact Bar) ===== */}
           <section className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-4">
