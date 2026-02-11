@@ -57,6 +57,23 @@ const summarizeText = (text: string, maxLength = 200): string => {
   return cleaned.slice(0, maxLength).trim() + '...';
 };
 
+/** 금액 표시: 0이면 supportScale 텍스트 또는 "미정" */
+const formatGrant = (grant: number, supportScale?: string): string => {
+  if (grant > 0) {
+    const billions = grant / 100000000;
+    if (billions >= 1) return `${billions.toFixed(1)}억`;
+    const tenThousands = grant / 10000;
+    if (tenThousands >= 1) return `${Math.round(tenThousands)}만`;
+    return `${grant.toLocaleString()}원`;
+  }
+  if (supportScale) {
+    // 긴 텍스트는 요약
+    const clean = stripHtml(supportScale);
+    return clean.length > 15 ? clean.slice(0, 15) + '…' : clean;
+  }
+  return '미정';
+};
+
 // 하트 이모지 파티클 컴포넌트 (최적화: 8개로 축소)
 const HeartParticles: React.FC<{ show: boolean }> = React.memo(({ show }) => {
   if (!show) return null;
@@ -734,7 +751,7 @@ const ProgramExplorer: React.FC = () => {
                       className={`bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer ${
                         selectedProgram?.id === program.id ? 'ring-2 ring-primary' : ''
                       }`}
-                      onClick={() => setSelectedProgram(program)}
+                      onClick={() => navigate(`/program/${program.id}`)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
@@ -764,7 +781,7 @@ const ProgramExplorer: React.FC = () => {
                         <div className="flex items-center gap-4 ml-4 flex-shrink-0">
                           <div className="text-right">
                             <p className="text-sm font-bold text-primary dark:text-green-400">
-                              {(program.expectedGrant / 100000000).toFixed(1)}억
+                              {formatGrant(program.expectedGrant, vaultDataRef.current.get(program.id)?.supportScale)}
                             </p>
                             <p className={`text-xs font-medium ${
                               program.fitScore >= 85 ? 'text-primary' : 'text-gray-500'
@@ -800,12 +817,6 @@ const ProgramExplorer: React.FC = () => {
                               </button>
                             </div>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleCreateApplication(program); }}
-                            className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-green-600 transition-colors"
-                          >
-                            지원서
-                          </button>
                         </div>
                       </div>
                       {/* 추천 탭: dimensions 미니 바 차트 */}
@@ -938,7 +949,7 @@ const ProgramExplorer: React.FC = () => {
                       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
                         <p className="text-xs text-gray-500 mb-0.5">예상 지원금</p>
                         <p className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                          {(currentProgram.expectedGrant / 100000000).toFixed(1)}억
+                          {formatGrant(currentProgram.expectedGrant, vaultDataRef.current.get(currentProgram.id)?.supportScale)}
                         </p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
@@ -987,11 +998,11 @@ const ProgramExplorer: React.FC = () => {
                       </button>
                     )}
                     <button
-                      onClick={() => currentProgram && handleCreateApplication(currentProgram)}
+                      onClick={() => currentProgram && navigate(`/program/${currentProgram.id}`)}
                       className="group w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
-                      title="지원서 작성"
+                      title="상세 분석"
                     >
-                      <span className="material-icons-outlined text-white text-xl">edit_note</span>
+                      <span className="material-icons-outlined text-white text-xl">analytics</span>
                     </button>
                     <button
                       onClick={() => handleSwipe('right')}
@@ -1012,11 +1023,11 @@ const ProgramExplorer: React.FC = () => {
                       미분류로 복원
                     </button>
                     <button
-                      onClick={() => currentProgram && handleCreateApplication(currentProgram)}
+                      onClick={() => currentProgram && navigate(`/program/${currentProgram.id}`)}
                       className="px-5 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-md flex items-center gap-2"
                     >
-                      <span className="material-icons-outlined text-sm">edit_note</span>
-                      지원서 작성
+                      <span className="material-icons-outlined text-sm">analytics</span>
+                      상세 분석
                     </button>
                   </div>
                 )}
@@ -1075,7 +1086,7 @@ const ProgramExplorer: React.FC = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-500">예상 지원금</span>
-                        <span className="font-bold text-primary dark:text-green-400">{(selectedProgram.expectedGrant / 100000000).toFixed(1)}억원</span>
+                        <span className="font-bold text-primary dark:text-green-400">{formatGrant(selectedProgram.expectedGrant, vd?.supportScale)}</span>
                       </div>
                       {vd?.supportScale && (
                         <div className="flex justify-between items-center">
@@ -1218,21 +1229,12 @@ const ProgramExplorer: React.FC = () => {
 
                 {/* 액션 버튼 */}
                 <div className="p-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
-                  {selectedProgram.detailUrl && (
-                    <a
-                      href={selectedProgram.detailUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
-                    >
-                      공고문 원문 보기
-                    </a>
-                  )}
                   <button
-                    onClick={() => handleCreateApplication(selectedProgram)}
-                    className="w-full py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-green-600 transition-colors"
+                    onClick={() => navigate(`/program/${selectedProgram.id}`)}
+                    className="w-full py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
                   >
-                    지원서 작성하기
+                    <span className="material-icons-outlined text-sm">analytics</span>
+                    상세 분석 보기
                   </button>
                 </div>
               </>
