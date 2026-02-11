@@ -1,6 +1,11 @@
 /**
- * 국민연금 사업장 API를 통한 직원/보험료 데이터 조회
- * API: http://apis.data.go.kr/B552015/NpsBplcInfoInqireService/getBassInfoSearch
+ * 국민연금 가입 사업장 API V2를 통한 직원/보험료 데이터 조회
+ * API: https://apis.data.go.kr/B552015/NpsBplcInfoInqireServiceV2
+ *
+ * 오퍼레이션:
+ *   1. /getBassInfoSearchV2  — 사업장 기본정보 조회
+ *   2. /getDetailInfoSearchV2 — 사업장 상세정보 조회
+ *   3. /getPdAcctoSttusInfoSearchV2 — 기간별 현황 정보조회
  */
 
 export interface NpsWorkplaceInfo {
@@ -24,22 +29,44 @@ export interface NpsLookupResult {
   lastUpdated: string;
 }
 
-const NPS_BASE_URL = 'http://apis.data.go.kr/B552015/NpsBplcInfoInqireService/getBassInfoSearch';
-
-/** XML 태그에서 텍스트 추출 (programFetcher.ts 패턴) */
-function getXmlText(xml: string, tag: string): string {
-  const cdataMatch = new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>`).exec(xml);
-  if (cdataMatch?.[1]) return cdataMatch[1].trim();
-  const tagMatch = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(xml);
-  return tagMatch?.[1]?.trim() || '';
-}
+const NPS_BASE_URL = 'https://apis.data.go.kr/B552015/NpsBplcInfoInqireServiceV2';
 
 /** 사업자등록번호 정규화 (하이픈 제거) */
 function normalizeBizNo(bizNo: string): string {
   return bizNo.replace(/[^0-9]/g, '');
 }
 
-/** NPS 사업장 검색 (사업장명 기반) */
+/** data.go.kr JSON 응답에서 item 배열 추출 */
+function extractItems(data: Record<string, unknown>): Record<string, unknown>[] {
+  // 표준 응답 구조: response.body.items.item
+  const response = data?.response as Record<string, unknown> | undefined;
+  const body = response?.body as Record<string, unknown> | undefined;
+  const items = body?.items as Record<string, unknown> | undefined;
+  const item = items?.item;
+
+  if (Array.isArray(item)) return item as Record<string, unknown>[];
+  // 단건 결과: item이 객체인 경우
+  if (item && typeof item === 'object' && !Array.isArray(item)) return [item as Record<string, unknown>];
+  return [];
+}
+
+/** 응답 item → NpsWorkplaceInfo 변환 */
+function parseWorkplaceItem(item: Record<string, unknown>): NpsWorkplaceInfo {
+  return {
+    wkplNm: String(item.wkplNm ?? ''),
+    bzowrRgstNo: String(item.bzowrRgstNo ?? ''),
+    wkplRoadNmDtlAddr: String(item.wkplRoadNmDtlAddr ?? ''),
+    ldongAddr: String(item.ldongAddr ?? ''),
+    wkplJnngStdt: String(item.wkplJnngStdt ?? ''),
+    nrOfJnng: Number(item.nrOfJnng) || 0,
+    crtmNtcAmt: Number(item.crtmNtcAmt) || 0,
+    nwAcqzrCnt: Number(item.nwAcqzrCnt) || 0,
+    lssJnngpCnt: Number(item.lssJnngpCnt) || 0,
+    dataCrtYm: String(item.dataCrtYm ?? ''),
+  };
+}
+
+/** NPS 사업장 검색 (사업장명 기반, V2 JSON) */
 export async function searchNpsWorkplace(companyName: string): Promise<NpsWorkplaceInfo[]> {
   const apiKey = process.env.DATA_GO_KR_API_KEY;
   if (!apiKey) {
@@ -47,33 +74,35 @@ export async function searchNpsWorkplace(companyName: string): Promise<NpsWorkpl
     return [];
   }
 
-  const url = `${NPS_BASE_URL}?serviceKey=${encodeURIComponent(apiKey)}&wkpl_nm=${encodeURIComponent(companyName)}&numOfRows=10&pageNo=1`;
+  const params = new URLSearchParams({
+    serviceKey: apiKey,
+    wkpl_nm: companyName,
+    numOfRows: '10',
+    pageNo: '1',
+    type: 'json',
+  });
+
+  const url = `${NPS_BASE_URL}/getBassInfoSearchV2?${params.toString()}`;
 
   try {
-    const response = await fetch(url, { headers: { Accept: 'application/xml' } });
-    const xmlText = await response.text();
+    const response = await fetch(url);
 
-    const results: NpsWorkplaceInfo[] = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match: RegExpExecArray | null;
-
-    while ((match = itemRegex.exec(xmlText)) !== null) {
-      const itemXml = match[1];
-      results.push({
-        wkplNm: getXmlText(itemXml, 'wkplNm'),
-        bzowrRgstNo: getXmlText(itemXml, 'bzowrRgstNo'),
-        wkplRoadNmDtlAddr: getXmlText(itemXml, 'wkplRoadNmDtlAddr'),
-        ldongAddr: getXmlText(itemXml, 'ldongAddr'),
-        wkplJnngStdt: getXmlText(itemXml, 'wkplJnngStdt'),
-        nrOfJnng: Number(getXmlText(itemXml, 'nrOfJnng')) || 0,
-        crtmNtcAmt: Number(getXmlText(itemXml, 'crtmNtcAmt')) || 0,
-        nwAcqzrCnt: Number(getXmlText(itemXml, 'nwAcqzrCnt')) || 0,
-        lssJnngpCnt: Number(getXmlText(itemXml, 'lssJnngpCnt')) || 0,
-        dataCrtYm: getXmlText(itemXml, 'dataCrtYm'),
-      });
+    if (!response.ok) {
+      console.error(`[employeeDataService] NPS API HTTP ${response.status}: ${response.statusText}`);
+      return [];
     }
 
-    return results;
+    const data = await response.json() as Record<string, unknown>;
+
+    // 에러 응답 체크
+    const header = (data?.response as Record<string, unknown>)?.header as Record<string, unknown> | undefined;
+    if (header?.resultCode && header.resultCode !== '00') {
+      console.warn(`[employeeDataService] NPS API error: ${header.resultCode} - ${header.resultMsg}`);
+      return [];
+    }
+
+    const items = extractItems(data);
+    return items.map(parseWorkplaceItem);
   } catch (e) {
     console.error('[employeeDataService] NPS API error:', e);
     return [];

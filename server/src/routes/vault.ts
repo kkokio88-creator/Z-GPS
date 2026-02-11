@@ -2441,11 +2441,20 @@ router.post('/company/research', async (req: Request, res: Response) => {
       if (cfg.aiModel && typeof cfg.aiModel === 'string') userModel = cfg.aiModel;
     } catch { /* default model */ }
 
-    // Google Search grounding으로 실시간 기업 정보 검색
-    const result = await callGeminiDirect(prompt, {
-      model: userModel,
-      tools: [{ googleSearch: {} }],
-    });
+    // Google Search grounding 시도 → 실패 시 일반 호출로 폴백
+    let result;
+    try {
+      result = await callGeminiDirect(prompt, {
+        model: userModel,
+        tools: [{ googleSearch: {} }],
+      });
+    } catch (searchErr) {
+      console.warn('[vault/company/research] Google Search grounding failed, retrying without:', searchErr);
+      result = await callGeminiDirect(prompt, {
+        model: userModel,
+        responseMimeType: 'application/json',
+      });
+    }
     const parsed = cleanAndParseJSON(result.text) as Record<string, unknown>;
 
     // 결과 검증: 최소한 기업명이 있어야 함
