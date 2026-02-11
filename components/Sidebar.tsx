@@ -47,7 +47,7 @@ const Sidebar: React.FC = () => {
     { path: '/', icon: 'dashboard', label: '대시보드' },
     { path: '/explore', icon: 'travel_explore', label: '공고 탐색' },
     { path: '/applications', icon: 'folder_shared', label: '나의 프로젝트' },
-    { path: '/benefits', icon: 'receipt_long', label: '수령 이력' },
+    { path: '/benefits', icon: 'account_balance', label: '놓친 세금 환급' },
   ];
 
   return (

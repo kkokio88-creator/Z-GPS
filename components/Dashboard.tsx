@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
-import type { BenefitSummary } from '../types';
+import type { BenefitSummary, TaxScanResult } from '../types';
 import { getStoredCompany } from '../services/storageService';
 import { Company } from '../types';
 import Header from './Header';
@@ -90,15 +90,17 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
   const [benefitSummary, setBenefitSummary] = useState<BenefitSummary | null>(null);
+  const [taxScan, setTaxScan] = useState<TaxScanResult | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [progs, apps, companyResult, benefitResult] = await Promise.allSettled([
+      const [progs, apps, companyResult, benefitResult, taxScanResult] = await Promise.allSettled([
         vaultService.getPrograms(),
         vaultService.getApplications(),
         vaultService.getCompany(),
         vaultService.getBenefitSummary(),
+        vaultService.getLatestTaxScan(),
       ]);
 
       if (progs.status === 'fulfilled') {
@@ -109,6 +111,9 @@ const Dashboard: React.FC = () => {
       }
       if (benefitResult.status === 'fulfilled') {
         setBenefitSummary(benefitResult.value);
+      }
+      if (taxScanResult.status === 'fulfilled' && taxScanResult.value) {
+        setTaxScan(taxScanResult.value);
       }
       if (companyResult.status === 'fulfilled' && companyResult.value.company) {
         const c = companyResult.value.company;
@@ -430,6 +435,43 @@ const Dashboard: React.FC = () => {
                   })}
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* ===== 놓친 세금 환급 ===== */}
+          <section
+            onClick={() => navigate('/benefits')}
+            className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800/30 shadow-sm p-5 cursor-pointer hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <span className="material-icons-outlined text-white text-lg">account_balance</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">놓친 세금 환급</h3>
+                  {taxScan ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {taxScan.opportunityCount}건 발견 · 추정 환급액 {formatKRW(taxScan.totalEstimatedRefund)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      AI로 놓친 세금 혜택을 스캔해보세요
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {taxScan && taxScan.totalEstimatedRefund > 0 && (
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{formatKRW(taxScan.totalEstimatedRefund)}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {new Date(taxScan.scannedAt).toLocaleDateString('ko-KR')} 스캔
+                    </p>
+                  </div>
+                )}
+                <span className="material-icons-outlined text-gray-400 text-base">chevron_right</span>
+              </div>
             </div>
           </section>
 

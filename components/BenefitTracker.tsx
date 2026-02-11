@@ -44,7 +44,7 @@ const formatKRW = (amount: number): string => {
 };
 
 const BenefitTracker: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'data' | 'analysis' | 'summary' | 'tax'>('data');
+  const [activeTab, setActiveTab] = useState<'tax' | 'data' | 'analysis' | 'summary'>('tax');
   const [benefits, setBenefits] = useState<BenefitRecord[]>([]);
   const [analyses, setAnalyses] = useState<Record<string, BenefitAnalysisResult>>({});
   const [summary, setSummary] = useState<BenefitSummary | null>(null);
@@ -238,15 +238,15 @@ const BenefitTracker: React.FC = () => {
   };
 
   const tabs = [
+    { id: 'tax' as const, label: '놓친 세금 환급', icon: 'account_balance' },
     { id: 'data' as const, label: '수령 이력', icon: 'receipt_long' },
     { id: 'analysis' as const, label: '환급 분석', icon: 'analytics' },
     { id: 'summary' as const, label: '요약', icon: 'summarize' },
-    { id: 'tax' as const, label: '세금 환급', icon: 'account_balance' },
   ];
 
   return (
     <div className="flex flex-col h-full bg-background-light dark:bg-background-dark">
-      <Header title="수령 이력 관리" />
+      <Header title="놓친 세금 환급" />
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-6 md:p-8">
