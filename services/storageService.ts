@@ -9,6 +9,7 @@ const KEYS = {
   API_KEY: 'zmis_user_api_key', 
   AI_MODEL: 'zmis_user_ai_model', 
   DART_KEY: 'zmis_user_dart_key',
+  NPS_KEY: 'zmis_user_nps_key',
   AUTH_SESSION: 'zmis_auth_session', // New: Session Key
 };
 
@@ -62,6 +63,14 @@ export const getStoredDartApiKey = (): string => {
 
 export const saveStoredDartApiKey = (key: string) => {
   localStorage.setItem(KEYS.DART_KEY, key);
+};
+
+export const getStoredNpsApiKey = (): string => {
+  return localStorage.getItem(KEYS.NPS_KEY) || '';
+};
+
+export const saveStoredNpsApiKey = (key: string) => {
+  localStorage.setItem(KEYS.NPS_KEY, key);
 };
 
 // --- Mock Team Members ---

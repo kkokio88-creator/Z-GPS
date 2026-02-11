@@ -86,6 +86,54 @@ const formatKRW = (amount: number): string => {
   return `${amount.toLocaleString()}원`;
 };
 
+const NpsDisconnectedBanner: React.FC<{ navigate: (path: string, opts?: object) => void }> = ({ navigate }) => {
+  const [guideOpen, setGuideOpen] = useState(false);
+  return (
+    <div className="px-3 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg space-y-2">
+      <div className="flex items-start gap-2">
+        <span className="material-icons-outlined text-amber-500 text-base mt-0.5">warning</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">국민연금 데이터 미연결 — 추정치 기반 분석</p>
+          <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 mt-0.5">국민연금 API를 연결하면 직원수·보험료 실데이터로 정확한 세금 분석이 가능합니다.</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-6">
+        <button
+          onClick={() => navigate('/settings', { state: { tab: 'api' } })}
+          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+        >
+          <span className="material-icons-outlined text-xs">settings</span>
+          API 설정하기
+        </button>
+        <a
+          href="https://www.data.go.kr/data/15083277/openapi.do"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-1.5 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex items-center gap-1"
+        >
+          신청 페이지
+          <span className="material-icons-outlined text-xs">open_in_new</span>
+        </a>
+        <button
+          onClick={() => setGuideOpen(v => !v)}
+          className="px-2 py-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 flex items-center gap-0.5"
+        >
+          <span className="material-icons-outlined text-sm">{guideOpen ? 'expand_less' : 'play_arrow'}</span>
+          연결 방법 안내
+        </button>
+      </div>
+      {guideOpen && (
+        <ol className="ml-7 text-[11px] text-amber-600/80 dark:text-amber-400/70 space-y-0.5 list-decimal">
+          <li>data.go.kr 회원가입 (공공데이터포털)</li>
+          <li>'국민연금 사업장 정보' API 신청 (즉시 승인)</li>
+          <li>설정 → API 연동에서 키 입력 후 저장</li>
+          <li>이 페이지에서 재스캔</li>
+        </ol>
+      )}
+    </div>
+  );
+};
+
 const BenefitTracker: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'tax' | 'data' | 'analysis' | 'summary'>('tax');
@@ -1058,10 +1106,7 @@ const BenefitTracker: React.FC = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg">
-                      <span className="material-icons-outlined text-amber-500 text-base">warning</span>
-                      <span className="text-xs font-medium text-amber-700 dark:text-amber-400">추정치 기반 분석 — 국민연금 데이터 미조회</span>
-                    </div>
+                    <NpsDisconnectedBanner navigate={navigate} />
                   )}
 
                   {/* KPI Cards */}

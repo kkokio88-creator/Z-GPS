@@ -2261,6 +2261,9 @@ router.put('/config', async (req: Request, res: Response) => {
     if (updates.dartApiKey && typeof updates.dartApiKey === 'string') {
       process.env.DART_API_KEY = updates.dartApiKey;
     }
+    if (updates.dataGoKrApiKey && typeof updates.dataGoKrApiKey === 'string') {
+      process.env.DATA_GO_KR_API_KEY = updates.dataGoKrApiKey;
+    }
 
     res.json({ success: true });
   } catch (error) {

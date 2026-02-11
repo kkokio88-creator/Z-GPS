@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import { vaultService, VaultStats, VaultFolder, VaultDocumentMeta } from '../services/vaultService';
 import {
@@ -11,6 +12,8 @@ import {
   saveStoredAiModel,
   getStoredDartApiKey,
   saveStoredDartApiKey,
+  getStoredNpsApiKey,
+  saveStoredNpsApiKey,
 } from '../services/storageService';
 import { Company } from '../types';
 import { startQA, resetQA, getQAState } from '../services/qaService';
@@ -202,7 +205,9 @@ const ChipInput: React.FC<{
 // ─── Main Component ──────────────────────────────────────────
 
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabId>('vault');
+  const location = useLocation();
+  const initialTab = (location.state as { tab?: TabId } | null)?.tab || 'vault';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   // Vault
   const [vaultStats, setVaultStats] = useState<VaultStats | null>(null);
@@ -236,8 +241,10 @@ const Settings: React.FC = () => {
   // API
   const [apiKey, setApiKey] = useState('');
   const [dartApiKey, setDartApiKey] = useState('');
+  const [npsApiKey, setNpsApiKey] = useState('');
   const [aiModel, setAiModel] = useState('gemini-2.5-flash-preview');
   const [apiSaved, setApiSaved] = useState(false);
+  const [npsGuideOpen, setNpsGuideOpen] = useState(false);
 
   // Crawling
   const [crawlingConfig, setCrawlingConfig] = useState<CrawlingConfig>(loadCrawlingConfig());
@@ -251,9 +258,11 @@ const Settings: React.FC = () => {
   useEffect(() => {
     const localApiKey = getStoredApiKey();
     const localDartKey = getStoredDartApiKey();
+    const localNpsKey = getStoredNpsApiKey();
     const localModel = getStoredAiModel();
     setApiKey(localApiKey);
     setDartApiKey(localDartKey);
+    setNpsApiKey(localNpsKey);
     setAiModel(localModel);
 
     // localStorage가 비어있으면 서버에서 복원 시도
@@ -264,6 +273,9 @@ const Settings: React.FC = () => {
         }
         if (config.dartApiKey && typeof config.dartApiKey === 'string') {
           setDartApiKey(config.dartApiKey);
+        }
+        if (config.dataGoKrApiKey && typeof config.dataGoKrApiKey === 'string') {
+          setNpsApiKey(config.dataGoKrApiKey);
         }
         if (config.aiModel && typeof config.aiModel === 'string') {
           setAiModel(config.aiModel as string);
@@ -564,6 +576,7 @@ const Settings: React.FC = () => {
   const handleSaveApi = async () => {
     saveStoredApiKey(apiKey);
     saveStoredDartApiKey(dartApiKey);
+    saveStoredNpsApiKey(npsApiKey);
     saveStoredAiModel(aiModel);
 
     // 서버에도 저장 (process.env에 반영)
@@ -571,6 +584,7 @@ const Settings: React.FC = () => {
       await vaultService.saveConfig({
         geminiApiKey: apiKey || undefined,
         dartApiKey: dartApiKey || undefined,
+        dataGoKrApiKey: npsApiKey || undefined,
         aiModel: aiModel || undefined,
       });
     } catch {
@@ -1213,6 +1227,46 @@ const Settings: React.FC = () => {
               </a>
             </div>
             <p className="text-xs text-gray-400 mt-1">금융감독원 전자공시 데이터 조회용</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">공공데이터포털 API Key (국민연금)</label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={npsApiKey}
+                onChange={e => setNpsApiKey(e.target.value)}
+                placeholder="공공데이터포털 인증키를 입력하세요"
+                className="flex-1 border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <a
+                href="https://www.data.go.kr/data/15083277/openapi.do"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-1 transition-colors whitespace-nowrap text-sm"
+              >
+                <span className="material-icons-outlined text-sm">open_in_new</span>
+                신청
+              </a>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">국민연금 사업장 정보 API를 연결하면 세금 환급 분석의 정확도가 높아집니다</p>
+
+            <button
+              type="button"
+              onClick={() => setNpsGuideOpen(v => !v)}
+              className="mt-2 text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 flex items-center gap-1"
+            >
+              <span className="material-icons-outlined text-sm">{npsGuideOpen ? 'expand_less' : 'info'}</span>
+              연결 방법 안내
+            </button>
+            {npsGuideOpen && (
+              <ol className="mt-2 ml-4 text-xs text-gray-500 dark:text-gray-400 space-y-1 list-decimal">
+                <li>data.go.kr 회원가입 (공공데이터포털)</li>
+                <li>'국민연금공단_국민연금 사업장 정보' API 신청</li>
+                <li>즉시 승인 — 발급된 인증키를 위 필드에 입력</li>
+                <li>저장 후 세금 환급 탭에서 재스캔</li>
+              </ol>
+            )}
           </div>
 
           <div>
