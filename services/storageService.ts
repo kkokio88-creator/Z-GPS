@@ -1,4 +1,4 @@
-import { Company, Application, CalendarEvent, AppNotification } from "../types";
+import { Company, Application, CalendarEvent, AppNotification, SupportProgram, DeepResearchResult } from "../types";
 import { COMPANIES } from "../constants";
 
 const KEYS = {
@@ -9,6 +9,7 @@ const KEYS = {
   API_KEY: 'zmis_user_api_key', 
   AI_MODEL: 'zmis_user_ai_model', 
   DART_KEY: 'zmis_user_dart_key',
+  NPS_KEY: 'zmis_user_nps_key',
   AUTH_SESSION: 'zmis_auth_session', // New: Session Key
 };
 
@@ -62,6 +63,14 @@ export const getStoredDartApiKey = (): string => {
 
 export const saveStoredDartApiKey = (key: string) => {
   localStorage.setItem(KEYS.DART_KEY, key);
+};
+
+export const getStoredNpsApiKey = (): string => {
+  return localStorage.getItem(KEYS.NPS_KEY) || '';
+};
+
+export const saveStoredNpsApiKey = (key: string) => {
+  localStorage.setItem(KEYS.NPS_KEY, key);
 };
 
 // --- Mock Team Members ---
@@ -171,4 +180,113 @@ export const markNotificationRead = (id: string) => {
     const notis = getStoredNotifications();
     const updated = notis.map(n => n.id === id ? { ...n, isRead: true } : n);
     saveStoredNotifications(updated);
+};
+
+// --- Program Cache ---
+const PROGRAM_CACHE_KEY = 'zmis_program_cache';
+
+interface ProgramCache {
+  programs: SupportProgram[];
+  source: string;
+  timestamp: string;
+}
+
+export const getCachedPrograms = (): ProgramCache | null => {
+  const stored = localStorage.getItem(PROGRAM_CACHE_KEY);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+};
+
+export const setCachedPrograms = (programs: SupportProgram[], source: string): void => {
+  const cache: ProgramCache = {
+    programs,
+    source,
+    timestamp: new Date().toISOString(),
+  };
+  localStorage.setItem(PROGRAM_CACHE_KEY, JSON.stringify(cache));
+};
+
+// --- Onboarding ---
+const ONBOARDING_KEY = 'zmis_onboarding_complete';
+
+export const isOnboardingComplete = (): boolean => {
+  return localStorage.getItem(ONBOARDING_KEY) === 'true';
+};
+
+export const completeOnboarding = (): void => {
+  localStorage.setItem(ONBOARDING_KEY, 'true');
+};
+
+// --- Program Categories (ProgramExplorer swipe) ---
+const PROGRAM_CATEGORIES_KEY = 'zmis_program_categories';
+
+interface ProgramCategoryEntry {
+  programId: string;
+  category: 'interested' | 'rejected' | 'none';
+  programName: string;
+  expectedGrant: number;
+  supportType: string;
+}
+
+export const getStoredProgramCategories = (): ProgramCategoryEntry[] => {
+  const stored = localStorage.getItem(PROGRAM_CATEGORIES_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+export const saveProgramCategory = (
+  programId: string,
+  category: 'interested' | 'rejected' | 'none',
+  metadata?: { programName: string; expectedGrant: number; supportType: string }
+): void => {
+  const categories = getStoredProgramCategories();
+  const index = categories.findIndex(c => c.programId === programId);
+  const entry: ProgramCategoryEntry = {
+    programId,
+    category,
+    programName: metadata?.programName || '',
+    expectedGrant: metadata?.expectedGrant || 0,
+    supportType: metadata?.supportType || '',
+  };
+  if (index >= 0) {
+    categories[index] = entry;
+  } else {
+    categories.push(entry);
+  }
+  localStorage.setItem(PROGRAM_CATEGORIES_KEY, JSON.stringify(categories));
+};
+
+export const removeProgramCategory = (programId: string): void => {
+  const categories = getStoredProgramCategories();
+  const filtered = categories.filter(c => c.programId !== programId);
+  localStorage.setItem(PROGRAM_CATEGORIES_KEY, JSON.stringify(filtered));
+};
+
+// --- Deep Research 영속화 ---
+const DEEP_RESEARCH_KEY = 'zmis_deep_research';
+
+export const getStoredDeepResearch = (): DeepResearchResult | null => {
+  const stored = localStorage.getItem(DEEP_RESEARCH_KEY);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+};
+
+export const saveStoredDeepResearch = (data: DeepResearchResult): void => {
+  localStorage.setItem(DEEP_RESEARCH_KEY, JSON.stringify(data));
+};
+
+export const clearStoredDeepResearch = (): void => {
+  localStorage.removeItem(DEEP_RESEARCH_KEY);
 };

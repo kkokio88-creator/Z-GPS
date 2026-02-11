@@ -45,10 +45,9 @@ const Sidebar: React.FC = () => {
   // v2.0 Consolidated Menu Structure
   const menuItems = [
     { path: '/', icon: 'dashboard', label: '대시보드' },
+    { path: '/explore', icon: 'travel_explore', label: '공고 탐색' },
     { path: '/applications', icon: 'folder_shared', label: '나의 프로젝트' },
-    { path: '/company', icon: 'business', label: '기업 자산 허브' }, // Merged Knowledge
-    { path: '/research', icon: 'psychology', label: 'AI 전략 연구소' }, // Merged Expert & Pitch
-    { path: '/execution', icon: 'engineering', label: '수행 및 일정' }, // Merged Calendar
+    { path: '/benefits', icon: 'account_balance', label: '놓친 세금 환급' },
   ];
 
   return (

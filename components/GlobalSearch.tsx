@@ -23,9 +23,9 @@ const GlobalSearch: React.FC = () => {
   // Basic menu items
   const menuItems: SearchItem[] = [
     { type: 'MENU', label: '대시보드', path: '/', icon: 'dashboard' },
-    { type: 'MENU', label: '기업 정보 관리', path: '/company', icon: 'business' },
+    { type: 'MENU', label: '환경 설정 (기업 정보)', path: '/settings', icon: 'business' },
     { type: 'MENU', label: '신청서 관리', path: '/applications', icon: 'folder_shared' },
-    { type: 'MENU', label: '시장 조사 허브', path: '/research', icon: 'travel_explore' },
+    { type: 'MENU', label: '수행 및 일정', path: '/execution', icon: 'engineering' },
     { type: 'MENU', label: '캘린더', path: '/calendar', icon: 'event' },
     { type: 'MENU', label: '환경 설정', path: '/settings', icon: 'settings' },
   ];

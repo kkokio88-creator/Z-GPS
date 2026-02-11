@@ -4,14 +4,15 @@ import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation }
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ApplicationEditor from './components/ApplicationEditor';
-import CompanyProfile from './components/CompanyProfile';
+import ProgramExplorer from './components/ProgramExplorer';
+import ProgramDetail from './components/ProgramDetail';
 import CalendarView from './components/CalendarView';
 import ApplicationList from './components/ApplicationList';
-import ResearchHub from './components/ResearchHub';
 import Settings from './components/Settings';
+import BenefitTracker from './components/BenefitTracker';
 import GlobalSearch from './components/GlobalSearch';
 import ExpertMatch from './components/ExpertMatch';
-import ExecutionManager from './components/ExecutionManager';
+// ExecutionManager removed - vault-based workflow
 import Community from './components/Community';
 import PitchTrainer from './components/PitchTrainer';
 import LoginPage from './components/LoginPage';
@@ -230,16 +231,18 @@ const App: React.FC = () => {
         
         <Route path="/" element={<ProtectedRoute />}>
           <Route index element={<Dashboard />} />
-          <Route path="company" element={<CompanyProfile />} />
+          <Route path="explore" element={<ProgramExplorer />} />
+          <Route path="program/:slug" element={<ProgramDetail />} />
           <Route path="applications" element={<ApplicationList />} />
           <Route path="calendar" element={<CalendarView />} />
-          <Route path="research" element={<ResearchHub />} />
           <Route path="ai-board" element={<ExpertMatch />} />
-          <Route path="execution" element={<ExecutionManager />} />
+          {/* execution route removed - vault-based workflow */}
           <Route path="knowledge" element={<Community />} />
           <Route path="pitch" element={<PitchTrainer />} />
+          <Route path="benefits" element={<BenefitTracker />} />
           <Route path="settings" element={<Settings />} />
           <Route path="editor/:programId/:companyId" element={<ApplicationEditor />} />
+          <Route path="editor/:slug" element={<ApplicationEditor />} />
         </Route>
       </Routes>
     </HashRouter>
