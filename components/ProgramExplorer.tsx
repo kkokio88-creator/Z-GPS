@@ -57,8 +57,12 @@ const summarizeText = (text: string, maxLength = 200): string => {
   return cleaned.slice(0, maxLength).trim() + '...';
 };
 
-/** 금액 표시: 0이면 supportScale 텍스트 또는 "미정" */
-const formatGrant = (grant: number, supportScale?: string): string => {
+/** 비금전적 지원 감지 */
+const isNonMonetary = (text: string): boolean =>
+  /무료|무상|컨설팅|멘토링|교육|입주\s*지원|네트워킹|판로|홍보|인증/.test(text);
+
+/** 금액 표시: 0이면 비금전 감지 → supportScale 텍스트 → "미정" */
+const formatGrant = (grant: number, supportScale?: string, supportType?: string): string => {
   if (grant > 0) {
     const billions = grant / 100000000;
     if (billions >= 1) return `${billions.toFixed(1)}억`;
@@ -66,10 +70,14 @@ const formatGrant = (grant: number, supportScale?: string): string => {
     if (tenThousands >= 1) return `${Math.round(tenThousands)}만`;
     return `${grant.toLocaleString()}원`;
   }
+  // 비금전적 지원 감지
+  const combined = `${supportScale || ''} ${supportType || ''}`;
+  if (isNonMonetary(combined)) return '비금전 지원';
   if (supportScale) {
-    // 긴 텍스트는 요약
     const clean = stripHtml(supportScale);
-    return clean.length > 15 ? clean.slice(0, 15) + '…' : clean;
+    if (clean.length > 0 && !/^(별도|공고|추후|미정|해당|없음|-)/i.test(clean.trim())) {
+      return clean.length > 15 ? clean.slice(0, 15) + '…' : clean;
+    }
   }
   return '미정';
 };
@@ -801,7 +809,7 @@ const ProgramExplorer: React.FC = () => {
                         <div className="flex items-center gap-4 ml-4 flex-shrink-0">
                           <div className="text-right">
                             <p className="text-sm font-bold text-primary dark:text-green-400">
-                              {formatGrant(program.expectedGrant, vaultDataRef.current.get(program.id)?.supportScale)}
+                              {formatGrant(program.expectedGrant, vaultDataRef.current.get(program.id)?.supportScale, program.supportType)}
                             </p>
                             <p className={`text-xs font-medium ${
                               program.fitScore >= 85 ? 'text-primary' : 'text-gray-500'
@@ -983,7 +991,7 @@ const ProgramExplorer: React.FC = () => {
                       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
                         <p className="text-xs text-gray-500 mb-0.5">예상 지원금</p>
                         <p className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                          {formatGrant(currentProgram.expectedGrant, vaultDataRef.current.get(currentProgram.id)?.supportScale)}
+                          {formatGrant(currentProgram.expectedGrant, vaultDataRef.current.get(currentProgram.id)?.supportScale, currentProgram.supportType)}
                         </p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
@@ -1120,7 +1128,7 @@ const ProgramExplorer: React.FC = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-500">예상 지원금</span>
-                        <span className="font-bold text-primary dark:text-green-400">{formatGrant(selectedProgram.expectedGrant, vd?.supportScale)}</span>
+                        <span className="font-bold text-primary dark:text-green-400">{formatGrant(selectedProgram.expectedGrant, vd?.supportScale, selectedProgram.supportType)}</span>
                       </div>
                       {vd?.supportScale && (
                         <div className="flex justify-between items-center">

@@ -64,6 +64,12 @@ import {
   type HtmlCrawlResult,
 } from '../services/deepCrawler.js';
 import { initSSE, sendProgress, sendComplete, sendError } from '../utils/sse.js';
+import {
+  applyUnit,
+  parseAmountFromScale,
+  extractGrantFromText,
+  reParseExpectedGrant,
+} from '../utils/amountParser.js';
 
 const router = Router();
 
@@ -71,108 +77,6 @@ const router = Router();
 ensureVaultStructure().catch(e => console.error('[vault] Failed to ensure vault structure:', e));
 
 // ─── Helper ────────────────────────────────────────────────────
-
-/** 단위 적용 헬퍼 */
-function applyUnit(num: number, unit: string): number {
-  if (isNaN(num) || num === 0) return 0;
-  if (unit === '억') return num * 100_000_000;
-  if (unit === '천만') return num * 10_000_000;
-  if (unit === '백만') return num * 1_000_000;
-  if (unit === '만') return num * 10_000;
-  return num;
-}
-
-/** supportScale 텍스트에서 금액(원) 파싱 — 다중 패턴 매칭 */
-function parseAmountFromScale(raw: string): number {
-  if (!raw) return 0;
-  // "별도안내", "공고참조", "미정" 등 비수치 텍스트 스킵
-  if (/^(별도|공고|추후|예산|미정|해당|없음|-)/i.test(raw.trim())) return 0;
-  // "총사업비의 50%이내" 같은 순수 퍼센트 패턴 제외
-  if (/^\D*\d+\s*%/.test(raw) && !/[만억천백]\s*원/.test(raw)) return 0;
-
-  const cleaned = raw.replace(/[,\s]/g, '');
-
-  // 범위: "1~3억원" → max값(3억) 사용
-  const rangeMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*[~\-–]\s*(\d+(?:\.\d+)?)\s*(억|천만|백만|만)?\s*원?/);
-  if (rangeMatch) return applyUnit(parseFloat(rangeMatch[2]), rangeMatch[3] || '');
-
-  // "최대 X억원", "X만원 이내"
-  const unitMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*(억|천만|백만|만)\s*원?/);
-  if (unitMatch) return applyUnit(parseFloat(unitMatch[1]), unitMatch[2]);
-
-  // 순수 숫자+원 ("50000000원")
-  const numMatch = cleaned.match(/(\d+)\s*원/);
-  if (numMatch && parseInt(numMatch[1]) >= 100000) return parseInt(numMatch[1]);
-
-  return 0;
-}
-
-/** 본문/설명 텍스트에서 기업당 지원금 패턴 추출 */
-function extractGrantFromText(text: string): number {
-  if (!text || text.length < 4) return 0;
-  // 기업당/업체당/팀당/1개사당 + 최대 + 금액 패턴 우선
-  const perCompanyPatterns = [
-    /(?:기업당|업체당|팀당|1개사당|개사당|社당|과제당)[^0-9]{0,20}(?:최대\s*)?(\d+(?:[.,]\d+)?)\s*(억|천만|백만|만)\s*원/g,
-    /(?:최대|한도)\s*(\d+(?:[.,]\d+)?)\s*(억|천만|백만|만)\s*원/g,
-    /(\d+(?:[.,]\d+)?)\s*(억|천만|백만|만)\s*원\s*(?:이내|한도|내외|지원|까지)/g,
-  ];
-
-  for (const pattern of perCompanyPatterns) {
-    const matches = [...text.matchAll(pattern)];
-    if (matches.length > 0) {
-      // 가장 작은 금액 선택 (기업당 지원금은 총 예산보다 작음)
-      let minAmount = Infinity;
-      for (const m of matches) {
-        const num = parseFloat(m[1].replace(/,/g, ''));
-        const unit = m[2];
-        const amount = applyUnit(num, unit);
-        if (amount > 0 && amount < minAmount) minAmount = amount;
-      }
-      if (minAmount < Infinity && minAmount >= 1_000_000) return minAmount;
-    }
-  }
-
-  // "X백만원" 단독 패턴 (숫자+백만원이 한 번만 나타나면 사용)
-  const singleMatch = text.match(/(\d+)\s*백만\s*원/);
-  if (singleMatch) {
-    const amount = parseInt(singleMatch[1]) * 1_000_000;
-    if (amount >= 1_000_000) return amount;
-  }
-
-  return 0;
-}
-
-/**
- * 다중 소스에서 expectedGrant 재파싱
- * supportScale → totalBudget → fullDescription → body content → PDF analysis 순서
- */
-function reParseExpectedGrant(fm: Record<string, unknown>, bodyContent?: string, pdfText?: string): number {
-  // 1. supportScale
-  const fromScale = parseAmountFromScale(String(fm.supportScale || ''));
-  if (fromScale > 0) return fromScale;
-
-  // 2. totalBudget
-  const fromBudget = parseAmountFromScale(String(fm.totalBudget || ''));
-  if (fromBudget > 0) return fromBudget;
-
-  // 3. fullDescription
-  const fromDesc = extractGrantFromText(String(fm.fullDescription || ''));
-  if (fromDesc > 0) return fromDesc;
-
-  // 4. body content (마크다운 본문)
-  if (bodyContent) {
-    const fromBody = extractGrantFromText(bodyContent);
-    if (fromBody > 0) return fromBody;
-  }
-
-  // 5. PDF 분석 텍스트
-  if (pdfText) {
-    const fromPdf = extractGrantFromText(pdfText);
-    if (fromPdf > 0) return fromPdf;
-  }
-
-  return 0;
-}
 
 /** PDF 분석 텍스트를 슬러그 기반으로 로드 (동기적 볼트 탐색) */
 async function loadPdfAnalysisForSlug(slug: string): Promise<string> {
@@ -423,15 +327,17 @@ function programToFrontmatter(
     fullDescription: deepCrawl?.fullDescription || p.fullDescription || p.description || '',
   };
 
-  // expectedGrant가 0이면 supportScale/totalBudget에서 재파싱
+  // expectedGrant가 0이면 supportScale → totalBudget → fullDescription에서 재파싱
   if (!fm.expectedGrant || Number(fm.expectedGrant) === 0) {
-    const sources = [
-      String(fm.supportScale || ''),
-      String(fm.totalBudget || ''),
-    ];
-    for (const src of sources) {
+    // 1-2단계: supportScale, totalBudget
+    for (const src of [String(fm.supportScale || ''), String(fm.totalBudget || '')]) {
       const parsed = parseAmountFromScale(src);
       if (parsed > 0) { fm.expectedGrant = parsed; break; }
+    }
+    // 3단계: fullDescription 본문에서 추출
+    if (!fm.expectedGrant || Number(fm.expectedGrant) === 0) {
+      const fromDesc = extractGrantFromText(String(fm.fullDescription || ''));
+      if (fromDesc > 0) fm.expectedGrant = fromDesc;
     }
   }
 
@@ -1555,21 +1461,39 @@ router.get('/programs', async (_req: Request, res: Response) => {
     const files = await listNotes(path.join(getVaultRoot(), 'programs'));
 
     const programs: Record<string, unknown>[] = [];
+    const lazyUpdates: { file: string; fm: Record<string, unknown>; content: string }[] = [];
+
     for (const file of files) {
       try {
-        const { frontmatter } = await readNote(file);
+        const { frontmatter, content } = await readNote(file);
+
+        // expectedGrant가 0인 프로그램은 body + PDF까지 전달하여 5단계 재파싱
+        if (!frontmatter.expectedGrant || Number(frontmatter.expectedGrant) === 0) {
+          const slug = String(frontmatter.slug || '');
+          const pdfText = slug ? await loadPdfAnalysisForSlug(slug) : '';
+          const parsed = reParseExpectedGrant(frontmatter, content, pdfText);
+          if (parsed > 0) {
+            frontmatter.expectedGrant = parsed;
+            lazyUpdates.push({ file, fm: frontmatter, content });
+          }
+        }
+
         programs.push(frontmatter);
       } catch (e) {
         console.warn('[vault/programs] Failed to read:', file, e);
       }
     }
 
-    // expectedGrant가 0인 프로그램은 다중 소스에서 재파싱
-    for (const p of programs) {
-      if (!p.expectedGrant || Number(p.expectedGrant) === 0) {
-        const parsed = reParseExpectedGrant(p);
-        if (parsed > 0) p.expectedGrant = parsed;
+    // Lazy migration: 파싱 성공한 파일들을 vault에 저장
+    for (const { file, fm, content } of lazyUpdates) {
+      try {
+        await writeNote(file, fm, content);
+      } catch (e) {
+        console.warn('[vault/programs] Lazy update failed:', file, e);
       }
+    }
+    if (lazyUpdates.length > 0) {
+      console.log(`[vault/programs] Lazy migrated ${lazyUpdates.length} grant amounts`);
     }
 
     // fitScore 내림차순 정렬
