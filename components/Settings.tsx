@@ -477,8 +477,10 @@ const Settings: React.FC = () => {
           detail: { message: '기업 리서치 완료 — 자동 저장되었습니다.', type: 'success' },
         }));
       }
-    } catch (e) {
-      setResearchError(`리서치 실패: ${String(e)}`);
+    } catch (e: unknown) {
+      const err = e as Error & { response?: { data?: { error?: string; details?: string } } };
+      const detail = err?.response?.data?.details || err?.response?.data?.error || String(e);
+      setResearchError(`리서치 실패: ${detail}`);
     } finally {
       setResearching(false);
     }

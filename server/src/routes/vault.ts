@@ -2441,20 +2441,53 @@ router.post('/company/research', async (req: Request, res: Response) => {
       if (cfg.aiModel && typeof cfg.aiModel === 'string') userModel = cfg.aiModel;
     } catch { /* default model */ }
 
-    // Google Search grounding 시도 → 실패 시 일반 호출로 폴백
-    let result;
+    // 3단계 폴백으로 안정적 Gemini 호출
+    let result: { text: string } | undefined;
+    const errors: string[] = [];
+
+    // 1차: Google Search grounding + gemini-2.0-flash (googleSearch 지원 확실)
     try {
       result = await callGeminiDirect(prompt, {
-        model: userModel,
+        model: 'gemini-2.0-flash',
         tools: [{ googleSearch: {} }],
       });
-    } catch (searchErr) {
-      console.warn('[vault/company/research] Google Search grounding failed, retrying without:', searchErr);
-      result = await callGeminiDirect(prompt, {
-        model: userModel,
-        responseMimeType: 'application/json',
-      });
+      if (!result.text) throw new Error('Empty response');
+    } catch (e1) {
+      errors.push(`Search: ${String(e1).substring(0, 80)}`);
+      result = undefined;
     }
+
+    // 2차: JSON 모드 + 사용자 모델
+    if (!result?.text) {
+      try {
+        result = await callGeminiDirect(prompt, {
+          model: userModel,
+          responseMimeType: 'application/json',
+        });
+        if (!result.text) throw new Error('Empty response');
+      } catch (e2) {
+        errors.push(`JSON+${userModel}: ${String(e2).substring(0, 80)}`);
+        result = undefined;
+      }
+    }
+
+    // 3차: JSON 모드 + gemini-2.0-flash (최후 수단)
+    if (!result?.text) {
+      try {
+        result = await callGeminiDirect(prompt, {
+          model: 'gemini-2.0-flash',
+          responseMimeType: 'application/json',
+        });
+      } catch (e3) {
+        errors.push(`Flash: ${String(e3).substring(0, 80)}`);
+        throw new Error(`Gemini 호출 실패 (3회 시도): ${errors.join(' | ')}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn('[vault/company/research] Fallback used:', errors.join(' | '));
+    }
+
     const parsed = cleanAndParseJSON(result.text) as Record<string, unknown>;
 
     // 결과 검증: 최소한 기업명이 있어야 함

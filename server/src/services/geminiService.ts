@@ -40,7 +40,21 @@ export async function callGeminiDirect(
         config: processedConfig,
       });
 
-      return { text: response.text || '' };
+      // response.text getter는 safety block / 빈 응답 시 throw할 수 있음
+      let text = '';
+      try {
+        text = response.text || '';
+      } catch {
+        // candidates에서 직접 텍스트 추출 시도
+        const candidates = (response as unknown as Record<string, unknown>).candidates as
+          Array<Record<string, unknown>> | undefined;
+        const parts = (candidates?.[0]?.content as Record<string, unknown> | undefined)?.parts as
+          Array<Record<string, unknown>> | undefined;
+        if (parts) {
+          text = parts.filter(p => typeof p.text === 'string').map(p => p.text as string).join('');
+        }
+      }
+      return { text };
     } catch (error: unknown) {
       lastError = error;
       const errStr = String(error);
