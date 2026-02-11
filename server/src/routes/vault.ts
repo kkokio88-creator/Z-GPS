@@ -3364,7 +3364,7 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
     }
 
     // 기업 프로필 로드
-    const companyFile = path.join(getVaultRoot(), '기업정보.md');
+    const companyFile = path.join(getVaultRoot(), 'company', 'profile.md');
     if (!(await noteExists(companyFile))) {
       return res.status(400).json({ error: '기업 정보가 등록되지 않았습니다. 설정에서 기업 프로필을 먼저 등록해주세요.' });
     }
@@ -3415,18 +3415,27 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
     const now = new Date().toISOString();
     const totalEstimatedRefund = result.opportunities.reduce((sum, o) => sum + (o.estimatedRefund || 0), 0);
 
+    // opportunities에서 undefined 값 제거 (YAML 직렬화 호환)
+    const cleanOpportunities = result.opportunities.map(o => {
+      const cleaned: Record<string, unknown> = { ...o };
+      for (const key of Object.keys(cleaned)) {
+        if (cleaned[key] === undefined) delete cleaned[key];
+      }
+      return cleaned;
+    });
+
     const scan = {
       id: scanId,
       scannedAt: now,
-      opportunities: result.opportunities,
+      opportunities: cleanOpportunities,
       totalEstimatedRefund,
-      opportunityCount: result.opportunities.length,
+      opportunityCount: cleanOpportunities.length,
       companySnapshot: {
-        name: company.name as string,
+        name: (company.name as string) || '',
         industry: (company.industry as string) || '',
         employees: Number(company.employees) || 0,
         revenue: Number(company.revenue) || 0,
-        foundedYear: company.foundedYear ? Number(company.foundedYear) : undefined,
+        ...(company.foundedYear ? { foundedYear: Number(company.foundedYear) } : {}),
       },
       summary: result.summary,
       disclaimer: result.disclaimer,

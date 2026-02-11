@@ -59,6 +59,7 @@ const BenefitTracker: React.FC = () => {
   const [taxScan, setTaxScan] = useState<TaxScanResult | null>(null);
   const [taxScanning, setTaxScanning] = useState(false);
   const [expandedOpportunity, setExpandedOpportunity] = useState<string | null>(null);
+  const [taxError, setTaxError] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -228,10 +229,15 @@ const BenefitTracker: React.FC = () => {
 
   const handleRunTaxScan = async () => {
     setTaxScanning(true);
+    setTaxError(null);
     try {
       const result = await vaultService.runTaxScan();
       setTaxScan(result);
-    } catch (e) {
+    } catch (e: unknown) {
+      const errMsg = (e && typeof e === 'object' && 'response' in e)
+        ? ((e as { response?: { data?: { error?: string } } }).response?.data?.error || '스캔 중 오류가 발생했습니다.')
+        : '서버 연결에 실패했습니다.';
+      setTaxError(errMsg);
       if (import.meta.env.DEV) console.error('[BenefitTracker] Tax scan error:', e);
     }
     setTaxScanning(false);
@@ -837,6 +843,15 @@ const BenefitTracker: React.FC = () => {
                   <span className="material-icons-outlined text-5xl text-indigo-400 animate-pulse block mb-3">account_balance</span>
                   <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">10대 세금 혜택 항목을 분석하고 있습니다...</p>
                   <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">기업 정보와 수령 이력을 기반으로 적용 가능한 혜택을 탐색합니다</p>
+                </div>
+              )}
+
+              {/* Error */}
+              {!taxScanning && taxError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-5 text-center">
+                  <span className="material-icons-outlined text-3xl text-red-400 block mb-2">error_outline</span>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-400">{taxError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">설정에서 기업 프로필과 Gemini API 키를 확인해주세요.</p>
                 </div>
               )}
 
