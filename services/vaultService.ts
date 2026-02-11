@@ -119,7 +119,10 @@ export interface SyncResult {
   totalFetched: number;
   created: number;
   updated: number;
-  deepCrawled?: number;
+  phase2Crawled?: number;
+  phase3Enriched?: number;
+  phase4Analyzed?: number;
+  phase4Strategies?: number;
   attachmentsDownloaded?: number;
   syncedAt: string;
 }
@@ -160,10 +163,9 @@ export const vaultService = {
     return data;
   },
 
-  /** 3개 API → 볼트에 프로그램 동기화 */
-  async syncPrograms(deepCrawl?: boolean): Promise<SyncResult> {
-    const url = deepCrawl ? '/api/vault/sync?deepCrawl=true' : '/api/vault/sync';
-    const { data } = await apiClient.post<SyncResult>(url, {});
+  /** 3개 API → 볼트에 프로그램 동기화 (3단계 파이프라인) */
+  async syncPrograms(): Promise<SyncResult> {
+    const { data } = await apiClient.post<SyncResult>('/api/vault/sync', {});
     return data;
   },
 
@@ -207,12 +209,10 @@ export const vaultService = {
     return data;
   },
 
-  /** SSE: 동기화 + 실시간 진행률 */
+  /** SSE: 동기화 + 실시간 진행률 (3단계 파이프라인) */
   syncProgramsWithProgress(
-    deepCrawl: boolean,
     onProgress: (event: SSEProgressEvent) => void
   ): { promise: Promise<SyncResult>; abort: () => void } {
-    const url = deepCrawl ? '/api/vault/sync?deepCrawl=true' : '/api/vault/sync';
     let resolvePromise: (value: SyncResult) => void;
     let rejectPromise: (reason: Error) => void;
 
@@ -221,7 +221,7 @@ export const vaultService = {
       rejectPromise = reject;
     });
 
-    const controller = connectSSE(url, {
+    const controller = connectSSE('/api/vault/sync', {
       onProgress,
       onComplete: (data) => resolvePromise!(data as unknown as SyncResult),
       onError: (error) => rejectPromise!(new Error(error)),

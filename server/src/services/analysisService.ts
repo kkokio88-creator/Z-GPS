@@ -4,6 +4,7 @@
  */
 
 import { callGeminiDirect, cleanAndParseJSON } from './geminiService.js';
+import { extractRegionFromAddress, isRegionMismatch } from './programFetcher.js';
 
 interface CompanyInfo {
   name: string;
@@ -42,6 +43,7 @@ interface ProgramInfo {
   categories?: string[];
   keywords?: string[];
   department?: string;
+  regions?: string[];
 }
 
 export interface FitDimensions {
@@ -303,6 +305,40 @@ export async function analyzeFit(
   program: ProgramInfo,
   attachmentText?: string
 ): Promise<FitAnalysisResult> {
+  // ─── 지역 불일치 사전 체크 (Gemini 호출 전에 걸러냄) ───
+  const companyRegion = extractRegionFromAddress(company.address || '');
+  if (companyRegion) {
+    const regionMismatch = isRegionMismatch(
+      program.programName,
+      program.regions || [],
+      companyRegion
+    );
+    if (regionMismatch) {
+      console.log(`[analysisService] 지역 불일치 → 부적합: ${program.programName} (회사: ${companyRegion})`);
+      return {
+        fitScore: 5,
+        eligibility: '부적합',
+        dimensions: {
+          eligibilityMatch: 0,
+          industryRelevance: 0,
+          scaleFit: 0,
+          competitiveness: 0,
+          strategicAlignment: 0,
+        },
+        eligibilityDetails: {
+          met: [],
+          unmet: [`지역 불일치: 회사 소재지(${companyRegion})와 공고 대상 지역이 다릅니다.`],
+          unclear: [],
+        },
+        strengths: [],
+        weaknesses: ['지역 요건 미충족'],
+        advice: `이 공고는 ${companyRegion} 소재 기업에 적합하지 않습니다.`,
+        recommendedStrategy: '',
+        keyActions: [],
+      };
+    }
+  }
+
   // 기업 정보 블록
   const companyBlock = [
     `- 기업명: ${company.name}`,

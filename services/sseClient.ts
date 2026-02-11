@@ -9,6 +9,7 @@ export interface SSEProgressEvent {
   total: number;
   percent: number;
   programName: string;
+  phase: number;
 }
 
 interface SSECallbacks {

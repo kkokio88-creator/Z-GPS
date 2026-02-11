@@ -1,10 +1,9 @@
 
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
 import { getStoredCompany } from '../services/storageService';
 import { Company } from '../types';
-import type { SSEProgressEvent } from '../services/sseClient';
 import Header from './Header';
 
 // --- Helper Functions ---
@@ -88,17 +87,7 @@ const Dashboard: React.FC = () => {
   const [programs, setPrograms] = useState<VaultProgram[]>([]);
   const [myApplications, setMyApplications] = useState<VaultApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Vault control states
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [syncResult, setSyncResult] = useState<string>('');
-  const [analyzeResult, setAnalyzeResult] = useState<string>('');
-  const [lastSyncedAt, setLastSyncedAt] = useState<string>('');
-  const [syncProgress, setSyncProgress] = useState<SSEProgressEvent | null>(null);
-  const [analyzeProgress, setAnalyzeProgress] = useState<SSEProgressEvent | null>(null);
-  const syncAbortRef = useRef<(() => void) | null>(null);
-  const analyzeAbortRef = useRef<(() => void) | null>(null);
+  const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -111,16 +100,10 @@ const Dashboard: React.FC = () => {
 
       if (progs.status === 'fulfilled') {
         setPrograms(progs.value);
-        // 마지막 동기화 시각 추출
-        const latestSync = progs.value.reduce((latest: string, p: VaultProgram) => {
-          return p.syncedAt > latest ? p.syncedAt : latest;
-        }, '');
-        if (latestSync) setLastSyncedAt(latestSync);
       }
       if (apps.status === 'fulfilled') {
         setMyApplications(apps.value);
       }
-      // Vault의 기업 정보를 우선 사용
       if (companyResult.status === 'fulfilled' && companyResult.value.company) {
         const c = companyResult.value.company;
         setCompany(prev => ({
@@ -145,51 +128,16 @@ const Dashboard: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // --- Vault Actions ---
-
-  const handleSync = async () => {
-    setIsSyncing(true);
-    setSyncResult('');
-    setSyncProgress(null);
-    try {
-      const { promise, abort } = vaultService.syncProgramsWithProgress(
-        false,
-        (event) => setSyncProgress(event)
-      );
-      syncAbortRef.current = abort;
-      const result = await promise;
-      setSyncResult(`${result.totalFetched}건 수집 (신규 ${result.created}, 갱신 ${result.updated})`);
-      setLastSyncedAt(result.syncedAt);
-      await loadData();
-    } catch (e) {
-      setSyncResult('동기화 실패: ' + String(e));
-    }
-    setIsSyncing(false);
-    setSyncProgress(null);
-    syncAbortRef.current = null;
+  const toggleArea = (areaId: string) => {
+    setExpandedAreas(prev => {
+      const next = new Set(prev);
+      if (next.has(areaId)) next.delete(areaId);
+      else next.add(areaId);
+      return next;
+    });
   };
 
-  const handleAnalyzeAll = async () => {
-    setIsAnalyzing(true);
-    setAnalyzeResult('');
-    setAnalyzeProgress(null);
-    try {
-      const { promise, abort } = vaultService.analyzeAllWithProgress(
-        (event) => setAnalyzeProgress(event)
-      );
-      analyzeAbortRef.current = abort;
-      const result = await promise;
-      setAnalyzeResult(`${result.analyzed}건 분석 완료 (오류 ${result.errors}건)`);
-      await loadData();
-    } catch (e) {
-      setAnalyzeResult('분석 실패: ' + String(e));
-    }
-    setIsAnalyzing(false);
-    setAnalyzeProgress(null);
-    analyzeAbortRef.current = null;
-  };
-
-  // --- Derived Data (Memoized) ---
+  // --- Derived Data ---
 
   const activePrograms = useMemo(() => {
     const today = new Date();
@@ -201,25 +149,30 @@ const Dashboard: React.FC = () => {
   }, [programs]);
 
   const heroStats = useMemo(() => {
-    const totalGrant = activePrograms.reduce((sum, p) => sum + (p.expectedGrant || 0), 0);
-    const avgFit = activePrograms.length > 0
-      ? Math.round(activePrograms.reduce((sum, p) => sum + (p.fitScore || 0), 0) / activePrograms.length)
+    // 적합 프로그램: eligibility가 '부적합'이 아닌 것
+    const eligiblePrograms = activePrograms.filter(p => p.eligibility !== '부적합');
+    const totalGrant = eligiblePrograms.reduce((sum, p) => sum + (p.expectedGrant || 0), 0);
+    const analyzedPrograms = activePrograms.filter(p => p.fitScore > 0);
+    const avgFit = analyzedPrograms.length > 0
+      ? Math.round(analyzedPrograms.reduce((sum, p) => sum + p.fitScore, 0) / analyzedPrograms.length)
       : 0;
-    const analyzedCount = activePrograms.filter(p => p.status === 'analyzed' || (p.fitScore && p.fitScore > 0)).length;
+    const recommendedCount = activePrograms.filter(p => p.fitScore >= 60).length;
 
     return {
       totalPrograms: activePrograms.length,
       totalGrant,
       avgFit,
-      analyzedCount,
+      analyzedCount: analyzedPrograms.length,
+      recommendedCount,
     };
   }, [activePrograms]);
 
   const focusData = useMemo(() => {
     return FOCUS_AREAS.map(area => {
-      const matched = activePrograms.filter(p => matchProgramToFocus(p, area.keywords));
+      const matched = activePrograms
+        .filter(p => matchProgramToFocus(p, area.keywords))
+        .sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0));
       const totalGrant = matched.reduce((sum, p) => sum + (p.expectedGrant || 0), 0);
-      const best = [...matched].sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0))[0];
 
       let nearestDeadline: { label: string; days: number } | null = null;
       if (matched.length > 0) {
@@ -230,7 +183,7 @@ const Dashboard: React.FC = () => {
         nearestDeadline = { label: dd.label, days: dd.days };
       }
 
-      return { ...area, matchCount: matched.length, totalGrant, bestProgram: best, nearestDeadline };
+      return { ...area, matched, matchCount: matched.length, totalGrant, nearestDeadline };
     });
   }, [activePrograms]);
 
@@ -263,7 +216,6 @@ const Dashboard: React.FC = () => {
     return typeDistribution[0][1];
   }, [typeDistribution]);
 
-  // --- Skeleton Loader ---
   const SkeletonBlock: React.FC<{ className?: string }> = ({ className = '' }) => (
     <div className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg ${className}`} />
   );
@@ -275,99 +227,7 @@ const Dashboard: React.FC = () => {
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto space-y-6 p-6 md:p-8">
 
-          {/* ===== Section 0: Vault Control Panel ===== */}
-          <section className="bg-white dark:bg-surface-dark rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark flex items-center">
-                <span className="material-icons-outlined text-indigo-500 mr-2 text-base">storage</span>
-                Obsidian Vault 관리
-              </h3>
-              {lastSyncedAt && (
-                <span className="text-[10px] text-gray-400">
-                  마지막 동기화: {new Date(lastSyncedAt).toLocaleString('ko-KR')}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={handleSync}
-                disabled={isSyncing}
-                className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                <span className={`material-icons-outlined text-base mr-2 ${isSyncing ? 'animate-spin' : ''}`}>
-                  {isSyncing ? 'autorenew' : 'cloud_download'}
-                </span>
-                {isSyncing ? '동기화 중...' : '공고 동기화'}
-              </button>
-
-              <button
-                onClick={handleAnalyzeAll}
-                disabled={isAnalyzing || programs.length === 0}
-                className="flex items-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                <span className={`material-icons-outlined text-base mr-2 ${isAnalyzing ? 'animate-spin' : ''}`}>
-                  {isAnalyzing ? 'autorenew' : 'psychology'}
-                </span>
-                {isAnalyzing ? '분석 중...' : '전체 분석 실행'}
-              </button>
-
-              <button
-                onClick={() => navigate('/settings')}
-                className="flex items-center px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
-              >
-                <span className="material-icons-outlined text-base mr-2">business</span>
-                기업 정보
-              </button>
-            </div>
-
-            {/* SSE 진행률 */}
-            {(syncProgress || analyzeProgress) && (
-              <div className="mt-3 space-y-2">
-                {syncProgress && (
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 mb-1">
-                      <span>{syncProgress.stage}</span>
-                      <span className="font-mono">{syncProgress.current}/{syncProgress.total} ({syncProgress.percent}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${syncProgress.percent}%` }} />
-                    </div>
-                    {syncProgress.programName && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{syncProgress.programName}</p>}
-                  </div>
-                )}
-                {analyzeProgress && (
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 mb-1">
-                      <span>{analyzeProgress.stage}</span>
-                      <span className="font-mono">{analyzeProgress.current}/{analyzeProgress.total} ({analyzeProgress.percent}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${analyzeProgress.percent}%` }} />
-                    </div>
-                    {analyzeProgress.programName && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{analyzeProgress.programName}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(syncResult || analyzeResult) && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {syncResult && (
-                  <span className="text-xs px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400">
-                    {syncResult}
-                  </span>
-                )}
-                {analyzeResult && (
-                  <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
-                    {analyzeResult}
-                  </span>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* ===== Section 1: Hero Summary Bar ===== */}
+          {/* ===== Hero Summary Bar ===== */}
           <section className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 rounded-2xl p-6 md:p-8 shadow-lg">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -398,14 +258,14 @@ const Dashboard: React.FC = () => {
                   <p className="text-blue-400 text-3xl font-bold">{heroStats.avgFit}<span className="text-sm text-gray-400 ml-1">%</span></p>
                 </div>
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                  <p className="text-gray-400 text-xs font-medium mb-1">분석 완료</p>
-                  <p className="text-purple-400 text-3xl font-bold">{heroStats.analyzedCount}<span className="text-sm text-gray-400 ml-1">건</span></p>
+                  <p className="text-gray-400 text-xs font-medium mb-1">추천 공고</p>
+                  <p className="text-purple-400 text-3xl font-bold">{heroStats.recommendedCount}<span className="text-sm text-gray-400 ml-1">건</span></p>
                 </div>
               </div>
             )}
           </section>
 
-          {/* ===== Section 2: 나의 관심 분야 ===== */}
+          {/* ===== 나의 관심 분야 (3개 공고 + 더 보기 토글) ===== */}
           <section>
             <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
               <span className="material-icons-outlined text-primary mr-2">interests</span>
@@ -418,57 +278,73 @@ const Dashboard: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {focusData.map(area => (
-                  <div key={area.id} className="relative overflow-hidden rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm hover:shadow-md transition-shadow">
-                    <div className={`bg-gradient-to-r ${area.gradientFrom} ${area.gradientTo} p-4 text-white`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <span className="material-icons-outlined text-2xl mr-2 opacity-90">{area.icon}</span>
-                          <h4 className="font-bold text-sm">{area.title}</h4>
-                        </div>
-                        <span className="text-2xl font-bold">{area.matchCount}</span>
-                      </div>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">총 수령 가능</span>
-                        <span className={`font-bold ${area.textColor}`}>{formatKRW(area.totalGrant)}</span>
-                      </div>
-                      {area.bestProgram ? (
-                        <div
-                          onClick={() => area.bestProgram?.slug && navigate(`/editor/${area.bestProgram.slug}`)}
-                          className={`${area.bgLight} ${area.bgDark} rounded-lg p-3 cursor-pointer hover:shadow-sm transition-shadow`}
-                        >
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase mb-1">최적합 프로그램</p>
-                          <p className="text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-1">{area.bestProgram.programName}</p>
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">적합도 {area.bestProgram.fitScore}%</p>
-                            <span className="text-[10px] text-indigo-500 hover:underline">지원서 작성</span>
+                {focusData.map(area => {
+                  const isExpanded = expandedAreas.has(area.id);
+                  const visiblePrograms = isExpanded ? area.matched : area.matched.slice(0, 3);
+
+                  return (
+                    <div key={area.id} className="relative overflow-hidden rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark shadow-sm">
+                      <div className={`bg-gradient-to-r ${area.gradientFrom} ${area.gradientTo} p-4 text-white`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <span className="material-icons-outlined text-2xl mr-2 opacity-90">{area.icon}</span>
+                            <h4 className="font-bold text-sm">{area.title}</h4>
                           </div>
+                          <span className="text-2xl font-bold">{area.matchCount}</span>
                         </div>
-                      ) : (
-                        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-                          <p className="text-xs text-gray-400">매칭 프로그램 없음</p>
+                        <div className="flex justify-between mt-2 text-xs text-white/80">
+                          <span>{formatKRW(area.totalGrant)}</span>
+                          {area.nearestDeadline && (
+                            <span className={area.nearestDeadline.days <= 7 ? 'text-yellow-200 font-bold' : ''}>
+                              {area.nearestDeadline.label}
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {area.nearestDeadline && (
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-gray-500 dark:text-gray-400">가장 빠른 마감</span>
-                          <span className={`font-bold ${area.nearestDeadline.days <= 7 ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
-                            {area.nearestDeadline.label}
-                          </span>
-                        </div>
-                      )}
+                      </div>
+                      <div className="p-3 space-y-1.5">
+                        {visiblePrograms.length === 0 ? (
+                          <div className="py-3 text-center">
+                            <p className="text-xs text-gray-400">매칭 프로그램 없음</p>
+                          </div>
+                        ) : (
+                          visiblePrograms.map(prog => (
+                            <div
+                              key={prog.slug}
+                              onClick={() => navigate(`/editor/${prog.slug}`)}
+                              className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer hover:shadow-sm transition-all ${area.bgLight} ${area.bgDark}`}
+                            >
+                              <div className="flex-1 min-w-0 mr-2">
+                                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{prog.programName}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">{prog.organizer} · {formatKRW(prog.expectedGrant)}</p>
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                {prog.fitScore > 0 && (
+                                  <span className={`text-xs font-bold ${prog.fitScore >= 70 ? 'text-green-600' : prog.fitScore >= 40 ? 'text-amber-600' : 'text-gray-400'}`}>
+                                    {prog.fitScore}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        {area.matched.length > 3 && (
+                          <button
+                            onClick={() => toggleArea(area.id)}
+                            className={`w-full text-center py-2 text-xs font-medium rounded-lg transition-colors ${area.textColor} hover:bg-gray-50 dark:hover:bg-gray-800`}
+                          >
+                            {isExpanded ? '접기' : `+${area.matched.length - 3}건 더 보기`}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
 
-          {/* ===== Section 3 & 4: 2-Column Layout ===== */}
+          {/* ===== 2-Column: 유형 분포 + 마감 임박 ===== */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: 공고 유형 분포 */}
             <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
                 <span className="material-icons-outlined text-indigo-500 mr-2 text-base">bar_chart</span>
@@ -503,7 +379,6 @@ const Dashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Right: 마감 임박 타임라인 */}
             <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
                 <span className="material-icons-outlined text-red-500 mr-2 text-base">schedule</span>
@@ -552,58 +427,7 @@ const Dashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* ===== Section 5: 빠른 실행 ===== */}
-          <section>
-            <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-              <span className="material-icons-outlined text-primary mr-2">bolt</span>
-              빠른 실행
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                onClick={() => navigate('/explore')}
-                className="group flex items-center p-5 bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700 transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors flex-shrink-0">
-                  <span className="material-icons-outlined text-2xl">travel_explore</span>
-                </div>
-                <div className="ml-4 text-left">
-                  <p className="font-bold text-sm text-gray-800 dark:text-gray-200">공고 탐색</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">적합 공고 탐색 및 지원서 작성</p>
-                </div>
-                <span className="material-icons-outlined text-gray-300 dark:text-gray-600 ml-auto group-hover:text-purple-400 transition-colors">arrow_forward</span>
-              </button>
-
-              <button
-                onClick={() => navigate('/applications')}
-                className="group flex items-center p-5 bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40 transition-colors flex-shrink-0">
-                  <span className="material-icons-outlined text-2xl">folder_shared</span>
-                </div>
-                <div className="ml-4 text-left">
-                  <p className="font-bold text-sm text-gray-800 dark:text-gray-200">나의 프로젝트</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">지원 사업 탐색 및 프로젝트 관리</p>
-                </div>
-                <span className="material-icons-outlined text-gray-300 dark:text-gray-600 ml-auto group-hover:text-indigo-400 transition-colors">arrow_forward</span>
-              </button>
-
-              <button
-                onClick={() => navigate('/settings')}
-                className="group flex items-center p-5 bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-700 transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/40 transition-colors flex-shrink-0">
-                  <span className="material-icons-outlined text-2xl">settings</span>
-                </div>
-                <div className="ml-4 text-left">
-                  <p className="font-bold text-sm text-gray-800 dark:text-gray-200">환경 설정</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">기업 정보 및 API 설정</p>
-                </div>
-                <span className="material-icons-outlined text-gray-300 dark:text-gray-600 ml-auto group-hover:text-emerald-400 transition-colors">arrow_forward</span>
-              </button>
-            </div>
-          </section>
-
-          {/* ===== Section 6: 내 지원 현황 (Compact Bar) ===== */}
+          {/* ===== 내 지원 현황 (Compact Bar) ===== */}
           <section className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark flex items-center">

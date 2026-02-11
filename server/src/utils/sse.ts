@@ -31,7 +31,8 @@ export function sendProgress(
   stage: string,
   current: number,
   total: number,
-  programName?: string
+  programName?: string,
+  phase?: number
 ): void {
   sendSSE(res, 'progress', {
     stage,
@@ -39,6 +40,7 @@ export function sendProgress(
     total,
     percent: total > 0 ? Math.round((current / total) * 100) : 0,
     programName: programName || '',
+    phase: phase ?? 0,
   });
 }
 

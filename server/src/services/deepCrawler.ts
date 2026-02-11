@@ -1026,9 +1026,68 @@ ${attachmentFullTextBlock}
   }
 }
 
+// ─── HTML 크롤 전용 (AI 없음) ────────────────────────────────
+
+export interface HtmlCrawlResult {
+  metadata: Record<string, string>;
+  content: string;
+  attachmentLinks: AttachmentLink[];
+}
+
+/**
+ * HTML fetch + 어댑터 메타데이터/본문/첨부링크 추출 (AI 호출 없음)
+ * 2단계 파이프라인 전용
+ */
+export async function crawlHtmlOnly(
+  detailUrl: string,
+  programName: string
+): Promise<HtmlCrawlResult | null> {
+  // URL 유효성 검증
+  if (!detailUrl) return null;
+  try {
+    const parsedUrl = new URL(detailUrl);
+    if (parsedUrl.pathname === '/' || parsedUrl.pathname === '') return null;
+  } catch {
+    return null;
+  }
+  if (detailUrl === 'https://www.mss.go.kr/' || detailUrl === 'https://www.k-startup.go.kr/') {
+    return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(detailUrl, {
+      headers: CRAWL_HEADERS,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.warn(`[deepCrawler] crawlHtmlOnly 실패 (${response.status}): ${detailUrl}`);
+      return null;
+    }
+
+    const html = await response.text();
+    if (html.length < 100) return null;
+
+    const adapter = getAdapter(detailUrl);
+    const metadata = adapter.extractMetadata(html);
+    const content = adapter.extractContent(html);
+    const attachmentLinks = adapter.extractAttachments(html, detailUrl);
+
+    console.log(`[deepCrawler] crawlHtmlOnly 완료: ${programName} (본문 ${content.length}자, 첨부 ${attachmentLinks.length}건)`);
+    return { metadata, content, attachmentLinks };
+  } catch (e) {
+    console.warn(`[deepCrawler] crawlHtmlOnly 에러 (${programName}):`, e);
+    return null;
+  }
+}
+
 /** API 데이터만으로 AI 재가공 (크롤링 실패 시 폴백) */
 export async function enrichFromApiOnly(
-  apiData: Partial<ServerSupportProgram>
+  apiData: Partial<ServerSupportProgram>,
+  options?: { skipAI?: boolean }
 ): Promise<DeepCrawlResult> {
   // 핵심 구조화 필드가 채워져 있는지 확인
   const hasStructuredData = (
@@ -1070,6 +1129,12 @@ export async function enrichFromApiOnly(
     dataQualityScore: qualityScore,
     dataSources: ['api'],
   });
+
+  // skipAI 모드: 항상 directMap만 사용
+  if (options?.skipAI) {
+    const score = descLength > 200 && hasStructuredData ? 50 : descLength < 50 ? 15 : 30;
+    return directMap(score);
+  }
 
   // Case 1: 풍부한 설명 + 구조화 필드 → AI 없이 직접 매핑
   if (descLength > 200 && hasStructuredData) {

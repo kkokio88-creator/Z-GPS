@@ -45,9 +45,12 @@ import {
   enrichWithAI,
   extractStructuredFromAttachments,
   extractTextFromFile,
+  crawlHtmlOnly,
+  downloadAttachmentToBuffer,
   type DeepCrawlResult,
   type AttachmentStructuredData,
   type DetectedFileType,
+  type HtmlCrawlResult,
 } from '../services/deepCrawler.js';
 import { initSSE, sendProgress, sendComplete, sendError } from '../utils/sse.js';
 
@@ -616,17 +619,62 @@ router.get('/stats', async (_req: Request, res: Response) => {
 });
 
 /**
+ * 크롤 메타데이터를 기존 frontmatter에 머지
+ */
+function mergeHtmlCrawlData(
+  frontmatter: Record<string, unknown>,
+  crawl: HtmlCrawlResult
+): Record<string, unknown> {
+  const meta = crawl.metadata;
+  // _sectionContent는 메타에서 분리
+  const sectionContent = meta['_sectionContent'] || '';
+  delete meta['_sectionContent'];
+
+  // 크롤 메타데이터에서 추출 가능한 필드 머지 (빈 값은 덮어쓰지 않음)
+  const mergeIfEmpty = (key: string, value: string | undefined) => {
+    if (value && (!frontmatter[key] || (frontmatter[key] as string) === '')) {
+      frontmatter[key] = value;
+    }
+  };
+
+  mergeIfEmpty('department', meta['organizer'] || meta['department']);
+  mergeIfEmpty('applicationMethod', meta['applicationMethod']);
+  mergeIfEmpty('contactInfo', meta['contactInfo']);
+  mergeIfEmpty('targetAudience', meta['targetAudience']);
+  mergeIfEmpty('supportScale', meta['supportScale']);
+
+  // 크롤 본문이 기존 설명보다 긴 경우 대체
+  if (crawl.content.length > ((frontmatter.fullDescription as string) || '').length) {
+    frontmatter.crawledContent = crawl.content.substring(0, 15000);
+  }
+  if (sectionContent) {
+    frontmatter.crawledSections = sectionContent.substring(0, 10000);
+  }
+
+  // 첨부파일 링크 저장
+  if (crawl.attachmentLinks.length > 0) {
+    frontmatter.attachmentLinks = crawl.attachmentLinks.slice(0, 10).map(l => ({
+      url: l.url,
+      filename: l.filename,
+    }));
+  }
+
+  return frontmatter;
+}
+
+/**
  * POST /api/vault/sync
- * 3개 API → 볼트에 프로그램 노트 생성/갱신
- * ?deepCrawl=true → 각 프로그램 상세페이지 딥크롤 포함
+ * 3단계 점진적 파이프라인:
+ *   1단계: API 수집 → 노트 저장 (enrichmentPhase: 1)
+ *   클린업: 중복/창업/지역 제거
+ *   2단계: URL 크롤링 → 메타데이터 머지 (enrichmentPhase: 2)
+ *   3단계: 첨부파일 + AI 강화 (enrichmentPhase: 3)
  */
 router.post('/sync', async (req: Request, res: Response) => {
-  // SSE 모드 확인
   const useSSE = req.headers.accept === 'text/event-stream';
 
   try {
     await ensureVaultStructure();
-
     if (useSSE) initSSE(res);
 
     // 회사 주소 읽기 (지역 필터용)
@@ -639,21 +687,18 @@ router.post('/sync', async (req: Request, res: Response) => {
       }
     } catch { /* company 정보 없으면 무시 */ }
 
-    if (useSSE) sendProgress(res, 'API 데이터 수집 중', 0, 1);
+    // ═══════════════════════════════════════════════════════════
+    // 1단계: API 수집 (Gemini 호출 없음)
+    // ═══════════════════════════════════════════════════════════
+    if (useSSE) sendProgress(res, 'API 데이터 수집 중', 0, 1, '', 1);
 
-    const { programs, filterStats } = await fetchAllProgramsServerSide({
-      companyAddress,
-    });
-    const deepCrawlMode = req.query.deepCrawl === 'true';
+    const { programs, filterStats } = await fetchAllProgramsServerSide({ companyAddress });
     const total = programs.length;
 
-    if (useSSE) sendProgress(res, 'API 수집 완료', 1, 1);
+    if (useSSE) sendProgress(res, 'API 수집 완료', 1, 1, '', 1);
 
     let created = 0;
     let updated = 0;
-    let deepCrawled = 0;
-    let enriched = 0;
-    let attachmentsDownloaded = 0;
 
     for (let i = 0; i < programs.length; i++) {
       const p = programs[i];
@@ -661,7 +706,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       const filePath = path.join('programs', `${slug}.md`);
       const exists = await noteExists(filePath);
 
-      if (useSSE) sendProgress(res, '프로그램 저장 중', i + 1, total, p.programName);
+      if (useSSE) sendProgress(res, '프로그램 저장 중', i + 1, total, p.programName, 1);
 
       if (exists) {
         const existing = await readNote(filePath);
@@ -669,52 +714,21 @@ router.post('/sync', async (req: Request, res: Response) => {
         await writeNote(filePath, existing.frontmatter, existing.content);
         updated++;
       } else {
-        if (deepCrawlMode && p.detailUrl) {
-          try {
-            if (useSSE) sendProgress(res, '딥크롤 중', i + 1, total, p.programName);
-            const { crawlResult, attachments } = await deepCrawlProgramFull(
-              p.detailUrl,
-              p.programName,
-              slug,
-              p
-            );
-            const frontmatter = programToFrontmatter(p, slug, crawlResult, attachments);
-            const content = programToMarkdown(p, crawlResult, attachments);
-            await writeNote(filePath, frontmatter, content);
-            if (crawlResult) deepCrawled++;
-            attachmentsDownloaded += attachments.length;
-            await new Promise(r => setTimeout(r, 3000));
-          } catch (e) {
-            console.warn(`[vault/sync] Deep crawl failed for ${p.programName}:`, e);
-            const frontmatter = programToFrontmatter(p, slug);
-            const content = programToMarkdown(p);
-            await writeNote(filePath, frontmatter, content);
-          }
-        } else {
-          // 항상 enrichFromApiOnly 시도 (AI 강화 또는 직접 매핑)
-          try {
-            const crawlResult = await enrichFromApiOnly(p);
-            const frontmatter = programToFrontmatter(p, slug, crawlResult);
-            const content = programToMarkdown(p, crawlResult);
-            await writeNote(filePath, frontmatter, content);
-            enriched++;
-            // AI 호출이 포함된 경우 rate limit 방지
-            if (p.fullDescription && p.fullDescription.length > 50) {
-              await new Promise(r => setTimeout(r, 2000));
-            }
-          } catch (e) {
-            console.warn(`[vault/sync] Enrich failed for ${p.programName}:`, e);
-            const frontmatter = programToFrontmatter(p, slug);
-            const content = programToMarkdown(p);
-            await writeNote(filePath, frontmatter, content);
-          }
-        }
+        // skipAI: true → Gemini 호출 없이 directMap만 사용
+        const crawlResult = await enrichFromApiOnly(p, { skipAI: true });
+        const frontmatter = programToFrontmatter(p, slug, crawlResult);
+        frontmatter.enrichmentPhase = 1;
+        frontmatter.status = 'synced';
+        const content = programToMarkdown(p, crawlResult);
+        await writeNote(filePath, frontmatter, content);
         created++;
       }
     }
 
-    // ─── 기존 노트 클린업 (중복/창업/지역 필터 소급 적용) ────────────
-    if (useSSE) sendProgress(res, '중복/필터 클린업 중', 0, 1);
+    // ═══════════════════════════════════════════════════════════
+    // 클린업: 중복/창업/지역 필터 (1-3초)
+    // ═══════════════════════════════════════════════════════════
+    if (useSSE) sendProgress(res, '중복/필터 클린업 중', 0, 1, '', 1);
 
     const companyRegion = extractRegionFromAddress(companyAddress);
     let cleanedStartup = 0;
@@ -725,7 +739,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       const vaultRoot = getVaultRoot();
       const existingFiles = await listNotes(path.join(vaultRoot, 'programs'));
 
-      // 1단계: 중복 제거 (같은 programName → 최신 syncedAt만 유지)
+      // 중복 제거 (같은 programName → 최고 품질만 유지)
       const notesByName = new Map<string, { file: string; syncedAt: string; dqs: number }[]>();
       for (const file of existingFiles) {
         try {
@@ -746,7 +760,6 @@ router.post('/sync', async (req: Request, res: Response) => {
       const survivingFiles = new Set<string>();
       for (const [, entries] of notesByName) {
         if (entries.length > 1) {
-          // 데이터 품질 점수 → syncedAt 순 정렬, 최상위 1개만 유지
           entries.sort((a, b) => b.dqs - a.dqs || b.syncedAt.localeCompare(a.syncedAt));
           survivingFiles.add(entries[0].file);
           for (let i = 1; i < entries.length; i++) {
@@ -758,7 +771,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         }
       }
 
-      // 2단계: 창업/지역 필터
+      // 창업/지역 필터
       for (const file of survivingFiles) {
         try {
           const { frontmatter: ef } = await readNote(file);
@@ -767,14 +780,11 @@ router.post('/sync', async (req: Request, res: Response) => {
           const target = (ef.targetAudience as string) || '';
           const regions = (ef.regions as string[]) || [];
 
-          // 창업 필터
           if (isLikelyStartupProgram(pName, desc, target)) {
             await fs.unlink(file);
             cleanedStartup++;
             continue;
           }
-
-          // 지역 필터
           if (companyRegion && isRegionMismatch(pName, regions, companyRegion)) {
             await fs.unlink(file);
             cleanedRegion++;
@@ -789,6 +799,346 @@ router.post('/sync', async (req: Request, res: Response) => {
       console.warn('[vault/sync] 클린업 중 에러:', e);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // 2단계: URL 크롤링 (Gemini 호출 없음)
+    // enrichmentPhase < 2 && detailUrl이 있는 노트만 대상
+    // ═══════════════════════════════════════════════════════════
+    let phase2Count = 0;
+    const vaultRoot2 = getVaultRoot();
+    const phase2Files = await listNotes(path.join(vaultRoot2, 'programs'));
+    const phase2Targets: { file: string; frontmatter: Record<string, unknown>; content: string }[] = [];
+
+    for (const file of phase2Files) {
+      try {
+        const { frontmatter: ef, content: ec } = await readNote(file);
+        const ep = Number(ef.enrichmentPhase) || 0;
+        const status = (ef.status as string) || '';
+        // 이미 deep_crawled된 노트는 phase 3으로 간주
+        if (status === 'deep_crawled' || ep >= 2) continue;
+        const detailUrl = (ef.detailUrl as string) || '';
+        if (!detailUrl) continue;
+        phase2Targets.push({ file, frontmatter: ef, content: ec });
+      } catch { /* 읽기 실패 무시 */ }
+    }
+
+    const phase2Total = phase2Targets.length;
+    if (useSSE && phase2Total > 0) sendProgress(res, 'URL 크롤링 시작', 0, phase2Total, '', 2);
+
+    for (let i = 0; i < phase2Targets.length; i++) {
+      const { file, frontmatter: ef, content: ec } = phase2Targets[i];
+      const pName = (ef.programName as string) || '';
+      const detailUrl = (ef.detailUrl as string) || '';
+
+      if (useSSE) sendProgress(res, 'URL 크롤링 중', i + 1, phase2Total, pName, 2);
+
+      try {
+        const crawlResult = await crawlHtmlOnly(detailUrl, pName);
+        if (crawlResult) {
+          mergeHtmlCrawlData(ef, crawlResult);
+          phase2Count++;
+        }
+        ef.enrichmentPhase = 2;
+        ef.status = 'crawled';
+        await writeNote(file, ef, ec);
+        // rate limit 방지
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (e) {
+        console.warn(`[vault/sync] Phase 2 실패 (${pName}):`, e);
+        ef.enrichmentPhase = 2; // 실패해도 재시도 방지
+        await writeNote(file, ef, ec);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 3단계: 첨부파일 + AI 강화 (유일한 Gemini 사용 단계)
+    // enrichmentPhase === 2인 노트만 대상
+    // ═══════════════════════════════════════════════════════════
+    let phase3Count = 0;
+    let phase3Attachments = 0;
+    const phase3Files = await listNotes(path.join(vaultRoot2, 'programs'));
+    const phase3Targets: { file: string; frontmatter: Record<string, unknown>; content: string }[] = [];
+
+    for (const file of phase3Files) {
+      try {
+        const { frontmatter: ef, content: ec } = await readNote(file);
+        const ep = Number(ef.enrichmentPhase) || 0;
+        const status = (ef.status as string) || '';
+        if (status === 'deep_crawled' || ep >= 3) continue;
+        if (ep < 2) continue; // 2단계 미완료는 건너뜀
+        phase3Targets.push({ file, frontmatter: ef, content: ec });
+      } catch { /* 읽기 실패 무시 */ }
+    }
+
+    const phase3Total = phase3Targets.length;
+    if (useSSE && phase3Total > 0) sendProgress(res, 'AI 강화 시작', 0, phase3Total, '', 3);
+
+    for (let i = 0; i < phase3Targets.length; i++) {
+      const { file, frontmatter: ef } = phase3Targets[i];
+      const pName = (ef.programName as string) || '';
+      const slug = (ef.slug as string) || '';
+      const detailUrl = (ef.detailUrl as string) || '';
+
+      if (useSSE) sendProgress(res, 'AI 강화 중', i + 1, phase3Total, pName, 3);
+
+      try {
+        // 크롤된 본문 + 메타데이터 복원
+        const crawledContent = (ef.crawledContent as string) || '';
+        const crawledSections = (ef.crawledSections as string) || '';
+        const storedLinks = (ef.attachmentLinks as { url: string; filename: string }[]) || [];
+
+        // 첨부파일 다운로드 + 텍스트 추출
+        const attachmentTexts: string[] = [];
+        const attachments: { path: string; name: string; analyzed: boolean }[] = [];
+        const existingAttachments = (ef.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
+
+        // 이미 첨부파일이 있으면 기존 텍스트 로드
+        if (existingAttachments.length > 0) {
+          const rawTexts = await loadAttachmentTextsRaw(existingAttachments);
+          attachmentTexts.push(...rawTexts);
+          attachments.push(...existingAttachments);
+        } else if (storedLinks.length > 0) {
+          // 2단계에서 추출한 링크로 다운로드
+          const extMap: Record<string, string> = {
+            pdf: 'pdf', hwpx: 'hwpx', hwp5: 'hwp', zip: 'zip', docx: 'docx', png: 'png', unknown: 'bin',
+          };
+
+          for (let j = 0; j < storedLinks.length && j < 5; j++) {
+            const link = storedLinks[j];
+            const buffer = await downloadAttachmentToBuffer(link.url);
+            if (!buffer) continue;
+
+            const { type, text } = await extractTextFromFile(buffer);
+            if (type === 'png') continue;
+
+            const ext = extMap[type] || 'bin';
+            const savePath = path.join('attachments', 'pdfs', `${slug}-${j}.${ext}`);
+            await writeBinaryFile(savePath, buffer);
+
+            attachments.push({ path: savePath, name: link.filename, analyzed: text.length > 50 });
+            phase3Attachments++;
+
+            if (text.length > 50) {
+              attachmentTexts.push(text);
+              const analysisPath = path.join('attachments', 'pdf-analysis', `${slug}-${j}.txt`);
+              await writeBinaryFile(analysisPath, Buffer.from(text, 'utf-8'));
+            }
+          }
+        }
+
+        // AI 재가공
+        const attachmentData = attachmentTexts.length > 0
+          ? extractStructuredFromAttachments(attachmentTexts)
+          : null;
+
+        // API 원본 데이터 복원 (frontmatter에서)
+        const apiData: Partial<ServerSupportProgram> = {
+          programName: pName,
+          organizer: (ef.organizer as string) || '',
+          department: (ef.department as string) || '',
+          supportScale: (ef.supportScale as string) || '',
+          targetAudience: (ef.targetAudience as string) || '',
+          fullDescription: (ef.fullDescription as string) || '',
+          applicationMethod: (ef.applicationMethod as string) || '',
+          contactInfo: (ef.contactInfo as string) || '',
+          eligibilityCriteria: (ef.eligibilityCriteria as string[]) || [],
+          requiredDocuments: (ef.requiredDocuments as string[]) || [],
+          evaluationCriteria: (ef.evaluationCriteria as string[]) || [],
+          regions: (ef.regions as string[]) || [],
+          categories: (ef.categories as string[]) || [],
+          matchingRatio: (ef.matchingRatio as string) || '',
+          applicationPeriod: {
+            start: (ef.applicationStart as string) || '',
+            end: (ef.officialEndDate as string) || '',
+          },
+        };
+
+        // 크롤 메타데이터 복원
+        const crawlMeta: Record<string, string> = {};
+        if (crawledSections) crawlMeta['_sectionContent'] = crawledSections;
+
+        const aiResult = await enrichWithAI(
+          apiData,
+          crawledContent || (ef.fullDescription as string) || '',
+          crawlMeta,
+          attachmentData
+        );
+
+        // frontmatter 업데이트
+        const updatedFm = programToFrontmatter(
+          { ...apiData, id: (ef.id as string) || '', detailUrl, source: (ef.source as string) || '', supportType: (ef.supportType as string) || '', officialEndDate: (ef.officialEndDate as string) || '', internalDeadline: (ef.internalDeadline as string) || '', expectedGrant: Number(ef.expectedGrant) || 0 } as ServerSupportProgram,
+          slug,
+          aiResult,
+          attachments
+        );
+        // 기존 분석 데이터 보존
+        updatedFm.fitScore = ef.fitScore || 0;
+        updatedFm.eligibility = ef.eligibility || '검토 필요';
+        updatedFm.analyzedAt = ef.analyzedAt || '';
+        updatedFm.enrichmentPhase = 3;
+        updatedFm.status = 'deep_crawled';
+
+        const updatedContent = programToMarkdown(
+          { ...apiData, id: (ef.id as string) || '', detailUrl, source: (ef.source as string) || '', supportType: (ef.supportType as string) || '', officialEndDate: (ef.officialEndDate as string) || '', internalDeadline: (ef.internalDeadline as string) || '', expectedGrant: Number(ef.expectedGrant) || 0 } as ServerSupportProgram,
+          aiResult,
+          attachments
+        );
+
+        await writeNote(file, updatedFm, updatedContent);
+        phase3Count++;
+
+        // Gemini rate limit 방지
+        await new Promise(r => setTimeout(r, 3000));
+      } catch (e) {
+        console.warn(`[vault/sync] Phase 3 실패 (${pName}):`, e);
+        // 실패해도 phase는 올리지 않음 → 다음 동기화에서 재시도
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 4단계: AI 적합도 분석
+    // 미분석 프로그램만 대상 (fitScore === 0)
+    // ═══════════════════════════════════════════════════════════
+    let phase4Analyzed = 0;
+    let phase4Errors = 0;
+    let phase4Strategies = 0;
+
+    // 기업 정보 로드
+    let companyForAnalysis: Record<string, unknown> = {};
+    try {
+      const companyPath = path.join('company', 'profile.md');
+      if (await noteExists(companyPath)) {
+        const { frontmatter: cf } = await readNote(companyPath);
+        companyForAnalysis = cf;
+      }
+    } catch { /* 기업 정보 없으면 무시 */ }
+
+    const companyInfoForFit = {
+      name: (companyForAnalysis.name as string) || '미등록 기업',
+      industry: companyForAnalysis.industry as string,
+      description: companyForAnalysis.description as string,
+      revenue: companyForAnalysis.revenue as number,
+      employees: companyForAnalysis.employees as number,
+      address: companyForAnalysis.address as string,
+      certifications: companyForAnalysis.certifications as string[],
+      coreCompetencies: companyForAnalysis.coreCompetencies as string[],
+      ipList: companyForAnalysis.ipList as string[],
+      history: companyForAnalysis.history as string,
+      foundedYear: companyForAnalysis.foundedYear as number,
+      businessType: companyForAnalysis.businessType as string,
+      mainProducts: companyForAnalysis.mainProducts as string[],
+      financialTrend: companyForAnalysis.financialTrend as string,
+    };
+
+    const phase4Files = await listNotes(path.join(vaultRoot2, 'programs'));
+    const phase4Targets: { file: string }[] = [];
+
+    for (const file of phase4Files) {
+      try {
+        const { frontmatter: ef } = await readNote(file);
+        const fitScore = Number(ef.fitScore) || 0;
+        const status = (ef.status as string) || '';
+        // 이미 분석됨 → 건너뜀
+        if (fitScore > 0 || status === 'analyzed') continue;
+        phase4Targets.push({ file });
+      } catch { /* 읽기 실패 무시 */ }
+    }
+
+    const phase4Total = phase4Targets.length;
+    if (useSSE && phase4Total > 0) sendProgress(res, 'AI 분석 시작', 0, phase4Total, '', 4);
+
+    for (let i = 0; i < phase4Targets.length; i++) {
+      const { file } = phase4Targets[i];
+      try {
+        const { frontmatter: pf, content: pc } = await readNote(file);
+        const slug = (pf.slug as string) || '';
+        if (!slug) continue;
+
+        const pName = (pf.programName as string) || '';
+        if (useSSE) sendProgress(res, 'AI 분석 중', i + 1, phase4Total, pName, 4);
+
+        const programInfo = {
+          programName: pName,
+          organizer: (pf.organizer as string) || '',
+          supportType: (pf.supportType as string) || '',
+          description: (pf.fullDescription as string) || (pf.description as string) || pc.substring(0, 500),
+          expectedGrant: (pf.expectedGrant as number) || 0,
+          officialEndDate: (pf.officialEndDate as string) || '',
+          eligibilityCriteria: pf.eligibilityCriteria as string[],
+          exclusionCriteria: pf.exclusionCriteria as string[],
+          targetAudience: pf.targetAudience as string,
+          evaluationCriteria: pf.evaluationCriteria as string[],
+          requiredDocuments: pf.requiredDocuments as string[],
+          supportDetails: Array.isArray(pf.supportDetails) ? (pf.supportDetails as string[]).join('; ') : pf.supportDetails as string,
+          selectionProcess: pf.selectionProcess as string[],
+          totalBudget: pf.totalBudget as string,
+          projectPeriod: pf.projectPeriod as string,
+          objectives: Array.isArray(pf.objectives) ? (pf.objectives as string[]).join('; ') : pf.objectives as string,
+          categories: pf.categories as string[],
+          keywords: pf.keywords as string[],
+          department: pf.department as string,
+          regions: pf.regions as string[],
+        };
+
+        const attachText = await loadAttachmentText(
+          (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || []
+        );
+
+        const fitResult = await analyzeFit(companyInfoForFit, programInfo, attachText || undefined);
+
+        // 분석 파일 저장
+        const analysisPath = path.join('analysis', `${slug}-fit.md`);
+        await writeNote(analysisPath, {
+          slug,
+          programName: pName,
+          fitScore: fitResult.fitScore,
+          eligibility: fitResult.eligibility,
+          dimensions: fitResult.dimensions,
+          analyzedAt: new Date().toISOString(),
+        }, `# 적합도 분석: ${pName}\n\n${buildFitSectionMarkdown(fitResult, slug)}`);
+
+        // 프로그램 노트 업데이트
+        const fitSection = buildFitSectionMarkdown(fitResult, slug);
+        const updatedContent = pc.replace(
+          /\n## 적합도\n[\s\S]*?(?=\n## |\n---|\n\*데이터|$)/,
+          fitSection
+        );
+        pf.fitScore = fitResult.fitScore;
+        pf.eligibility = fitResult.eligibility;
+        pf.dimensions = fitResult.dimensions;
+        pf.keyActions = fitResult.keyActions;
+        pf.analyzedAt = new Date().toISOString();
+        pf.status = 'analyzed';
+        await writeNote(file, pf, updatedContent.includes('## 적합도') ? updatedContent : pc + '\n' + fitSection);
+
+        phase4Analyzed++;
+
+        // 고적합도 → 전략 문서 생성
+        if (fitResult.fitScore >= 80) {
+          try {
+            if (useSSE) sendProgress(res, '전략 문서 생성 중', i + 1, phase4Total, pName, 4);
+            const strategy = await generateStrategyDocument(companyInfoForFit, programInfo, fitResult, attachText || undefined);
+            const { frontmatter: sFm, content: sContent } = strategyToMarkdown(pName, slug, fitResult.fitScore, fitResult.dimensions, strategy);
+            await writeNote(path.join('strategies', `전략-${slug}.md`), sFm, sContent);
+            phase4Strategies++;
+            await new Promise(r => setTimeout(r, 2000));
+          } catch (e) {
+            console.warn(`[vault/sync] Phase 4 전략 생성 실패 (${slug}):`, e);
+          }
+        }
+
+        // Gemini rate limit (지역 불일치로 스킵된 경우 대기 불필요)
+        if (fitResult.fitScore > 5) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      } catch (e) {
+        console.warn(`[vault/sync] Phase 4 분석 실패:`, e);
+        phase4Errors++;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 결과
+    // ═══════════════════════════════════════════════════════════
     const resultData = {
       success: true,
       totalFetched: filterStats.totalFetched,
@@ -797,9 +1147,12 @@ router.post('/sync', async (req: Request, res: Response) => {
       filteredByStartup: filterStats.filteredByStartup,
       created,
       updated,
-      deepCrawled,
-      enriched,
-      attachmentsDownloaded,
+      phase2Crawled: phase2Count,
+      phase3Enriched: phase3Count,
+      attachmentsDownloaded: phase3Attachments,
+      phase4Analyzed,
+      phase4Errors,
+      phase4Strategies,
       cleanedDuplicates,
       cleanedStartup,
       cleanedRegion,
@@ -1058,6 +1411,7 @@ router.post('/analyze/:slug', async (req: Request, res: Response) => {
       categories: programFm.categories as string[],
       keywords: programFm.keywords as string[],
       department: programFm.department as string,
+      regions: programFm.regions as string[],
     };
 
     const attachmentText = await loadAttachmentText(
@@ -1191,6 +1545,7 @@ router.post('/analyze-all', async (req: Request, res: Response) => {
           categories: pf.categories as string[],
           keywords: pf.keywords as string[],
           department: pf.department as string,
+          regions: pf.regions as string[],
         };
 
         const attachmentText = await loadAttachmentText(

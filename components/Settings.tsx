@@ -19,13 +19,11 @@ import type { SSEProgressEvent } from '../services/sseClient';
 type TabId = 'vault' | 'company' | 'api' | 'crawling' | 'system';
 
 interface CrawlingConfig {
-  mode: 'basic' | 'deep';
   sources: { incheon: boolean; mss: boolean; kstartup: boolean };
   autoDownloadAttachments: boolean;
 }
 
 const DEFAULT_CRAWLING_CONFIG: CrawlingConfig = {
-  mode: 'basic',
   sources: { incheon: true, mss: true, kstartup: true },
   autoDownloadAttachments: false,
 };
@@ -85,6 +83,9 @@ const StatCard: React.FC<{ label: string; value: number | string; icon: string }
   </div>
 );
 
+const PHASE_LABELS = ['', 'API 수집', 'URL 크롤링', 'AI 강화', '적합도 분석'];
+const PHASE_COLORS = ['', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-emerald-500'];
+
 const ProgressBar: React.FC<{
   active: boolean;
   label: string;
@@ -93,9 +94,30 @@ const ProgressBar: React.FC<{
   if (!active) return null;
   const percent = progress?.percent ?? 0;
   const hasProgress = progress && progress.total > 0;
+  const phase = progress?.phase ?? 0;
 
   return (
     <div className="mt-3">
+      {/* 3단계 스텝 인디케이터 */}
+      {phase > 0 && (
+        <div className="flex items-center gap-1 mb-2">
+          {[1, 2, 3, 4].map((step) => (
+            <div key={step} className="flex items-center gap-1">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                step < phase ? 'bg-green-500 text-white' :
+                step === phase ? `${PHASE_COLORS[step]} text-white animate-pulse` :
+                'bg-gray-200 dark:bg-gray-700 text-gray-400'
+              }`}>
+                {step < phase ? '\u2713' : step}
+              </div>
+              <span className={`text-[10px] ${step === phase ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-400'}`}>
+                {PHASE_LABELS[step]}
+              </span>
+              {step < 4 && <div className={`w-3 h-0.5 ${step < phase ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between text-sm text-indigo-600 dark:text-indigo-400 mb-1">
         <div className="flex items-center gap-2">
           <span className="material-icons-outlined text-sm animate-spin">refresh</span>
@@ -109,7 +131,7 @@ const ProgressBar: React.FC<{
       </div>
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
         <div
-          className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
+          className={`${phase > 0 ? PHASE_COLORS[phase] : 'bg-indigo-500'} h-2.5 rounded-full transition-all duration-300`}
           style={{ width: hasProgress ? `${percent}%` : '100%' }}
         />
       </div>
@@ -307,22 +329,23 @@ const Settings: React.FC = () => {
 
   // ─── Handlers ────────────────────────────────
 
-  const handleSync = async (deepCrawl: boolean) => {
+  const handleSync = async () => {
     setSyncing(true);
     setSyncResult('');
     setSyncProgress(null);
     try {
       const { promise, abort } = vaultService.syncProgramsWithProgress(
-        deepCrawl,
         (event) => setSyncProgress(event)
       );
       syncAbortRef.current = abort;
       const result = await promise;
-      setSyncResult(
-        `동기화 완료: ${result.totalFetched}건 수집, ${result.created}건 생성, ${result.updated}건 갱신` +
-        (result.deepCrawled ? `, ${result.deepCrawled}건 딥크롤` : '') +
-        (result.attachmentsDownloaded ? `, 첨부 ${result.attachmentsDownloaded}건` : '')
-      );
+      const parts = [`완료: ${result.totalFetched}건 수집, ${result.created}건 생성, ${result.updated}건 갱신`];
+      if (result.phase2Crawled) parts.push(`${result.phase2Crawled}건 크롤`);
+      if (result.phase3Enriched) parts.push(`${result.phase3Enriched}건 AI 강화`);
+      if (result.phase4Analyzed) parts.push(`${result.phase4Analyzed}건 분석`);
+      if (result.phase4Strategies) parts.push(`${result.phase4Strategies}건 전략 생성`);
+      if (result.attachmentsDownloaded) parts.push(`첨부 ${result.attachmentsDownloaded}건`);
+      setSyncResult(parts.join(', '));
       loadVaultStats();
     } catch (e) {
       setSyncResult(`동기화 실패: ${String(e)}`);
@@ -606,22 +629,15 @@ const Settings: React.FC = () => {
         </h3>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => handleSync(false)}
+            onClick={handleSync}
             disabled={syncing}
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <span className="material-icons-outlined text-sm">cloud_download</span>
-            기본 동기화
-          </button>
-          <button
-            onClick={() => handleSync(true)}
-            disabled={syncing}
-            className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <span className="material-icons-outlined text-sm">rocket_launch</span>
-            딥크롤 동기화
+            공고 동기화
           </button>
         </div>
+        <p className="text-xs text-gray-400 mt-1">API 수집 → URL 크롤링 → AI 강화 → 적합도 분석 (4단계 자동 진행)</p>
         <ProgressBar active={syncing} label="동기화 진행 중..." progress={syncProgress} />
         {syncResult && (
           <p className={`mt-3 text-sm ${syncResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
@@ -634,27 +650,6 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* 전체 분석 */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-        <h3 className="font-bold mb-3 flex items-center gap-2">
-          <span className="material-icons-outlined">psychology</span>
-          AI 적합도 분석
-        </h3>
-        <button
-          onClick={handleAnalyzeAll}
-          disabled={analyzing || (vaultStats?.totalPrograms ?? 0) === 0}
-          className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-        >
-          <span className="material-icons-outlined text-sm">auto_awesome</span>
-          전체 분석 실행
-        </button>
-        <ProgressBar active={analyzing} label="AI 분석 진행 중..." progress={analyzeProgress} />
-        {analyzeResult && (
-          <p className={`mt-3 text-sm ${analyzeResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
-            {analyzeResult}
-          </p>
-        )}
-      </div>
     </div>
   );
 
@@ -1172,31 +1167,22 @@ const Settings: React.FC = () => {
 
         <div className="space-y-5">
           <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">수집 모드</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setCrawlingConfig(prev => ({ ...prev, mode: 'basic' }))}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  crawlingConfig.mode === 'basic'
-                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-bold text-sm">기본</div>
-                <div className="text-xs text-gray-500 mt-1">API 목록만 수집</div>
-              </button>
-              <button
-                onClick={() => setCrawlingConfig(prev => ({ ...prev, mode: 'deep' }))}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  crawlingConfig.mode === 'deep'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-bold text-sm">고급 (딥크롤)</div>
-                <div className="text-xs text-gray-500 mt-1">상세페이지 + 첨부파일</div>
-              </button>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">4단계 자동 파이프라인</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[
+                { step: 1, label: 'API 수집', desc: '공공 API 데이터', icon: 'cloud_download', color: 'blue' },
+                { step: 2, label: 'URL 크롤링', desc: '상세페이지 파싱', icon: 'language', color: 'amber' },
+                { step: 3, label: 'AI 강화', desc: '첨부파일 + Gemini', icon: 'auto_awesome', color: 'purple' },
+                { step: 4, label: '적합도 분석', desc: '5차원 평가', icon: 'psychology', color: 'emerald' },
+              ].map(({ step, label, desc, icon, color }) => (
+                <div key={step} className={`p-3 rounded-xl border border-${color}-200 dark:border-${color}-800 bg-${color}-50 dark:bg-${color}-900/20 text-center`}>
+                  <span className={`material-icons-outlined text-${color}-500 text-lg`}>{icon}</span>
+                  <div className="font-bold text-xs mt-1">{step}. {label}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                </div>
+              ))}
             </div>
+            <p className="text-xs text-gray-400 mt-2">동기화 버튼 하나로 4단계를 자동 진행합니다. 이미 처리된 단계는 건너뜁니다.</p>
           </div>
 
           <div>
