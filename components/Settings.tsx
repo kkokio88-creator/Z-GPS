@@ -231,7 +231,7 @@ const Settings: React.FC = () => {
   const [researchError, setResearchError] = useState('');
   const [deepResearchData, setDeepResearchData] = useState<Record<string, unknown> | null>(() => {
     const stored = getStoredDeepResearch();
-    return stored as Record<string, unknown> | null;
+    return stored as unknown as Record<string, unknown> | null;
   });
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
@@ -434,34 +434,45 @@ const Settings: React.FC = () => {
       }
       const c = result.company;
 
-      // 빈 결과 검증 — name만 있고 나머지 비어있으면 실패 처리
+      // 빈 결과 검증 — 유효한 정보가 하나라도 있으면 통과
       const hasName = !!c.name && String(c.name).trim().length > 0;
-      const hasExtra = !!(
-        (c.description && String(c.description).trim().length > 1) ||
-        (c.industry && String(c.industry).trim().length > 1) ||
-        (Array.isArray(c.coreCompetencies) && c.coreCompetencies.length > 0) ||
-        (c.strategicAnalysis && typeof c.strategicAnalysis === 'object')
+      const nonEmptyFields = Object.entries(c).filter(([, v]) =>
+        v !== null && v !== undefined && v !== '' &&
+        !(Array.isArray(v) && v.length === 0) &&
+        !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v as object).length === 0)
       );
-      if (!hasName || !hasExtra) {
+      if (!hasName && nonEmptyFields.length < 3) {
         setResearchError('AI가 유효한 기업 정보를 반환하지 않았습니다. 기업명을 확인 후 다시 시도해주세요.');
         return;
       }
 
-      // ─── 클라이언트측 회사명 이중 검증 ───────────────
+      // ─── 클라이언트측 회사명 이중 검증 (서버와 동일한 정규화) ───
       const normalize = (n: string) =>
-        n.replace(/^(주식회사|㈜|\(주\)|\(사\)|사단법인|재단법인)\s*/g, '')
+        n.replace(/^(주식회사|㈜|\(주\)|\(사\)|사단법인|재단법인|유한회사|합자회사)\s*/g, '')
          .replace(/\s*(주식회사|㈜|\(주\))$/g, '')
          .replace(/\s+/g, '').toLowerCase();
 
       const returnedName = String(c.name || '');
+      const returnedBrand = String(c.brandName || '');
       const queryNorm = normalize(researchQuery.trim());
-      const returnedNorm = normalize(returnedName);
 
-      if (returnedName && returnedNorm.length > 0 &&
-          !returnedNorm.includes(queryNorm) &&
-          !queryNorm.includes(returnedNorm)) {
-        setResearchError(`AI가 다른 기업("${returnedName}")을 반환했습니다. 정확한 기업명으로 다시 검색해주세요.`);
-        return;
+      const checkMatch = (candidate: string) => {
+        const cn = normalize(candidate);
+        if (!cn) return false;
+        return cn.includes(queryNorm) ||
+          queryNorm.includes(cn) ||
+          (queryNorm.length >= 2 && cn.length >= 2 &&
+            (cn.startsWith(queryNorm.substring(0, 2)) ||
+             queryNorm.startsWith(cn.substring(0, 2))));
+      };
+
+      // 법인명 또는 브랜드명 중 하나라도 매칭되면 통과
+      if (returnedName && !checkMatch(returnedName) && !checkMatch(returnedBrand)) {
+        // 유효 키 10개 이상이면 관련 기업으로 간주
+        if (nonEmptyFields.length < 10) {
+          setResearchError(`AI가 다른 기업("${returnedName}")을 반환했습니다. 정확한 기업명으로 다시 검색해주세요.`);
+          return;
+        }
       }
 
       // foundedYear 추출: "YYYY-MM-DD" 또는 숫자
@@ -528,9 +539,14 @@ const Settings: React.FC = () => {
         detail: { message: '기업 리서치 완료 — 자동 저장되었습니다.', type: 'success' },
       }));
     } catch (e: unknown) {
-      const err = e as Error & { response?: { data?: { error?: string; details?: string; mismatch?: boolean; notFound?: boolean } } };
+      const err = e as Error & { response?: { status?: number; data?: { error?: string; details?: string; mismatch?: boolean; notFound?: boolean } }; code?: string };
       const data = err?.response?.data;
-      if (data?.mismatch || data?.notFound) {
+      const status = err?.response?.status;
+      if (err?.code === 'ERR_NETWORK' || !err?.response) {
+        setResearchError('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
+      } else if (status === 503) {
+        setResearchError('서버에 GEMINI_API_KEY가 설정되지 않았습니다. 설정 > API 연동에서 키를 저장해주세요.');
+      } else if (data?.mismatch || data?.notFound) {
         setResearchError(data.error || '기업 정보를 찾을 수 없습니다.');
       } else {
         const detail = data?.details || data?.error || String(e);
@@ -866,13 +882,15 @@ const Settings: React.FC = () => {
 
       {/* 딥리서치 결과 */}
       {deepResearchData && (() => {
-        const sa = deepResearchData.strategicAnalysis as Record<string, unknown> | undefined;
-        const swot = sa?.swot as Record<string, string[]> | undefined;
-        const mp = deepResearchData.marketPosition as Record<string, unknown> | undefined;
-        const ii = deepResearchData.industryInsights as Record<string, unknown> | undefined;
-        const gf = deepResearchData.governmentFundingFit as Record<string, unknown> | undefined;
-        const ei = deepResearchData.employmentInfo as Record<string, unknown> | undefined;
-        const inv = deepResearchData.investmentInfo as Record<string, unknown> | undefined;
+        // 빈 객체 필터: {}, 빈 배열, null 제거
+        const nonEmpty = (obj: unknown) => obj && typeof obj === 'object' && Object.keys(obj as object).length > 0;
+        const sa = nonEmpty(deepResearchData.strategicAnalysis) ? deepResearchData.strategicAnalysis as Record<string, unknown> : undefined;
+        const swot = (sa && nonEmpty(sa.swot)) ? sa.swot as Record<string, string[]> : undefined;
+        const mp = nonEmpty(deepResearchData.marketPosition) ? deepResearchData.marketPosition as Record<string, unknown> : undefined;
+        const ii = nonEmpty(deepResearchData.industryInsights) ? deepResearchData.industryInsights as Record<string, unknown> : undefined;
+        const gf = nonEmpty(deepResearchData.governmentFundingFit) ? deepResearchData.governmentFundingFit as Record<string, unknown> : undefined;
+        const ei = nonEmpty(deepResearchData.employmentInfo) ? deepResearchData.employmentInfo as Record<string, unknown> : undefined;
+        const inv = nonEmpty(deepResearchData.investmentInfo) ? deepResearchData.investmentInfo as Record<string, unknown> : undefined;
 
         // 표시 가능한 섹션이 있는지 체크
         const hasAnySections = !!(swot || mp || ii || gf || ei || (inv && !inv.isBootstrapped));

@@ -80,29 +80,37 @@ export async function callGeminiDirect(
  */
 export function cleanAndParseJSON(text: string): Record<string, unknown> | unknown[] {
   if (!text) return {};
+
+  // 1. 직접 파싱
+  try { return JSON.parse(text); } catch { /* continue */ }
+
+  // 2. 코드 블록에서 추출 (greedy: 마지막 ``` 까지 매칭)
   try {
-    return JSON.parse(text);
-  } catch {
-    try {
-      const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (match?.[1]) {
-        return JSON.parse(match[1]);
-      }
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}');
-      if (start !== -1 && end !== -1) {
-        return JSON.parse(text.substring(start, end + 1));
-      }
-      // 배열 시도
-      const arrStart = text.indexOf('[');
-      const arrEnd = text.lastIndexOf(']');
-      if (arrStart !== -1 && arrEnd !== -1) {
-        return JSON.parse(text.substring(arrStart, arrEnd + 1));
-      }
-    } catch {
-      console.error('[geminiService] JSON parse failed:', text.substring(0, 100));
-      return {};
+    const match = text.match(/```(?:json)?\s*([\s\S]+)\s*```/);
+    if (match?.[1]) {
+      const cleaned = match[1].replace(/```/g, '').trim();
+      return JSON.parse(cleaned);
     }
-  }
+  } catch { /* continue */ }
+
+  // 3. 첫 번째 { 부터 마지막 } 까지
+  try {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      return JSON.parse(text.substring(start, end + 1));
+    }
+  } catch { /* continue */ }
+
+  // 4. 배열 시도
+  try {
+    const arrStart = text.indexOf('[');
+    const arrEnd = text.lastIndexOf(']');
+    if (arrStart !== -1 && arrEnd > arrStart) {
+      return JSON.parse(text.substring(arrStart, arrEnd + 1));
+    }
+  } catch { /* continue */ }
+
+  console.error('[geminiService] JSON parse failed:', text.substring(0, 200));
   return {};
 }
