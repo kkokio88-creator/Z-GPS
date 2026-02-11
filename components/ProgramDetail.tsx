@@ -15,8 +15,12 @@ const stripHtml = (html: string): string => {
   return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
+/** 비금전적 지원 감지 */
+const isNonMonetary = (text: string): boolean =>
+  /무료|무상|컨설팅|멘토링|교육|입주\s*지원|네트워킹|판로|홍보|인증/.test(text);
+
 /** 금액 표시 */
-const formatGrant = (grant: number, supportScale?: string): string => {
+const formatGrant = (grant: number, supportScale?: string, supportType?: string): string => {
   if (grant > 0) {
     const billions = grant / 100000000;
     if (billions >= 1) return `${billions.toFixed(1)}억원`;
@@ -24,8 +28,15 @@ const formatGrant = (grant: number, supportScale?: string): string => {
     if (tenThousands >= 1) return `${Math.round(tenThousands)}만원`;
     return `${grant.toLocaleString()}원`;
   }
-  if (supportScale) return stripHtml(supportScale);
-  return '공고 참조';
+  const combined = `${supportScale || ''} ${supportType || ''}`;
+  if (isNonMonetary(combined)) return '비금전 지원';
+  if (supportScale) {
+    const clean = stripHtml(supportScale);
+    if (clean.length > 0 && !/^(별도|공고|추후|미정|해당|없음|-)/i.test(clean.trim())) {
+      return clean;
+    }
+  }
+  return '미확정';
 };
 
 /** 적합도 등급 + 색상 */
@@ -348,7 +359,7 @@ const ProgramDetail: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
                 <p className="text-[10px] text-gray-500 mb-0.5">지원금</p>
                 <p className="text-sm font-bold text-primary dark:text-green-400">
-                  {formatGrant(Number(fm.expectedGrant) || 0, fm.supportScale as string)}
+                  {formatGrant(Number(fm.expectedGrant) || 0, fm.supportScale as string, fm.supportType as string)}
                 </p>
               </div>
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">

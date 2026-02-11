@@ -341,7 +341,7 @@ const Dashboard: React.FC = () => {
                             >
                               <div className="flex-1 min-w-0 mr-2">
                                 <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{prog.programName}</p>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400">{prog.organizer} · {prog.expectedGrant > 0 ? formatKRW(prog.expectedGrant) : '공고 참조'}</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">{prog.organizer} · {prog.expectedGrant > 0 ? formatKRW(prog.expectedGrant) : '금액 미확정'}</p>
                               </div>
                               <div className="flex-shrink-0 text-right">
                                 {prog.fitScore > 0 && (

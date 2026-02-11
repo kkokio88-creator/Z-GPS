@@ -2,6 +2,7 @@
  * 서버 측 API 수집기 (고도화)
  * 3개 API에서 공고 상세정보를 최대한 풍부하게 수집
  */
+import { parseAmountFromScale } from '../utils/amountParser.js';
 
 interface ServerSupportProgram {
   id: string;
@@ -65,41 +66,6 @@ function normalizeDate(raw: string): string {
     return cleaned.slice(0, 10);
   }
   return cleaned;
-}
-
-/** 단위 적용 헬퍼 */
-function applyAmountUnit(num: number, unit: string): number {
-  if (isNaN(num) || num === 0) return 0;
-  if (unit === '억') return num * 100_000_000;
-  if (unit === '천만') return num * 10_000_000;
-  if (unit === '백만') return num * 1_000_000;
-  if (unit === '만') return num * 10_000;
-  return num;
-}
-
-/** 금액 문자열 파싱 → 숫자 (원) — 다중 패턴 매칭 */
-function parseAmount(raw: string): number {
-  if (!raw) return 0;
-  // 비수치 텍스트 스킵
-  if (/^(별도|공고|추후|예산|미정|해당|없음|-)/i.test(raw.trim())) return 0;
-  // 순수 퍼센트 패턴 제외
-  if (/^\D*\d+\s*%/.test(raw) && !/[만억천백]\s*원/.test(raw)) return 0;
-
-  const cleaned = raw.replace(/[,\s]/g, '');
-
-  // 범위: "1~3억원" → max값(3억)
-  const rangeMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*[~\-–]\s*(\d+(?:\.\d+)?)\s*(억|천만|백만|만)?\s*원?/);
-  if (rangeMatch) return applyAmountUnit(parseFloat(rangeMatch[2]), rangeMatch[3] || '');
-
-  // "최대 X억원", "X만원 이내"
-  const unitMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*(억|천만|백만|만)\s*원?/);
-  if (unitMatch) return applyAmountUnit(parseFloat(unitMatch[1]), unitMatch[2]);
-
-  // 순수 숫자+원 ("50000000원")
-  const numMatch = cleaned.match(/(\d+)\s*원/);
-  if (numMatch && parseInt(numMatch[1]) >= 100000) return parseInt(numMatch[1]);
-
-  return 0;
 }
 
 /** HTML 태그 제거 + 텍스트 정리 */
@@ -439,7 +405,7 @@ async function fetchIncheonBizOK(): Promise<ServerSupportProgram[]> {
       }
 
       const grantStr = String(record['지원금액'] || record['지원규모'] || '');
-      const grant = parseAmount(grantStr);
+      const grant = parseAmountFromScale(grantStr);
 
       return {
         id: `incheon_${record['번호'] || index}_${Date.now()}`,
@@ -537,7 +503,7 @@ async function fetchMssBiz(): Promise<ServerSupportProgram[]> {
       const fileUrl = getText('fileUrl') || '';
 
       // 지원금 파싱 (확인 불가 시 0)
-      const grantAmount = parseAmount(supportScaleText);
+      const grantAmount = parseAmountFromScale(supportScaleText);
 
       // 필수서류 추출 (본문에서) - "참조" 등 안내 문구 제외
       const requiredDocs: string[] = [];
@@ -672,7 +638,7 @@ async function fetchKStartup(): Promise<ServerSupportProgram[]> {
 
       // 지원 규모
       const suptScl = String(item.supt_scl || '');
-      const grant = parseAmount(suptScl);
+      const grant = parseAmountFromScale(suptScl);
 
       // 지역/카테고리
       const rgnNm = String(item.rgn_nm || item.supt_regin || '');
