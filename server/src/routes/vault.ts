@@ -2285,13 +2285,19 @@ router.put('/application/:slug', async (req: Request, res: Response) => {
  * GET /api/vault/config
  * 런타임 설정 읽기 (API 키 등)
  */
-router.get('/config', async (_req: Request, res: Response) => {
+router.get('/config', async (req: Request, res: Response) => {
   try {
     const configPath = path.join(getVaultRoot(), 'config.json');
+    const restore = req.query.restore === 'true';
     try {
       const raw = await fs.readFile(configPath, 'utf-8');
       const config = JSON.parse(raw);
-      // API 키는 마스킹해서 반환
+      if (restore) {
+        // 복원 모드: 마스킹 없이 원본 반환 (localStorage 복원용)
+        res.json({ config });
+        return;
+      }
+      // 기본: API 키 마스킹
       const masked: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(config)) {
         if (typeof val === 'string' && key.toLowerCase().includes('key') && val.length > 8) {
@@ -2618,8 +2624,11 @@ router.post('/company/research', async (req: Request, res: Response) => {
       return;
     }
 
+    // 클로저 내부 할당으로 TS narrowing 불가 → 로컬 변수에 재할당
+    const result = parsed as Record<string, unknown>;
+
     // Gemini가 "못 찾음"을 반환한 경우
-    if (parsed.name == null || parsed.error) {
+    if (result.name == null || result.error) {
       res.status(404).json({
         error: `"${companyName.trim()}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
         notFound: true,
@@ -2630,7 +2639,7 @@ router.post('/company/research', async (req: Request, res: Response) => {
     // ─── 회사명 매칭 검증 ───────────────────────────────────
     // Gemini가 엉뚱한 회사 정보를 반환하는 경우 방지
     const queryName = companyName.trim();
-    const returnedName = String(parsed.name || '').trim();
+    const returnedName = String(result.name || '').trim();
 
     /** 한국 법인 접두사 제거 후 핵심 이름 추출 */
     const normalizeName = (n: string) =>
@@ -2661,8 +2670,8 @@ router.post('/company/research', async (req: Request, res: Response) => {
     }
 
     // 이름이 비어있으면 검색어로 채움
-    if (!parsed.name) {
-      parsed.name = queryName;
+    if (!result.name) {
+      result.name = queryName;
     }
 
     // NPS 데이터 보강 (DATA_GO_KR_API_KEY가 설정된 경우)
@@ -2670,14 +2679,14 @@ router.post('/company/research', async (req: Request, res: Response) => {
       try {
         const npsData = await fetchNpsEmployeeData(
           companyName.trim(),
-          (parsed.businessNumber as string) || undefined
+          (result.businessNumber as string) || undefined
         );
         if (npsData.found && npsData.workplace) {
           // NPS 실데이터로 직원수 보강
           if (npsData.workplace.nrOfJnng > 0) {
-            parsed.employees = npsData.workplace.nrOfJnng;
+            result.employees = npsData.workplace.nrOfJnng;
           }
-          parsed.npsData = npsData;
+          result.npsData = npsData;
         }
       } catch (e) {
         console.warn('[vault/company/research] NPS lookup during research failed:', e);
@@ -2686,18 +2695,18 @@ router.post('/company/research', async (req: Request, res: Response) => {
 
     // Vault에 리서치 결과 마크다운으로 저장
     try {
-      const researchMd = generateResearchMarkdown(companyName.trim(), parsed);
+      const researchMd = generateResearchMarkdown(companyName.trim(), result);
       const researchPath = path.join('company', 'research.md');
       await writeNote(researchPath, {
         type: 'company-research',
-        companyName: parsed.name || companyName.trim(),
+        companyName: result.name || companyName.trim(),
         researchedAt: new Date().toISOString(),
       }, researchMd);
     } catch (e) {
       console.warn('[vault/company/research] Failed to save research markdown:', e);
     }
 
-    res.json({ success: true, company: parsed });
+    res.json({ success: true, company: result });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error('[vault/company/research] Error:', errMsg, error instanceof Error ? error.stack : '');

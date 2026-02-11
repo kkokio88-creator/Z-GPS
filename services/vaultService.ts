@@ -417,6 +417,12 @@ export const vaultService = {
     return data.config;
   },
 
+  /** 설정 복원 (마스킹 없이 원본 반환) */
+  async restoreConfig(): Promise<Record<string, unknown>> {
+    const { data } = await apiClient.get<{ config: Record<string, unknown> }>('/api/vault/config?restore=true');
+    return data.config;
+  },
+
   // ===== Benefit Tracking =====
 
   /** 수령 이력 전체 목록 */

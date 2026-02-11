@@ -16,6 +16,7 @@ import ExpertMatch from './components/ExpertMatch';
 import Community from './components/Community';
 import PitchTrainer from './components/PitchTrainer';
 import LoginPage from './components/LoginPage';
+import { ToastProvider } from './components/Toast';
 import { isAuthenticated } from './services/storageService';
 import { getQAState, stopQA, generateFixPrompt, executeTestLogic, updateTestResult } from './services/qaService';
 import { QAState, QATestItem } from './types';
@@ -225,27 +226,29 @@ const ProtectedRoute = () => {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        
-        <Route path="/" element={<ProtectedRoute />}>
-          <Route index element={<Dashboard />} />
-          <Route path="explore" element={<ProgramExplorer />} />
-          <Route path="program/:slug" element={<ProgramDetail />} />
-          <Route path="applications" element={<ApplicationList />} />
-          <Route path="calendar" element={<CalendarView />} />
-          <Route path="ai-board" element={<ExpertMatch />} />
-          {/* execution route removed - vault-based workflow */}
-          <Route path="knowledge" element={<Community />} />
-          <Route path="pitch" element={<PitchTrainer />} />
-          <Route path="benefits" element={<BenefitTracker />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="editor/:programId/:companyId" element={<ApplicationEditor />} />
-          <Route path="editor/:slug" element={<ApplicationEditor />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <ToastProvider>
+      <HashRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+
+          <Route path="/" element={<ProtectedRoute />}>
+            <Route index element={<Dashboard />} />
+            <Route path="explore" element={<ProgramExplorer />} />
+            <Route path="program/:slug" element={<ProgramDetail />} />
+            <Route path="applications" element={<ApplicationList />} />
+            <Route path="calendar" element={<CalendarView />} />
+            <Route path="ai-board" element={<ExpertMatch />} />
+            {/* execution route removed - vault-based workflow */}
+            <Route path="knowledge" element={<Community />} />
+            <Route path="pitch" element={<PitchTrainer />} />
+            <Route path="benefits" element={<BenefitTracker />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="editor/:programId/:companyId" element={<ApplicationEditor />} />
+            <Route path="editor/:slug" element={<ApplicationEditor />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </ToastProvider>
   );
 };
 

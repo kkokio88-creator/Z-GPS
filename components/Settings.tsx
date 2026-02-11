@@ -14,6 +14,8 @@ import {
   saveStoredDartApiKey,
   getStoredNpsApiKey,
   saveStoredNpsApiKey,
+  getStoredDeepResearch,
+  saveStoredDeepResearch,
 } from '../services/storageService';
 import { Company } from '../types';
 import { startQA, resetQA, getQAState } from '../services/qaService';
@@ -227,7 +229,10 @@ const Settings: React.FC = () => {
   const [researchQuery, setResearchQuery] = useState('');
   const [researching, setResearching] = useState(false);
   const [researchError, setResearchError] = useState('');
-  const [deepResearchData, setDeepResearchData] = useState<Record<string, unknown> | null>(null);
+  const [deepResearchData, setDeepResearchData] = useState<Record<string, unknown> | null>(() => {
+    const stored = getStoredDeepResearch();
+    return stored as Record<string, unknown> | null;
+  });
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   // Company Documents
@@ -265,20 +270,24 @@ const Settings: React.FC = () => {
     setNpsApiKey(localNpsKey);
     setAiModel(localModel);
 
-    // localStorage가 비어있으면 서버에서 복원 시도
+    // localStorage가 비어있으면 서버에서 원본 키 복원
     if (!localApiKey && !localDartKey) {
-      vaultService.getConfig().then(config => {
+      vaultService.restoreConfig().then(config => {
         if (config.geminiApiKey && typeof config.geminiApiKey === 'string') {
           setApiKey(config.geminiApiKey);
+          saveStoredApiKey(config.geminiApiKey);
         }
         if (config.dartApiKey && typeof config.dartApiKey === 'string') {
           setDartApiKey(config.dartApiKey);
+          saveStoredDartApiKey(config.dartApiKey);
         }
         if (config.dataGoKrApiKey && typeof config.dataGoKrApiKey === 'string') {
           setNpsApiKey(config.dataGoKrApiKey);
+          saveStoredNpsApiKey(config.dataGoKrApiKey);
         }
         if (config.aiModel && typeof config.aiModel === 'string') {
           setAiModel(config.aiModel as string);
+          saveStoredAiModel(config.aiModel as string);
         }
       }).catch(() => { /* 서버 연결 실패 무시 */ });
     }
@@ -509,8 +518,9 @@ const Settings: React.FC = () => {
         }));
       }
 
-      // 딥리서치 전체 데이터 저장
+      // 딥리서치 전체 데이터 저장 (state + localStorage)
       setDeepResearchData(c);
+      try { saveStoredDeepResearch(c as any); } catch { /* ignore */ }
       setExpandedSections(new Set(['swot', 'funding']));
       setResearchQuery('');
 
@@ -635,6 +645,9 @@ const Settings: React.FC = () => {
         dataGoKrApiKey: npsApiKey || undefined,
         aiModel: aiModel || undefined,
       });
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: 'API 설정이 저장되었습니다.', type: 'success' },
+      }));
     } catch {
       window.dispatchEvent(new CustomEvent('zmis-toast', {
         detail: { message: '서버에 API 키를 저장하지 못했습니다. 로컬에만 저장됩니다.', type: 'warning' },
