@@ -2439,7 +2439,7 @@ router.post('/company/research', async (req: Request, res: Response) => {
 ## 중요 규칙
 0. **반드시 "${companyName.trim()}"에 대한 정보만 반환하세요. 다른 기업의 정보를 반환하지 마세요.**
 1. 정확히 확인된 정보만 포함. 추측은 하지 마세요.
-2. 해당 기업을 찾을 수 없으면 {"name": null, "error": "기업 정보를 찾을 수 없습니다"}만 반환
+2. 해당 기업을 잘 모르더라도 기업명(name)과 추론 가능한 정보는 최대한 채워서 반환하세요. 절대 error 필드를 포함하지 마세요.
 3. 모르는 필드는 빈 문자열, 빈 배열 또는 null로 유지
 4. 매출액은 원(KRW) 단위 숫자로 반환 (예: 10억 = 1000000000)
 5. 사업자등록번호는 "000-00-00000" 형식
@@ -2592,25 +2592,25 @@ router.post('/company/research', async (req: Request, res: Response) => {
       }
     };
 
-    // 1차: gemini-2.0-flash JSON 모드 (가장 안정적)
-    await tryGeminiStep('1-Flash-JSON', {
+    // 1차: Google Search grounding (웹 검색으로 실제 기업 정보 확보, 특히 소규모 기업에 유효)
+    await tryGeminiStep('1-Search', {
       model: 'gemini-2.0-flash',
-      responseMimeType: 'application/json',
+      tools: [{ googleSearch: {} }],
     });
 
-    // 2차: 사용자 모델 + JSON 모드
-    if (!parsed && userModel !== 'gemini-2.0-flash') {
-      await tryGeminiStep(`2-${userModel}-JSON`, {
-        model: userModel,
+    // 2차: gemini-2.0-flash JSON 모드 (안정적 파싱)
+    if (!parsed) {
+      await tryGeminiStep('2-Flash-JSON', {
+        model: 'gemini-2.0-flash',
         responseMimeType: 'application/json',
       });
     }
 
-    // 3차: Google Search grounding (텍스트에서 JSON 추출 — tools + JSON 모드 동시 사용 불가)
-    if (!parsed) {
-      await tryGeminiStep('3-Search', {
-        model: 'gemini-2.0-flash',
-        tools: [{ googleSearch: {} }],
+    // 3차: 사용자 모델 + JSON 모드
+    if (!parsed && userModel !== 'gemini-2.0-flash') {
+      await tryGeminiStep(`3-${userModel}-JSON`, {
+        model: userModel,
+        responseMimeType: 'application/json',
       });
     }
 
@@ -2640,12 +2640,24 @@ router.post('/company/research', async (req: Request, res: Response) => {
     const queryName = companyName.trim();
 
     // Gemini가 명시적으로 "못 찾음"을 반환한 경우
+    // 단, 유효 데이터가 충분하면 error 필드를 무시하고 진행
     if (result.error) {
-      res.status(404).json({
-        error: `"${queryName}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
-        notFound: true,
+      const validKeys = Object.keys(result).filter(k => {
+        if (k === 'error' || k === 'name') return false;
+        const v = result[k];
+        return v !== null && v !== undefined && v !== '' && v !== 0 &&
+          !(Array.isArray(v) && v.length === 0);
       });
-      return;
+      if (validKeys.length < 3) {
+        res.status(404).json({
+          error: `"${queryName}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
+          notFound: true,
+        });
+        return;
+      }
+      // 유효 데이터가 있으면 error 필드 제거 후 진행
+      console.log(`[company/research] error 필드 있으나 유효 키 ${validKeys.length}개 → 진행`);
+      delete result.error;
     }
 
     // 이름이 비어있으면 검색어로 채움 (부분 데이터 허용을 위해 매칭 검증 전에 실행)
