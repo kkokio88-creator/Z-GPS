@@ -270,6 +270,36 @@ const Settings: React.FC = () => {
     setNpsApiKey(localNpsKey);
     setAiModel(localModel);
 
+    // 기업 정보: localStorage 기본값이면 서버에서 복원
+    const storedCompany = getStoredCompany();
+    const isDefaultCompany = storedCompany.id === 'company_1' && storedCompany.name === '(주)테스트기업';
+    if (isDefaultCompany || !localStorage.getItem('zmis_company_v2')) {
+      vaultService.getCompany().then(({ company: serverCompany }) => {
+        if (serverCompany && serverCompany.name && typeof serverCompany.name === 'string') {
+          const restored: Company = {
+            ...storedCompany,
+            name: serverCompany.name as string,
+            businessNumber: (serverCompany.businessNumber as string) || storedCompany.businessNumber,
+            industry: (serverCompany.industry as string) || storedCompany.industry,
+            address: (serverCompany.address as string) || storedCompany.address,
+            revenue: Number(serverCompany.revenue) || storedCompany.revenue,
+            employees: Number(serverCompany.employees) || storedCompany.employees,
+            description: (serverCompany.description as string) || storedCompany.description,
+            coreCompetencies: Array.isArray(serverCompany.coreCompetencies) ? serverCompany.coreCompetencies as string[] : storedCompany.coreCompetencies,
+            certifications: Array.isArray(serverCompany.certifications) ? serverCompany.certifications as string[] : storedCompany.certifications,
+            mainProducts: Array.isArray(serverCompany.mainProducts) ? serverCompany.mainProducts as string[] : storedCompany.mainProducts,
+            representative: (serverCompany.representative as string) || storedCompany.representative,
+            foundedYear: Number(serverCompany.foundedYear) || storedCompany.foundedYear,
+            businessType: (serverCompany.businessType as string) || storedCompany.businessType,
+            history: (serverCompany.history as string) || storedCompany.history,
+          };
+          setCompany(restored);
+          saveStoredCompany(restored);
+          if (import.meta.env.DEV) console.log('[Settings] Company info restored from server:', restored.name);
+        }
+      }).catch(() => { /* 서버 연결 실패 무시 */ });
+    }
+
     // localStorage가 비어있으면 서버에서 원본 키 복원
     if (!localApiKey && !localDartKey) {
       vaultService.restoreConfig().then(config => {
@@ -288,6 +318,17 @@ const Settings: React.FC = () => {
         if (config.aiModel && typeof config.aiModel === 'string') {
           setAiModel(config.aiModel as string);
           saveStoredAiModel(config.aiModel as string);
+        }
+      }).catch(() => { /* 서버 연결 실패 무시 */ });
+    }
+
+    // 딥리서치 데이터: localStorage 비어있으면 서버에서 복원
+    if (!getStoredDeepResearch()) {
+      vaultService.getCompanyResearch().then(research => {
+        if (research && typeof research === 'object' && Object.keys(research).length > 0) {
+          setDeepResearchData(research);
+          try { saveStoredDeepResearch(research as any); } catch { /* ignore */ }
+          if (import.meta.env.DEV) console.log('[Settings] Deep research restored from server');
         }
       }).catch(() => { /* 서버 연결 실패 무시 */ });
     }

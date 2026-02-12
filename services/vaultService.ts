@@ -394,6 +394,18 @@ export const vaultService = {
     }
   },
 
+  /** 저장된 딥리서치 JSON 데이터 조회 */
+  async getCompanyResearch(): Promise<Record<string, unknown> | null> {
+    try {
+      const { data } = await apiClient.get<{ research: Record<string, unknown> | null }>(
+        '/api/vault/company/research'
+      );
+      return data.research;
+    } catch {
+      return null;
+    }
+  },
+
   /** 기업명 AI 딥리서치 */
   async researchCompany(companyName: string): Promise<{ success: boolean; company: Record<string, unknown> }> {
     const { data } = await apiClient.post<{ success: boolean; company: Record<string, unknown> }>(

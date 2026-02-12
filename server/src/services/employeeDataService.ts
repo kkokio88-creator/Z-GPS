@@ -237,6 +237,33 @@ function matchByBizNo(basics: NpsBasicItem[], businessNumber: string): NpsBasicI
   return basics.find(b => normalizeBizNo(b.bzowrRgstNo).startsWith(prefix)) || null;
 }
 
+/** 회사명 유사도 매칭 — NPS 사업장명에서 원래 회사명이 포함되는지 확인 */
+function normalizeCompanyName(name: string): string {
+  return name
+    .replace(/^(주식회사|㈜|\(주\)|\(사\)|사단법인|재단법인|유한회사|합자회사)\s*/g, '')
+    .replace(/\s*(주식회사|㈜|\(주\))$/g, '')
+    .replace(/（/g, '(').replace(/）/g, ')')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function isCompanyNameMatch(npsName: string, targetName: string): boolean {
+  const npsNorm = normalizeCompanyName(npsName);
+  const targetNorm = normalizeCompanyName(targetName);
+  if (!npsNorm || !targetNorm) return false;
+
+  // 완전 일치
+  if (npsNorm === targetNorm) return true;
+  // 포함 관계
+  if (npsNorm.includes(targetNorm) || targetNorm.includes(npsNorm)) return true;
+  // 앞 3글자 일치 (짧은 이름 보호)
+  if (targetNorm.length >= 2 && npsNorm.length >= 2) {
+    const minLen = Math.min(3, Math.min(npsNorm.length, targetNorm.length));
+    if (npsNorm.substring(0, minLen) === targetNorm.substring(0, minLen)) return true;
+  }
+  return false;
+}
+
 /** 데이터 완성도 점수 (0-100) */
 export function calculateDataCompleteness(data: NpsWorkplaceInfo | null): number {
   if (!data) return 0;
@@ -266,16 +293,25 @@ export async function fetchNpsEmployeeData(
     let basics: NpsBasicItem[] = [];
     let matchedByBizNo = false;
 
-    // 1차: 사업자등록번호(앞6자리)로 우선 검색 (더 정확)
+    // 1차: 사업자등록번호(앞6자리)로 검색 + 회사명 필터
     if (businessNumber) {
       const prefix = normalizeBizNo(businessNumber).substring(0, 6);
       if (prefix.length === 6) {
-        basics = await searchBasic({ bzowrRgstNo: prefix });
-        if (basics.length > 0) matchedByBizNo = true;
+        const allByBizNo = await searchBasic({ bzowrRgstNo: prefix });
+        // NPS V2는 앞6자리만 지원 → 다른 회사가 섞일 수 있으므로 회사명 매칭 필터
+        const nameMatched = allByBizNo.filter(b => isCompanyNameMatch(b.wkplNm, companyName));
+        if (nameMatched.length > 0) {
+          basics = nameMatched;
+          matchedByBizNo = true;
+          console.log(`[employeeDataService] BizNo+Name matched: ${nameMatched.length}/${allByBizNo.length} workplaces`);
+        } else if (allByBizNo.length > 0) {
+          // 사업자번호는 매칭되지만 회사명이 안 맞음 → 다른 회사 가능성
+          console.warn(`[employeeDataService] BizNo prefix ${prefix} returned ${allByBizNo.length} results, but none match "${companyName}". Falling through to name search.`);
+        }
       }
     }
 
-    // 2차: 사업자번호 검색 실패 시 사업장명으로 검색
+    // 2차: 사업자번호 검색 실패 또는 이름 불일치 시 사업장명으로 검색
     if (basics.length === 0) {
       basics = await searchBasic({ wkplNm: companyName });
     }
@@ -286,14 +322,14 @@ export async function fetchNpsEmployeeData(
     const active = basics.filter(b => b.wkplJnngStcd === '1');
     const pool = active.length > 0 ? active : basics;
 
-    // 동일 사업자번호 사업장 그룹핑
+    // 동일 사업자번호 사업장 그룹핑 (이미 이름 필터를 거쳤으므로 안전)
     let matchedPool: NpsBasicItem[];
-    if (businessNumber) {
+    if (matchedByBizNo && businessNumber) {
       const prefix = normalizeBizNo(businessNumber).substring(0, 6);
       matchedPool = pool.filter(b => normalizeBizNo(b.bzowrRgstNo).startsWith(prefix));
       if (matchedPool.length === 0) matchedPool = [pool[0]];
     } else {
-      // 사업자번호 없으면 첫 결과의 bzowrRgstNo로 그룹핑
+      // 이름 검색으로 왔으면 첫 결과의 bzowrRgstNo로 그룹핑
       const firstBzNo = normalizeBizNo(pool[0].bzowrRgstNo).substring(0, 6);
       matchedPool = firstBzNo
         ? pool.filter(b => normalizeBizNo(b.bzowrRgstNo).startsWith(firstBzNo))

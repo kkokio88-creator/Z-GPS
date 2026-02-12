@@ -2414,6 +2414,29 @@ router.get('/company', async (_req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/vault/company/research
+ * 저장된 딥리서치 JSON 데이터 조회
+ */
+router.get('/company/research', async (_req: Request, res: Response) => {
+  try {
+    const researchPath = path.join('company', 'research.md');
+    if (!(await noteExists(researchPath))) {
+      return res.json({ research: null });
+    }
+    const { frontmatter } = await readNote(researchPath);
+    // frontmatter.researchData에 저장된 전체 JSON 반환
+    if (frontmatter.researchData && typeof frontmatter.researchData === 'object') {
+      return res.json({ research: frontmatter.researchData });
+    }
+    // 레거시: researchData 없으면 null
+    return res.json({ research: null });
+  } catch (error) {
+    console.error('[vault/company/research GET] Error:', error);
+    res.status(500).json({ error: '기업 리서치 데이터 조회 실패' });
+  }
+});
+
+/**
  * POST /api/vault/company/research
  * 기업명으로 AI 딥리서치 → 기업 정보 자동 입력
  */
@@ -2731,14 +2754,17 @@ router.post('/company/research', async (req: Request, res: Response) => {
       }
     }
 
-    // Vault에 리서치 결과 마크다운으로 저장
+    // Vault에 리서치 결과 마크다운 + JSON 데이터 저장
     try {
       const researchMd = generateResearchMarkdown(companyName.trim(), result);
       const researchPath = path.join('company', 'research.md');
+      // npsData는 대용량이므로 researchData에서 제외 (별도 캐시에 저장됨)
+      const { npsData: _nps, ...researchDataWithoutNps } = result as Record<string, unknown>;
       await writeNote(researchPath, {
         type: 'company-research',
         companyName: result.name || companyName.trim(),
         researchedAt: new Date().toISOString(),
+        researchData: researchDataWithoutNps,
       }, researchMd);
     } catch (e) {
       console.warn('[vault/company/research] Failed to save research markdown:', e);
@@ -3881,13 +3907,14 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
             }
           }
 
-          // 캐시 저장
+          // 캐시 저장 (undefined 제거 필수 — YAML 호환)
           if (npsCacheFile) {
             try {
+              const cleanNpsForCache = JSON.parse(JSON.stringify(npsData));
               const cacheData: Record<string, unknown> = {
                 type: 'nps-cache',
                 cachedAt: new Date().toISOString(),
-                npsData,
+                npsData: cleanNpsForCache,
               };
               await writeNote(npsCacheFile, cacheData, 'NPS 데이터 캐시');
             } catch { /* cache save failure is non-critical */ }
@@ -4007,16 +4034,21 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
     const now = new Date().toISOString();
     const totalEstimatedRefund = result.opportunities.reduce((sum, o) => sum + (o.estimatedRefund || 0), 0);
 
-    // opportunities에서 undefined 값 제거 (YAML 직렬화 호환)
-    const cleanOpportunities = result.opportunities.map(o => {
-      const cleaned: Record<string, unknown> = { ...o };
-      for (const key of Object.keys(cleaned)) {
-        if (cleaned[key] === undefined) delete cleaned[key];
+    // 재귀적 undefined 제거 (YAML 직렬화 호환)
+    function stripUndefined(obj: unknown): unknown {
+      if (obj === undefined) return null;
+      if (obj === null || typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(stripUndefined);
+      const cleaned: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        if (v !== undefined) cleaned[k] = stripUndefined(v);
       }
       return cleaned;
-    });
+    }
 
-    const scan = {
+    const cleanOpportunities = result.opportunities.map(o => stripUndefined(o));
+
+    const scan = stripUndefined({
       id: scanId,
       scannedAt: now,
       opportunities: cleanOpportunities,
@@ -4032,7 +4064,7 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
       summary: result.summary,
       disclaimer: result.disclaimer,
       ...(npsData?.found ? {
-        npsData,
+        npsData: stripUndefined(npsData),
         dataCompleteness: npsData.dataCompleteness,
       } : {}),
       ...(dartFinancials.length > 0 ? { dartFinancials } : {}),
@@ -4045,7 +4077,7 @@ router.post('/benefits/tax-scan', async (_req: Request, res: Response) => {
         documents: !!documentsMeta,
         programFit: !!programFitData,
       },
-    };
+    }) as Record<string, unknown>;
 
     // vault에 저장
     const scanFrontmatter: Record<string, unknown> = {
