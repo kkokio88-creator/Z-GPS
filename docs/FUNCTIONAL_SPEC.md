@@ -184,7 +184,7 @@
 | **입력** | 없음 |
 | **출력** | `{ analyzed, errors, results[] }` |
 | **처리 로직** | 전체 프로그램 파일 순회 → 각각 `analyzeFit()` 호출 → 2초 간격 순차 실행 |
-| **한계점** | - 100개 프로그램 = 200초+ (3분 이상) - HTTP 타임아웃 위험 (long-running request) - 진행률 피드백 없음 (SSE/WebSocket 미구현) - 중간 실패 시 이미 분석된 것은 저장되나 전체 성공 여부만 반환 |
+| **한계점** | - 100개 프로그램 = 200초+ (3분 이상) - HTTP 타임아웃 위험 (long-running request) - SSE 진행률 피드백 구현됨 (`server/src/utils/sse.ts`) - 중간 실패 시 이미 분석된 것은 저장되나 전체 성공 여부만 반환 |
 
 ### 5.3 PDF 분석 (`POST /api/vault/download-pdf/:slug`)
 
@@ -204,7 +204,7 @@
 | **입력** | `prompt: string`, `config?: Record<string, unknown>` |
 | **출력** | `{ text: string }` |
 | **처리 로직** | `@google/genai` SDK로 `generateContent` 호출, 429 에러 시 exponential backoff (2s → 4s → 8s, 최대 3회), `cleanAndParseJSON()`으로 JSON 추출 (markdown code block, 중괄호 범위 등 다중 전략) |
-| **한계점** | - 모델 고정 (`gemini-2.0-flash`) - 토큰 사용량 추적 없음 - 동시 호출 제한 관리 없음 |
+| **한계점** | - 모델은 사용자 설정으로 변경 가능 (기본값: `gemini-2.5-flash-preview`, localStorage `zmis_user_ai_model` 키) - 토큰 사용량 추적 없음 - 동시 호출 제한 관리 없음 |
 
 ---
 
@@ -276,7 +276,7 @@
 
 ## 10. 설정 관리
 
-### 10.1 설정 페이지 (`Settings.tsx`)
+### 10.1 설정 페이지 (`components/settings/`)
 
 | 항목 | 내용 |
 |------|------|
@@ -318,7 +318,7 @@
 
 ## 11. 기업 프로필 및 리서치
 
-### 11.1 기업 프로필 (`CompanyProfile.tsx`)
+### 11.1 기업 프로필 (`components/company/`)
 
 | 항목 | 내용 |
 |------|------|
@@ -361,6 +361,21 @@
 | **출력** | ReviewResult (5축 점수 + 피드백) by 3개 AI 페르소나 |
 | **처리 로직** | 3개 AI 평가위원 페르소나: 1) 박박사 (기술평가위원) - R&D 전문, 2) 이이사 (벤처캐피탈) - 사업성 전문, 3) 김팀장 (규정감사관) - 규정/예산 전문 → 선택한 지원서에 대해 해당 페르소나로 `reviewAgent.reviewApplication()` 호출 |
 | **한계점** | - 페르소나 차이가 프롬프트 변경만으로 구현 (실제 전문성 차이 미비) - 지원서가 없으면 빈 화면 - 평가 결과 저장/비교 기능 미구현 |
+
+---
+
+## 12.5. 수혜관리 / 세금환급
+
+### 12.5.1 BenefitTracker (`components/benefits/`)
+
+| 항목 | 내용 |
+|------|------|
+| **기능명** | 정부 지원금 수혜 관리 + AI 세금환급 스캔 |
+| **하위 컴포넌트** | `BenefitTracker.tsx` (컨테이너, 208줄), `BenefitSummary.tsx` (요약 대시보드), `BenefitList.tsx` (수혜 기록), `BenefitAnalysis.tsx` (분석 탭), `BenefitForm.tsx` (등록 모달), `TaxRefund.tsx` (세금환급 탭), `TaxOpportunityCard.tsx` (환급 기회 카드), `TaxDataBadges.tsx` (NPS/DART 데이터 배지) |
+| **입력** | localStorage 수혜 기록, Gemini AI 세금 분석, NPS/DART 공공 데이터 |
+| **출력** | 3탭 뷰: 수혜 요약/기록 + 수혜 분석 + AI 세금환급 스캔 |
+| **처리 로직** | 1. 수혜 기록 CRUD (localStorage) → 2. 월별/유형별 통계 집계 → 3. AI 세금환급 스캔: 기업정보 + 수혜현황을 Gemini에 전달 → 환급 기회 목록 반환 → 4. NPS 4대보험 데이터 + DART 재무제표 배지 표시 |
+| **한계점** | - 수혜 기록이 localStorage 기반 (Vault 미연동) - 세금 환급 기회는 AI 추정이므로 실제 세무사 확인 필요 - NPS/DART 데이터는 외부 API 의존 |
 
 ---
 
@@ -422,7 +437,7 @@
 
 ## 17. QA 자동 진단
 
-### 17.1 QAController (`App.tsx: QAController`)
+### 17.1 QAController (`components/qa/QAController.tsx`)
 
 | 항목 | 내용 |
 |------|------|
@@ -541,30 +556,30 @@
 
 ### 아키텍처
 1. **데이터 이중 관리**: localStorage (구 방식) + Vault API (신 방식) 혼재 → 데이터 불일치 가능
-2. **인증 부재**: 서버 API에 인증 미들웨어 없음 → 누구나 API 호출 가능
+2. ~~**인증 부재**~~: `x-api-token` 기반 인증 미들웨어 추가됨 (`server/src/middleware/auth.ts`), rate limiting + helmet 적용
 3. **멀티테넌시 미지원**: 단일 기업만 지원 (복수 기업 프로필 불가)
 
 ### 성능
 4. **동기 처리**: 대량 분석/생성이 순차 실행 → 장시간 HTTP 요청
 5. **캐싱 부재**: Vault 통계, 프로그램 목록 등 매번 파일시스템 순회
-6. **스트리밍 미지원**: AI 응답이 완료될 때까지 대기 (SSE/WebSocket 없음)
+6. **SSE 부분 구현**: `server/src/utils/sse.ts`로 진행률 피드백 가능하나 전 API 적용은 미완
 
 ### 데이터 품질
-7. **랜덤 지원금**: `expectedGrant`가 `Math.random()` 기반 → 실제 금액과 무관
+7. ~~**랜덤 지원금**~~: `Math.random()` 제거됨, `expectedGrant: 0` (금액 미확정 시)
 8. **AI 정확성**: 적합도 점수, 지원서 내용의 정확성 보장 없음
 9. **PDF 분석**: base64 텍스트 전달 방식 → 실제 PDF 파싱 불가
 
 ### 보안
 10. **API키 노출**: localStorage에 평문 저장
-11. **입력 검증 부족**: 서버 측 요청 본문 스키마 검증 미구현
-12. **CORS/Rate Limiting**: 기본 CORS 설정만, 요청 제한 없음
+11. ~~**입력 검증 부족**~~: `zod` 스키마 검증 추가됨 (gemini.ts), SSRF 차단 (odcloud.ts), 프로토타입 오염 방지 (vault config)
+12. ~~**CORS/Rate Limiting**~~: `helmet` + `express-rate-limit` 적용됨 (전역 100회/15분, Gemini 20회/1분)
 
 ### UX
 13. **오프라인 미지원**: 서버 미연결 시 대부분 기능 불가
 14. **에러 복구**: 장시간 작업 중 실패 시 복구/재시작 메커니즘 없음
-15. **ApplicationEditor 복잡도**: 617줄 + 60+ state → 유지보수 난이도 높음
+15. ~~**컴포넌트 복잡도**~~: BenefitTracker, Settings, ProgramExplorer, CompanyProfile 400줄 이하로 분해 완료
 
 ---
 
-> **작성 시점**: 2026-02-08
-> **분석 범위**: 프론트엔드 (23개 컴포넌트, 14개 서비스), 백엔드 (6개 라우트, 5개 서비스)
+> **작성 시점**: 2026-02-08 (Phase 4 동기화: 2026-02-18)
+> **분석 범위**: 프론트엔드 (23개 컴포넌트 → 하위 분해 포함 50+개, 14개 서비스), 백엔드 (7개 vault 라우트 + 4개 프록시 라우트, 8개 서비스)

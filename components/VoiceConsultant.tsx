@@ -26,7 +26,7 @@ const VoiceConsultant: React.FC = () => {
     };
 
     const connect = async () => {
-        const apiKey = getStoredApiKey() || process.env.API_KEY || '';
+        const apiKey = getStoredApiKey() || '';
         if (!apiKey) {
             alert("API Key가 필요합니다. 설정에서 키를 등록해주세요.");
             return;
@@ -49,7 +49,7 @@ const VoiceConsultant: React.FC = () => {
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 callbacks: {
                     onopen: () => {
-                        console.log("Gemini Live Connected");
+                        if (import.meta.env.DEV) console.log("Gemini Live Connected");
                         setStatus('CONNECTED');
                         if (inputAudioContextRef.current) {
                              setupAudioInput(stream, inputAudioContextRef.current, sessionPromise);
@@ -57,7 +57,7 @@ const VoiceConsultant: React.FC = () => {
                     },
                     onmessage: (msg: LiveServerMessage) => handleMessage(msg),
                     onclose: () => disconnect(),
-                    onerror: (err) => { console.error(err); disconnect(); setStatus('ERROR'); }
+                    onerror: (err) => { if (import.meta.env.DEV) console.error(err); disconnect(); setStatus('ERROR'); }
                 },
                 config: {
                     responseModalities: [Modality.AUDIO],
@@ -69,7 +69,7 @@ const VoiceConsultant: React.FC = () => {
             sessionPromiseRef.current = sessionPromise;
 
         } catch (e) {
-            console.error("Connection Failed", e);
+            if (import.meta.env.DEV) console.error("Connection Failed", e);
             setStatus('ERROR');
             setIsActive(false);
         }
@@ -80,12 +80,12 @@ const VoiceConsultant: React.FC = () => {
         if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
             try {
                 inputAudioContextRef.current.close();
-            } catch (e) { console.warn("Input context close error", e); }
+            } catch (e) { if (import.meta.env.DEV) console.warn("Input context close error", e); }
         }
         if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
             try {
                 outputAudioContextRef.current.close();
-            } catch (e) { console.warn("Output context close error", e); }
+            } catch (e) { if (import.meta.env.DEV) console.warn("Output context close error", e); }
         }
         
         sourcesRef.current.forEach(s => {
@@ -98,7 +98,7 @@ const VoiceConsultant: React.FC = () => {
         setIsTalking(false);
         
         if (sessionPromiseRef.current) {
-            sessionPromiseRef.current.then(session => session.close()).catch(e => console.warn(e));
+            sessionPromiseRef.current.then(session => session.close()).catch(e => { if (import.meta.env.DEV) console.warn(e); });
             sessionPromiseRef.current = null;
         }
     };
@@ -229,7 +229,7 @@ const VoiceConsultant: React.FC = () => {
                 }`}
                 title="AI 음성 컨설턴트 연결"
             >
-                <span className="material-icons-outlined text-white text-2xl">
+                <span className="material-icons-outlined text-white text-2xl" aria-hidden="true">
                     {isActive ? 'mic_off' : 'support_agent'}
                 </span>
             </button>

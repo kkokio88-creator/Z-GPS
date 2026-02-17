@@ -58,7 +58,7 @@ const OnboardingTour: React.FC = () => {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px] animate-fade-in">
-            <div className={`bg-white dark:bg-surface-dark rounded-xl shadow-2xl p-6 max-w-md w-full relative border border-gray-200 dark:border-gray-700 ${isCenter ? '' : 'absolute top-1/4'}`}>
+            <div role="dialog" aria-modal="true" aria-labelledby="tour-step-title" className={`bg-white dark:bg-surface-dark rounded-xl shadow-2xl p-6 max-w-md w-full relative border border-gray-200 dark:border-gray-700 ${isCenter ? '' : 'absolute top-1/4'}`}>
                 
                 {/* Progress Bar */}
                 <div className="w-full bg-gray-200 dark:bg-gray-700 h-1 rounded-full mb-4">
@@ -69,12 +69,12 @@ const OnboardingTour: React.FC = () => {
                 </div>
 
                 <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <h3 id="tour-step-title" className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
                         {stepIndex === 0 && <span className="text-2xl mr-2">👋</span>}
                         {currentStep.title}
                     </h3>
                     <button onClick={handleComplete} className="text-gray-400 hover:text-gray-600">
-                        <span className="material-icons-outlined text-sm">close</span>
+                        <span className="material-icons-outlined text-sm" aria-hidden="true">close</span>
                     </button>
                 </div>
                 
@@ -91,7 +91,7 @@ const OnboardingTour: React.FC = () => {
                         className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark transition-all shadow-md flex items-center"
                     >
                         {stepIndex === TOUR_STEPS.length - 1 ? '시작하기' : '다음'}
-                        {stepIndex < TOUR_STEPS.length - 1 && <span className="material-icons-outlined text-sm ml-1">arrow_forward</span>}
+                        {stepIndex < TOUR_STEPS.length - 1 && <span className="material-icons-outlined text-sm ml-1" aria-hidden="true">arrow_forward</span>}
                     </button>
                 </div>
             </div>

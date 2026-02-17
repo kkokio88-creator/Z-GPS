@@ -217,20 +217,20 @@ const ApplicationEditor: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-bold">지원서 작성</h2>
               <button onClick={() => modals.setShowExportModal(true)} className="flex items-center px-3 py-1.5 bg-gray-800 text-white rounded text-sm hover:bg-black">
-                <span className="material-icons-outlined text-sm mr-1">print</span> 표준 서식 미리보기
+                <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">print</span> 표준 서식 미리보기
               </button>
             </div>
 
             {editor.isLoadingSchema ? (
               <div className="flex flex-col items-center justify-center py-16 space-y-3">
-                <span className="animate-spin material-icons-outlined text-4xl text-primary">autorenew</span>
+                <span className="animate-spin material-icons-outlined text-4xl text-primary" aria-hidden="true">autorenew</span>
                 <p className="text-sm text-gray-500 dark:text-gray-400">공고 맞춤 섹션 분석 중...</p>
               </div>
             ) : (
               <>
                 {editor.sectionSchemaSource === 'ai_analyzed' && (
                   <div className="flex items-center px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-xs text-indigo-700 dark:text-indigo-400 mb-2">
-                    <span className="material-icons-outlined text-sm mr-1.5">auto_awesome</span>
+                    <span className="material-icons-outlined text-sm mr-1.5" aria-hidden="true">auto_awesome</span>
                     공고 요구사항 기반 AI 맞춤 섹션 ({editor.sectionSchema.length}개)
                   </div>
                 )}

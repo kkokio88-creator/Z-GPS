@@ -105,8 +105,13 @@ export const saveStoredCompany = (company: Company) => {
 
 // Application Management
 export const getStoredApplications = (): Application[] => {
-  const stored = localStorage.getItem(KEYS.APPLICATIONS);
-  return stored ? JSON.parse(stored) : [];
+  try {
+    const stored = localStorage.getItem(KEYS.APPLICATIONS);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    if (import.meta.env.DEV) console.warn('[storageService] Failed to parse applications');
+    return [];
+  }
 };
 
 export const saveStoredApplication = (application: Application) => {
@@ -129,8 +134,13 @@ export const getApplicationByProgramId = (programId: string): Application | unde
 
 // Calendar Management
 export const getStoredCalendarEvents = (): CalendarEvent[] => {
-  const stored = localStorage.getItem(KEYS.CALENDAR);
-  return stored ? JSON.parse(stored) : [];
+  try {
+    const stored = localStorage.getItem(KEYS.CALENDAR);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    if (import.meta.env.DEV) console.warn('[storageService] Failed to parse calendar events');
+    return [];
+  }
 };
 
 export const saveStoredCalendarEvents = (newEvents: CalendarEvent[]) => {
@@ -147,29 +157,32 @@ export const saveStoredCalendarEvents = (newEvents: CalendarEvent[]) => {
 
 // Notification Management
 export const getStoredNotifications = (): AppNotification[] => {
-  const stored = localStorage.getItem(KEYS.NOTIFICATIONS);
-  if (!stored) {
-      // Mock initial notifications
-      return [
-          {
-              id: 'noti_1',
-              type: 'ALERT',
-              title: '서류 마감 임박',
-              message: '[2025 식품 시설개선] 내부 마감일이 3일 남았습니다.',
-              timestamp: new Date().toISOString(),
-              isRead: false
-          },
-          {
-              id: 'noti_2',
-              type: 'INFO',
-              title: '신규 적합 공고',
-              message: '귀사의 업종(식품제조)에 적합한 R&D 과제가 등록되었습니다.',
-              timestamp: new Date(Date.now() - 86400000).toISOString(),
-              isRead: false
-          }
-      ];
+  const defaultNotifications: AppNotification[] = [
+      {
+          id: 'noti_1',
+          type: 'ALERT',
+          title: '서류 마감 임박',
+          message: '[2025 식품 시설개선] 내부 마감일이 3일 남았습니다.',
+          timestamp: new Date().toISOString(),
+          isRead: false
+      },
+      {
+          id: 'noti_2',
+          type: 'INFO',
+          title: '신규 적합 공고',
+          message: '귀사의 업종(식품제조)에 적합한 R&D 과제가 등록되었습니다.',
+          timestamp: new Date(Date.now() - 86400000).toISOString(),
+          isRead: false
+      }
+  ];
+  try {
+    const stored = localStorage.getItem(KEYS.NOTIFICATIONS);
+    if (!stored) return defaultNotifications;
+    return JSON.parse(stored);
+  } catch {
+    if (import.meta.env.DEV) console.warn('[storageService] Failed to parse notifications');
+    return defaultNotifications;
   }
-  return JSON.parse(stored);
 };
 
 export const saveStoredNotifications = (notis: AppNotification[]) => {

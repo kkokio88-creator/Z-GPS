@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { GoogleGenAI, Modality } from '@google/genai';
+import { z } from 'zod';
 
 const router = Router();
 
-interface GenerateRequestBody {
-  model: string;
-  contents: unknown;
-  config?: Record<string, unknown>;
-}
+const generateRequestSchema = z.object({
+  model: z.string().min(1),
+  contents: z.unknown(),
+  config: z.record(z.string(), z.unknown()).optional(),
+});
 
 /**
  * POST /api/gemini/generate
@@ -16,16 +17,17 @@ interface GenerateRequestBody {
 router.post('/generate', async (req: Request, res: Response) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+    res.status(503).json({ error: 'AI 서비스를 현재 사용할 수 없습니다. 잠시 후 다시 시도해주세요.' });
     return;
   }
 
-  const { model, contents, config } = req.body as GenerateRequestBody;
-
-  if (!model || !contents) {
-    res.status(400).json({ error: 'model and contents are required' });
+  const parseResult = generateRequestSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: '요청 형식이 올바르지 않습니다.', details: parseResult.error.flatten() });
     return;
   }
+
+  const { model, contents, config } = parseResult.data;
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -70,9 +72,8 @@ router.post('/generate', async (req: Request, res: Response) => {
       return;
     }
 
-    // 상세 에러 메시지 포함
-    const shortErr = errStr.length > 200 ? errStr.substring(0, 200) + '...' : errStr;
-    res.status(500).json({ error: `Gemini API 호출 실패: ${shortErr}` });
+    // 상세 에러 정보는 서버 로그에만 기록
+    res.status(500).json({ error: 'Gemini API 호출 실패. 잠시 후 다시 시도해주세요.' });
   }
 });
 

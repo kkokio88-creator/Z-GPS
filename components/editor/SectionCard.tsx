@@ -44,8 +44,8 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
             onKeyDown={e => { if (e.key === 'Enter') magicToolbar.onRewrite(); }}
             autoFocus
           />
-          <button onClick={magicToolbar.onRewrite} className="bg-indigo-600 text-white rounded p-1">
-            <span className="material-icons-outlined text-sm">auto_fix_high</span>
+          <button onClick={magicToolbar.onRewrite} aria-label="Magic Edit 적용" className="bg-indigo-600 text-white rounded p-1">
+            <span className="material-icons-outlined text-sm" aria-hidden="true">auto_fix_high</span>
           </button>
         </div>
       )}
@@ -101,10 +101,11 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
           onChange={e => onTextChange(e.target.value)}
           onSelect={onTextSelect}
           placeholder="내용을 입력하거나 AI 초안을 생성하세요."
+          aria-label={section.title}
         />
         {isGenerating && (
           <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-            <span className="animate-spin material-icons-outlined text-3xl text-primary">autorenew</span>
+            <span className="animate-spin material-icons-outlined text-3xl text-primary" aria-hidden="true">autorenew</span>
           </div>
         )}
       </div>

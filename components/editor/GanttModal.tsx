@@ -10,11 +10,11 @@ interface GanttModalProps {
 const GanttModal: React.FC<GanttModalProps> = ({ data, isLoading, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
-      <div className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden p-6 relative">
-        <button onClick={onClose} className="absolute top-4 right-4">
-          <span className="material-icons-outlined">close</span>
+      <div role="dialog" aria-modal="true" aria-labelledby="gantt-modal-title" className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden p-6 relative">
+        <button onClick={onClose} aria-label="닫기" className="absolute top-4 right-4">
+          <span className="material-icons-outlined" aria-hidden="true">close</span>
         </button>
-        <h3 className="text-lg font-bold mb-4">추진 일정 차트</h3>
+        <h3 id="gantt-modal-title" className="text-lg font-bold mb-4">추진 일정 차트</h3>
         <div className="bg-gray-50 p-4 rounded min-h-[300px]">
           {isLoading ? (
             '생성 중...'

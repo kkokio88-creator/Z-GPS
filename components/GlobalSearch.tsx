@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStoredApplications, getStoredCompany } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 
 type SearchItem = {
   type: string;
@@ -17,7 +18,7 @@ const GlobalSearch: React.FC = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const company = getStoredCompany();
+  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
   const applications = getStoredApplications();
 
   // Basic menu items
@@ -89,9 +90,9 @@ const GlobalSearch: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/50 backdrop-blur-sm transition-opacity">
-      <div className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fade-in-up">
+      <div role="dialog" aria-modal="true" aria-label="전역 검색" className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fade-in-up">
         <div className="flex items-center px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <span className="material-icons-outlined text-gray-400 mr-3">search</span>
+            <span className="material-icons-outlined text-gray-400 mr-3" aria-hidden="true">search</span>
             <input 
                 ref={inputRef}
                 type="text" 
@@ -117,7 +118,7 @@ const GlobalSearch: React.FC = () => {
                         idx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                 >
-                    <span className="material-icons-outlined text-sm mr-3 opacity-70">{item.icon}</span>
+                    <span className="material-icons-outlined text-sm mr-3 opacity-70" aria-hidden="true">{item.icon}</span>
                     <div className="flex-1">
                         {item.label}
                         {item.sub && <span className="ml-2 text-[10px] bg-gray-200 dark:bg-gray-600 px-1.5 rounded text-gray-600 dark:text-gray-300">{item.sub}</span>}

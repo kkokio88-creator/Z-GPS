@@ -49,10 +49,10 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({
         isExiting ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
       }`}
     >
-      <span className={`material-icons-outlined text-lg flex-shrink-0 ${style.text}`}>{style.icon}</span>
+      <span className={`material-icons-outlined text-lg flex-shrink-0 ${style.text}`} aria-hidden="true">{style.icon}</span>
       <p className={`text-sm font-medium flex-1 ${style.text}`}>{toast.message}</p>
       <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0">
-        <span className="material-icons-outlined text-base">close</span>
+        <span className="material-icons-outlined text-base" aria-hidden="true">close</span>
       </button>
     </div>
   );

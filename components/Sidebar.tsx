@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { logoutUser } from '../services/storageService';
+import { logoutUser, getStoredCompany } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDark, setIsDark] = useState(false);
+  const companyName = useCompanyStore(s => s.company)?.name || getStoredCompany()?.name || '기업 미설정';
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -70,7 +72,7 @@ const Sidebar: React.FC = () => {
                 : 'text-text-main-light dark:text-text-main-dark hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
-            <span className={`material-icons-outlined mr-3 ${isActive(item.path) ? 'text-primary' : 'text-gray-400'}`}>{item.icon}</span>
+            <span className={`material-icons-outlined mr-3 ${isActive(item.path) ? 'text-primary' : 'text-gray-400'}`} aria-hidden="true">{item.icon}</span>
             {item.label}
           </button>
         ))}
@@ -86,7 +88,7 @@ const Sidebar: React.FC = () => {
                 : 'text-text-main-light dark:text-text-main-dark hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
         >
-          <span className="material-icons-outlined mr-3 text-gray-400">settings</span>
+          <span className="material-icons-outlined mr-3 text-gray-400" aria-hidden="true">settings</span>
           환경 설정
         </button>
       </nav>
@@ -104,16 +106,16 @@ const Sidebar: React.FC = () => {
                 </button>
             </div>
             <button onClick={handleLogout} className="text-gray-400 hover:text-red-500" title="로그아웃">
-                <span className="material-icons-outlined text-sm">logout</span>
+                <span className="material-icons-outlined text-sm" aria-hidden="true">logout</span>
             </button>
         </div>
 
         <div className="flex items-center">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0 text-white shadow-md">
-            <span className="material-icons-outlined text-lg">business</span>
+            <span className="material-icons-outlined text-lg" aria-hidden="true">business</span>
           </div>
           <div className="ml-3 flex-1 min-w-0">
-            <p className="text-sm font-bold text-text-main-light dark:text-text-main-dark truncate">산너머남촌</p>
+            <p className="text-sm font-bold text-text-main-light dark:text-text-main-dark truncate">{companyName}</p>
             <div className="flex items-center">
               <p className="text-xs text-text-sub-light dark:text-text-sub-dark truncate">Admin Account</p>
             </div>

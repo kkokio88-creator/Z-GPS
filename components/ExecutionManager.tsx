@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './Header';
 import { getStoredApplications, getStoredCompany, getStoredCalendarEvents } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 import { Application, SupportProgram, CalendarEvent } from '../types';
 import { fetchIncheonSupportPrograms } from '../services/apiService';
 import { draftAgent, labNoteAgent, haccpAgent } from '../services/geminiAgents';
@@ -49,7 +50,7 @@ const ExecutionManager: React.FC = () => {
 
     // Handlers (Execution)
     const handleAddExpense = () => { const i = prompt("항목"); const a = prompt("금액"); if(i&&a) setExpenses([...expenses, {item:i, amount:parseInt(a), date: new Date().toISOString().split('T')[0]}]); };
-    const handleGenerateReport = async () => { if(!selectedApp) return; setIsGeneratingReport(true); const r = await draftAgent.writeSection(getStoredCompany(), programs[0], "결과보고서", false, "성과 중심 변환"); setReportDraft(r.text); setIsGeneratingReport(false); };
+    const handleGenerateReport = async () => { if(!selectedApp) return; setIsGeneratingReport(true); const r = await draftAgent.writeSection(useCompanyStore.getState().company ?? getStoredCompany(), programs[0], "결과보고서", false, "성과 중심 변환"); setReportDraft(r.text); setIsGeneratingReport(false); };
     const handleAddLabLog = async () => { if(!newLog) return; setIsRefiningLog(true); const r = await labNoteAgent.refineLog(newLog); setLabLogs([...labLogs, {date:new Date().toISOString().split('T')[0], content:r}]); setNewLog(''); setIsRefiningLog(false); };
     const handleHaccpUpload = (e:any) => { const f=e.target.files[0]; if(f) { const r=new FileReader(); r.onloadend=()=>setHaccpImage(r.result as string); r.readAsDataURL(f); }};
     const handleRunHaccpAudit = async () => { if(!haccpImage) return; setIsHaccpAuditing(true); const r = await haccpAgent.auditFacility(haccpImage.split(',')[1], haccpChecklist); setHaccpResult(r); setIsHaccpAuditing(false); };
@@ -97,8 +98,8 @@ const ExecutionManager: React.FC = () => {
                                 {selectedApp ? (
                                     <div className="bg-white dark:bg-surface-dark rounded-lg border border-border-light shadow-sm">
                                         <div className="flex border-b overflow-x-auto">
-                                            {['BUDGET','LABNOTE','HACCP','REPORT'].map(t => (
-                                                <button key={t} onClick={()=>setSubTab(t as any)} className={`flex-1 py-3 text-sm font-bold border-b-2 ${subTab===t ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>{t}</button>
+                                            {(['BUDGET','LABNOTE','HACCP','REPORT'] as const).map(t => (
+                                                <button key={t} onClick={()=>setSubTab(t)} className={`flex-1 py-3 text-sm font-bold border-b-2 ${subTab===t ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>{t}</button>
                                             ))}
                                         </div>
                                         <div className="p-6 min-h-[400px]">
@@ -162,8 +163,8 @@ const ExecutionManager: React.FC = () => {
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-xl font-bold">{currentDate.getFullYear()}년 {currentDate.getMonth()+1}월</h2>
                                 <div className="flex gap-2">
-                                    <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded"><span className="material-icons-outlined">chevron_left</span></button>
-                                    <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded"><span className="material-icons-outlined">chevron_right</span></button>
+                                    <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded"><span className="material-icons-outlined" aria-hidden="true">chevron_left</span></button>
+                                    <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded"><span className="material-icons-outlined" aria-hidden="true">chevron_right</span></button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded overflow-hidden">

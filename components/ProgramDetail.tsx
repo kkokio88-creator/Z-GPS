@@ -6,6 +6,7 @@ import {
   getStoredApplications,
   saveStoredApplication,
 } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 import { Application } from '../types';
 import Header from './Header';
 
@@ -226,7 +227,7 @@ const ProgramDetail: React.FC = () => {
 
   const handleCreateApplication = () => {
     if (!slug) return;
-    const company = getStoredCompany();
+    const company = useCompanyStore.getState().company ?? getStoredCompany();
     const myApplications = getStoredApplications();
     const existing = myApplications.find(a => a.programId === slug);
 
@@ -287,7 +288,7 @@ const ProgramDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <span className="material-icons-outlined text-4xl text-gray-300 animate-spin">autorenew</span>
+        <span className="material-icons-outlined text-4xl text-gray-300 animate-spin" aria-hidden="true">autorenew</span>
       </div>
     );
   }
@@ -295,7 +296,7 @@ const ProgramDetail: React.FC = () => {
   if (error || !data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
-        <span className="material-icons-outlined text-5xl text-gray-300">error_outline</span>
+        <span className="material-icons-outlined text-5xl text-gray-300" aria-hidden="true">error_outline</span>
         <p className="text-gray-500">{error || '데이터 없음'}</p>
         <button onClick={() => navigate(-1)} className="px-4 py-2 bg-gray-100 rounded-lg text-sm">뒤로가기</button>
       </div>
@@ -314,7 +315,7 @@ const ProgramDetail: React.FC = () => {
             onClick={() => navigate(-1)}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
           >
-            <span className="material-icons-outlined text-sm">arrow_back</span>
+            <span className="material-icons-outlined text-sm" aria-hidden="true">arrow_back</span>
             목록으로
           </button>
 
@@ -327,7 +328,7 @@ const ProgramDetail: React.FC = () => {
               </span>
               {fitScore > 0 && (
                 <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${grade.bg} ${grade.color} border flex items-center gap-1`}>
-                  <span className="material-icons-outlined" style={{ fontSize: '12px' }}>{grade.icon}</span>
+                  <span className="material-icons-outlined" style={{ fontSize: '12px' }} aria-hidden="true">{grade.icon}</span>
                   {grade.label}
                 </span>
               )}
@@ -377,7 +378,7 @@ const ProgramDetail: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
                 <p className="text-[10px] text-gray-500 mb-0.5">전략 상태</p>
                 <p className={`text-sm font-bold ${strategy ? 'text-amber-600' : loadingStrategy ? 'text-blue-500' : 'text-gray-400'}`}>
-                  {loadingStrategy && <span className="material-icons-outlined animate-spin text-xs mr-0.5" style={{ fontSize: '12px' }}>autorenew</span>}
+                  {loadingStrategy && <span className="material-icons-outlined animate-spin text-xs mr-0.5" style={{ fontSize: '12px' }} aria-hidden="true">autorenew</span>}
                   {strategyStatus}
                 </p>
               </div>
@@ -388,7 +389,7 @@ const ProgramDetail: React.FC = () => {
           {enrichmentPhase === 99 && preScreenReason && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
               <h3 className="text-sm font-bold text-red-700 dark:text-red-400 mb-1 flex items-center gap-1">
-                <span className="material-icons-outlined text-sm">info</span>
+                <span className="material-icons-outlined text-sm" aria-hidden="true">info</span>
                 사전심사 탈락 사유
               </h3>
               <p className="text-sm text-red-600 dark:text-red-300">{preScreenReason}</p>
@@ -407,7 +408,7 @@ const ProgramDetail: React.FC = () => {
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <span className="material-icons-outlined" style={{ fontSize: '16px' }}>{tab.icon}</span>
+                <span className="material-icons-outlined" style={{ fontSize: '16px' }} aria-hidden="true">{tab.icon}</span>
                 <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
@@ -423,7 +424,7 @@ const ProgramDetail: React.FC = () => {
                 {fitScore > 0 && dims && (
                   <div>
                     <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
-                      <span className="material-icons-outlined" style={{ fontSize: '14px' }}>analytics</span>
+                      <span className="material-icons-outlined" style={{ fontSize: '14px' }} aria-hidden="true">analytics</span>
                       적합도 요약
                     </h3>
                     <div className="grid grid-cols-5 gap-2">
@@ -450,7 +451,7 @@ const ProgramDetail: React.FC = () => {
                 {keyActions.length > 0 && (
                   <div>
                     <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
-                      <span className="material-icons-outlined" style={{ fontSize: '14px' }}>task_alt</span>
+                      <span className="material-icons-outlined" style={{ fontSize: '14px' }} aria-hidden="true">task_alt</span>
                       핵심 액션
                     </h3>
                     <ol className="space-y-2">
@@ -472,7 +473,7 @@ const ProgramDetail: React.FC = () => {
                     {advice && (
                       <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className="material-icons-outlined text-indigo-500" style={{ fontSize: '14px' }}>tips_and_updates</span>
+                          <span className="material-icons-outlined text-indigo-500" style={{ fontSize: '14px' }} aria-hidden="true">tips_and_updates</span>
                           <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">전략 조언</p>
                         </div>
                         <p className="text-sm text-gray-700 dark:text-gray-300">{advice}</p>
@@ -481,7 +482,7 @@ const ProgramDetail: React.FC = () => {
                     {recommendedStrategy && (
                       <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl p-3">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className="material-icons-outlined text-purple-500" style={{ fontSize: '14px' }}>psychology</span>
+                          <span className="material-icons-outlined text-purple-500" style={{ fontSize: '14px' }} aria-hidden="true">psychology</span>
                           <p className="text-xs font-bold text-purple-600 dark:text-purple-400">추천 전략</p>
                         </div>
                         <p className="text-sm text-gray-700 dark:text-gray-300">{recommendedStrategy}</p>
@@ -494,7 +495,7 @@ const ProgramDetail: React.FC = () => {
                 {eligibilityDetails && (
                   <div>
                     <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
-                      <span className="material-icons-outlined" style={{ fontSize: '14px' }}>checklist</span>
+                      <span className="material-icons-outlined" style={{ fontSize: '14px' }} aria-hidden="true">checklist</span>
                       자격요건 체크
                     </h3>
                     <div className="flex flex-wrap gap-1.5">
@@ -520,7 +521,7 @@ const ProgramDetail: React.FC = () => {
                 {/* 미분석 안내 */}
                 {fitScore === 0 && (
                   <div className="text-center py-8">
-                    <span className="material-icons-outlined text-4xl text-gray-300 mb-2">pending</span>
+                    <span className="material-icons-outlined text-4xl text-gray-300 mb-2" aria-hidden="true">pending</span>
                     <p className="text-sm text-gray-500">아직 AI 분석이 수행되지 않았습니다.</p>
                     <p className="text-xs text-gray-400 mt-1">설정에서 전체 동기화를 실행하면 분석이 시작됩니다.</p>
                   </div>
@@ -536,7 +537,7 @@ const ProgramDetail: React.FC = () => {
                     {/* 5차원 바 차트 (풀 버전) */}
                     <div>
                       <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-1">
-                        <span className="material-icons-outlined" style={{ fontSize: '14px' }}>bar_chart</span>
+                        <span className="material-icons-outlined" style={{ fontSize: '14px' }} aria-hidden="true">bar_chart</span>
                         5차원 적합도 분석
                       </h3>
                       <div className="space-y-3">
@@ -618,7 +619,7 @@ const ProgramDetail: React.FC = () => {
                         {strengths.length > 0 && (
                           <div>
                             <h3 className="text-xs font-bold text-green-600 mb-2 flex items-center gap-1">
-                              <span className="material-icons-outlined" style={{ fontSize: '14px' }}>trending_up</span>
+                              <span className="material-icons-outlined" style={{ fontSize: '14px' }} aria-hidden="true">trending_up</span>
                               강점
                             </h3>
                             <ul className="space-y-1.5">
@@ -634,7 +635,7 @@ const ProgramDetail: React.FC = () => {
                         {weaknesses.length > 0 && (
                           <div>
                             <h3 className="text-xs font-bold text-red-500 mb-2 flex items-center gap-1">
-                              <span className="material-icons-outlined" style={{ fontSize: '14px' }}>trending_down</span>
+                              <span className="material-icons-outlined" style={{ fontSize: '14px' }} aria-hidden="true">trending_down</span>
                               약점
                             </h3>
                             <ul className="space-y-1.5">
@@ -669,7 +670,7 @@ const ProgramDetail: React.FC = () => {
                   </>
                 ) : (
                   <div className="text-center py-8">
-                    <span className="material-icons-outlined text-4xl text-gray-300 mb-2">analytics</span>
+                    <span className="material-icons-outlined text-4xl text-gray-300 mb-2" aria-hidden="true">analytics</span>
                     <p className="text-sm text-gray-500">AI 분석 데이터가 없습니다.</p>
                     <p className="text-xs text-gray-400 mt-1">설정에서 전체 동기화를 실행하면 분석이 시작됩니다.</p>
                   </div>
@@ -682,7 +683,7 @@ const ProgramDetail: React.FC = () => {
               <div>
                 {loadingStrategy ? (
                   <div className="text-center py-12">
-                    <span className="material-icons-outlined text-4xl text-amber-400 animate-spin mb-3">auto_awesome</span>
+                    <span className="material-icons-outlined text-4xl text-amber-400 animate-spin mb-3" aria-hidden="true">auto_awesome</span>
                     <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">AI 전략 문서 생성 중...</p>
                     <p className="text-xs text-gray-400 mt-1">1~2분 소요될 수 있습니다</p>
                   </div>
@@ -692,7 +693,7 @@ const ProgramDetail: React.FC = () => {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <span className="material-icons-outlined text-4xl text-gray-300 mb-3">auto_awesome</span>
+                    <span className="material-icons-outlined text-4xl text-gray-300 mb-3" aria-hidden="true">auto_awesome</span>
                     {fitScore >= 60 ? (
                       <>
                         <p className="text-sm text-gray-500">전략 문서를 불러오지 못했습니다.</p>
@@ -764,7 +765,7 @@ const ProgramDetail: React.FC = () => {
                     <ul className="space-y-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                       {(fm.requiredDocuments as string[]).map((doc, i) => (
                         <li key={i} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
-                          <span className="material-icons-outlined text-sm text-gray-400 mt-0.5">article</span>
+                          <span className="material-icons-outlined text-sm text-gray-400 mt-0.5" aria-hidden="true">article</span>
                           <span>{stripHtml(doc)}</span>
                         </li>
                       ))}
@@ -800,7 +801,7 @@ const ProgramDetail: React.FC = () => {
                 {/* 상세 데이터 없음 */}
                 {!fm.targetAudience && !(fm.eligibilityCriteria as string[])?.length && !fm.fullDescription && (
                   <div className="text-center py-8">
-                    <span className="material-icons-outlined text-4xl text-gray-300 mb-2">description</span>
+                    <span className="material-icons-outlined text-4xl text-gray-300 mb-2" aria-hidden="true">description</span>
                     <p className="text-sm text-gray-500">상세 정보가 아직 수집되지 않았습니다.</p>
                     <p className="text-xs text-gray-400 mt-1">딥크롤링을 실행하면 상세 정보가 추가됩니다.</p>
                   </div>
@@ -821,7 +822,7 @@ const ProgramDetail: React.FC = () => {
               rel="noopener noreferrer"
               className="flex-1 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-icons-outlined text-sm">open_in_new</span>
+              <span className="material-icons-outlined text-sm" aria-hidden="true">open_in_new</span>
               공고문 원문
             </a>
           )}
@@ -829,7 +830,7 @@ const ProgramDetail: React.FC = () => {
             onClick={handleCreateApplication}
             className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
-            <span className="material-icons-outlined text-sm">edit_note</span>
+            <span className="material-icons-outlined text-sm" aria-hidden="true">edit_note</span>
             지원서 작성하기
           </button>
         </div>

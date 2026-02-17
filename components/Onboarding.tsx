@@ -57,7 +57,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-labelledby="onboarding-title" className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         {/* Progress */}
         <div className="flex gap-1.5 p-4 pb-0">
           {STEPS.map((_, i) => (
@@ -73,14 +73,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         {/* Content */}
         <div className="p-8 text-center">
           <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-lg`}>
-            <span className="material-icons-outlined text-white text-4xl">{step.icon}</span>
+            <span className="material-icons-outlined text-white text-4xl" aria-hidden="true">{step.icon}</span>
           </div>
 
           <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
             Step {currentStep + 1} / {STEPS.length}
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+          <h2 id="onboarding-title" className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
             {step.title}
           </h2>
 
@@ -103,7 +103,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               onClick={() => setCurrentStep(currentStep - 1)}
               className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1"
             >
-              <span className="material-icons-outlined text-sm">arrow_back</span>
+              <span className="material-icons-outlined text-sm" aria-hidden="true">arrow_back</span>
               이전
             </button>
           ) : (

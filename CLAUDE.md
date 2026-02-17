@@ -14,13 +14,20 @@
 ```
 Z-GPS/
 ├── components/             # React 컴포넌트 (PascalCase.tsx)
+│   ├── applications/       # ApplicationList 하위
+│   ├── benefits/           # BenefitTracker 하위 (분해됨)
+│   ├── company/            # CompanyProfile 하위 (분해됨)
 │   ├── editor/             # ApplicationEditor 하위 (SectionCard, ExportModal 등)
-│   ├── programs/           # ProgramExplorer 하위
-│   └── applications/       # ApplicationList 하위
+│   ├── programs/           # ProgramExplorer 하위 (분해됨)
+│   ├── qa/                 # QAController (App.tsx에서 분리)
+│   └── settings/           # Settings 하위 (탭별 분해됨)
 ├── services/               # 비즈니스 로직 (camelCase.ts)
-│   └── repositories/       # 데이터 저장소
+│   ├── repositories/       # 데이터 저장소
+│   ├── stores/             # Zustand 상태 관리 (companyStore, qaStore)
+│   └── utils/              # 공유 유틸리티 (formatters)
 ├── server/src/             # Express 백엔드
-│   ├── routes/             # vault.ts, gemini.ts
+│   ├── routes/             # vault/, gemini.ts, odcloud.ts, dart.ts, health.ts
+│   │   └── vault/          # 도메인별 분리 (programs, analysis, benefits 등 7파일)
 │   └── services/           # vaultFileService, programFetcher, analysisService 등
 ├── types.ts                # 전역 타입 정의
 └── constants.ts            # 상수 정의
@@ -75,11 +82,17 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
 Types: `feat` | `fix` | `refactor` | `docs` | `style` | `test` | `chore`
 
+## 상태 관리
+- **Zustand**: `companyStore` (기업정보), `qaStore` (QA 시스템) — `getStoredCompany()` 직접 호출 대신 `useCompanyStore()` 사용
+- **localStorage**: 세션, API키, 캘린더 등 (storageService.ts 경유)
+
 ## 프로젝트 고유 주의사항
 - `EligibilityStatus` enum 사용 필수 (문자열 리터럴 X)
 - `vaultFileService.ts`는 lazy getter `getVaultRoot()` 사용 (ESM import hoisting 문제)
-- `GEMINI_API_KEY` 미설정 시 503 응답 (vault.ts에서 체크)
+- `GEMINI_API_KEY` 미설정 시 503 응답 (vault routes에서 체크)
 - Frontend env: `VITE_API_BASE_URL`, `VITE_ODCLOUD_ENDPOINT_PATH` only
+- `VoiceConsultant.tsx`는 Gemini Live API (WebSocket) 특성상 `@google/genai` SDK 직접 사용 — `callGemini()` HTTP 프록시 예외
+- 거대 컴포넌트는 하위 디렉토리로 분해, barrel export(`index.tsx`)로 기존 import 경로 호환 유지
 
 ---
-**Last Updated**: 2026-02-11
+**Last Updated**: 2026-02-18

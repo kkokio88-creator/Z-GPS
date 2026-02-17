@@ -317,8 +317,8 @@ class AgentOrchestrator {
     this.state.currentWorkflow = undefined;
   }
 
-  private async waitForTasks(taskIds: string[]): Promise<void> {
-    return new Promise((resolve) => {
+  private async waitForTasks(taskIds: string[], timeoutMs: number = 30000): Promise<void> {
+    return new Promise((resolve, reject) => {
       const checkInterval = setInterval(() => {
         const allCompleted = taskIds.every((id) => {
           const task = this.state.taskQueue.find((t) => t.id === id);
@@ -327,9 +327,15 @@ class AgentOrchestrator {
 
         if (allCompleted) {
           clearInterval(checkInterval);
+          clearTimeout(timeoutHandle);
           resolve();
         }
       }, 100);
+
+      const timeoutHandle = setTimeout(() => {
+        clearInterval(checkInterval);
+        reject(new Error(`waitForTasks timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
     });
   }
 

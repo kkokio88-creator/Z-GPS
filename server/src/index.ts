@@ -10,28 +10,60 @@ dotenv.config({ path: path.join(serverRoot, '.env.local') });
 dotenv.config({ path: path.join(serverRoot, '.env') });
 import fs from 'fs/promises';
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { createCorsMiddleware } from './middleware/cors.js';
+import { authMiddleware } from './middleware/auth.js';
 import healthRouter from './routes/health.js';
 import odcloudRouter from './routes/odcloud.js';
 import dataGoKrRouter from './routes/dataGoKr.js';
 import dartRouter from './routes/dart.js';
 import geminiRouter from './routes/gemini.js';
-import vaultRouter from './routes/vault.js';
+import vaultRouter from './routes/vault/index.js';
 import { ensureVaultStructure, getVaultRoot } from './services/vaultFileService.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5001', 10);
 
-// Middleware
-app.use(createCorsMiddleware());
-app.use(express.json({ limit: '50mb' }));
+// 1. 보안 헤더 (최상단)
+app.use(helmet());
 
-// Routes
+// 2. CORS
+app.use(createCorsMiddleware());
+
+// 3. JSON 파싱
+app.use(express.json({ limit: '5mb' }));
+
+// 4. 전역 Rate Limit: 15분 / IP당 100회
+const globalRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too Many Requests', message: 'Rate limit exceeded. Please try again later.' },
+});
+app.use(globalRateLimiter);
+
+// 5. /api/health — 인증 없이 등록
 app.use('/api/health', healthRouter);
+
+// 6. auth 미들웨어 (health 이후, 나머지 라우트 이전)
+app.use(authMiddleware);
+
+// 7. Gemini 전용 Rate Limit: 1분 / IP당 20회
+const geminiRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too Many Requests', message: 'Gemini rate limit exceeded. Please try again in a minute.' },
+});
+app.use('/api/gemini', geminiRateLimiter, geminiRouter);
+
+// 8. 나머지 라우트
 app.use('/api/odcloud', odcloudRouter);
 app.use('/api/data-go', dataGoKrRouter);
 app.use('/api/dart', dartRouter);
-app.use('/api/gemini', geminiRouter);
 app.use('/api/vault', vaultRouter);
 
 // Start

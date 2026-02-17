@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, saveStoredCompany, getStoredCompany } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 import { fetchCompanyDetailsFromDART } from '../services/apiService';
 import { Company } from '../types';
 
@@ -38,7 +39,7 @@ const LoginPage: React.FC = () => {
     try {
         // --- DATA PERSISTENCE SAFEGUARD ---
         // 1. Check if we already have data for this company
-        const existingData = getStoredCompany();
+        const existingData = useCompanyStore.getState().company ?? getStoredCompany();
         const existingRawNum = existingData?.businessNumber?.replace(/-/g, '');
 
         if (existingData && existingRawNum === rawNum && existingData.name !== '신규 기업') {
@@ -83,7 +84,7 @@ const LoginPage: React.FC = () => {
             preferredKeywords: []
         };
 
-        saveStoredCompany(newProfile);
+        useCompanyStore.getState().setCompany(newProfile);
         loginUser(rawNum);
 
         navigate('/');
@@ -112,7 +113,7 @@ const LoginPage: React.FC = () => {
       <div className="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-2xl w-full max-w-md border border-border-light dark:border-border-dark relative z-10 animate-fade-in-up">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-primary to-green-600 rounded-xl mx-auto flex items-center justify-center shadow-lg mb-4">
-            <span className="material-icons-outlined text-3xl text-white">business</span>
+            <span className="material-icons-outlined text-3xl text-white" aria-hidden="true">business</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Z-GPS 시작하기</h1>
           <p className="text-sm text-gray-500 mt-2">기업 식별을 위해 사업자등록번호를 입력해주세요.</p>
@@ -122,7 +123,7 @@ const LoginPage: React.FC = () => {
           <div>
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">사업자등록번호</label>
             <div className="relative">
-              <span className="absolute left-3 top-3.5 text-gray-400 material-icons-outlined text-lg">badge</span>
+              <span className="absolute left-3 top-3.5 text-gray-400 material-icons-outlined text-lg" aria-hidden="true">badge</span>
               <input 
                 type="text" 
                 value={bizNum}
@@ -137,7 +138,7 @@ const LoginPage: React.FC = () => {
 
           {error && (
             <div className="text-red-500 text-xs flex items-center bg-red-50 p-3 rounded-lg border border-red-100 animate-pulse">
-              <span className="material-icons-outlined text-sm mr-2">error</span> {error}
+              <span className="material-icons-outlined text-sm mr-2" aria-hidden="true">error</span> {error}
             </div>
           )}
 
@@ -152,7 +153,7 @@ const LoginPage: React.FC = () => {
           >
             {isLoading ? (
                 <>
-                    <span className="material-icons-outlined animate-spin mr-2">refresh</span>
+                    <span className="material-icons-outlined animate-spin mr-2" aria-hidden="true">refresh</span>
                     정보 확인 중...
                 </>
             ) : '확인 및 시작하기'}
@@ -161,7 +162,7 @@ const LoginPage: React.FC = () => {
         
         <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4 text-center">
             <p className="text-xs text-gray-400 mb-2">
-                <span className="material-icons-outlined text-[10px] align-middle mr-1">lock</span>
+                <span className="material-icons-outlined text-[10px] align-middle mr-1" aria-hidden="true">lock</span>
                 입력하신 정보는 로컬 기기에만 저장됩니다.
             </p>
             <button onClick={handleReset} className="text-xs text-indigo-500 hover:text-indigo-700 underline">

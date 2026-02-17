@@ -10,19 +10,19 @@ interface DefenseModalProps {
 const DefenseModal: React.FC<DefenseModalProps> = ({ result, isLoading, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-labelledby="defense-modal-title" className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 bg-red-700 text-white flex justify-between items-center">
-          <h3 className="text-lg font-bold flex items-center">
-            <span className="material-icons-outlined mr-2">security</span>현장 실사 방어 솔루션
+          <h3 id="defense-modal-title" className="text-lg font-bold flex items-center">
+            <span className="material-icons-outlined mr-2" aria-hidden="true">security</span>현장 실사 방어 솔루션
           </h3>
-          <button onClick={onClose} className="text-white hover:text-gray-200">
-            <span className="material-icons-outlined">close</span>
+          <button onClick={onClose} aria-label="닫기" className="text-white hover:text-gray-200">
+            <span className="material-icons-outlined" aria-hidden="true">close</span>
           </button>
         </div>
         <div className="p-8 bg-gray-50 dark:bg-gray-900 flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="text-center py-20">
-              <span className="material-icons-outlined animate-spin text-5xl text-red-600 mb-4">gavel</span>
+              <span className="material-icons-outlined animate-spin text-5xl text-red-600 mb-4" aria-hidden="true">gavel</span>
               <p className="text-gray-600">평가위원 페르소나로 빙의하여 약점을 분석 중입니다...</p>
             </div>
           ) : result ? (

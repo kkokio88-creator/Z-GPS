@@ -42,7 +42,7 @@ const Header: React.FC<HeaderProps> = ({ title, onAction, actionLabel, secondary
                 onClick={() => setShowNotiDropdown(!showNotiDropdown)}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-                <span className="material-icons-outlined text-lg">notifications</span>
+                <span className="material-icons-outlined text-lg" aria-hidden="true">notifications</span>
                 {unreadCount > 0 && (
                     <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-900"></span>
                 )}
@@ -65,7 +65,7 @@ const Header: React.FC<HeaderProps> = ({ title, onAction, actionLabel, secondary
                                     className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-50 dark:border-gray-800 last:border-0 ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                                 >
                                     <div className="flex items-start">
-                                        <span className={`material-icons-outlined text-sm mr-2 mt-0.5 ${n.type === 'ALERT' ? 'text-red-500' : 'text-blue-500'}`}>
+                                        <span className={`material-icons-outlined text-sm mr-2 mt-0.5 ${n.type === 'ALERT' ? 'text-red-500' : 'text-blue-500'}`} aria-hidden="true">
                                             {n.type === 'ALERT' ? 'error' : 'info'}
                                         </span>
                                         <div>
@@ -96,7 +96,7 @@ const Header: React.FC<HeaderProps> = ({ title, onAction, actionLabel, secondary
             onClick={onAction}
             className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-md text-sm font-medium shadow-sm transition-colors flex items-center"
           >
-             {icon && <span className="material-icons-outlined text-sm mr-2">{icon}</span>}
+             {icon && <span className="material-icons-outlined text-sm mr-2" aria-hidden="true">{icon}</span>}
              {actionLabel}
           </button>
         )}

@@ -4,30 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
 import type { BenefitSummary, TaxScanResult } from '../types';
 import { getStoredCompany } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 import { Company } from '../types';
 import Header from './Header';
-
-// --- Helper Functions ---
-
-const formatKRW = (amount: number): string => {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
-  if (amount >= 10000000) return `${(amount / 10000000).toFixed(0)}천만원`;
-  if (amount >= 10000) return `${(amount / 10000).toFixed(0)}만원`;
-  return `${amount.toLocaleString()}원`;
-};
-
-const getDday = (endDate: string): { label: string; color: string; days: number } => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff < 0) return { label: '마감', color: 'text-gray-400', days: diff };
-  if (diff === 0) return { label: 'D-Day', color: 'text-red-600', days: 0 };
-  if (diff <= 7) return { label: `D-${diff}`, color: 'text-red-500', days: diff };
-  return { label: `D-${diff}`, color: 'text-blue-600', days: diff };
-};
+import { formatKRW, getDday } from '../services/utils/formatters';
 
 interface FocusArea {
   id: string;
@@ -84,7 +64,7 @@ const matchProgramToFocus = (program: VaultProgram, keywords: string[]): boolean
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [company, setCompany] = useState<Company>(getStoredCompany());
+  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
   const [programs, setPrograms] = useState<VaultProgram[]>([]);
   const [myApplications, setMyApplications] = useState<VaultApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,7 +97,8 @@ const Dashboard: React.FC = () => {
       }
       if (companyResult.status === 'fulfilled' && companyResult.value.company) {
         const c = companyResult.value.company;
-        setCompany(prev => ({
+        const prev = useCompanyStore.getState().company ?? getStoredCompany();
+        useCompanyStore.getState().setCompany({
           ...prev,
           name: (c.name as string) || prev.name,
           industry: (c.industry as string) || prev.industry,
@@ -127,7 +108,7 @@ const Dashboard: React.FC = () => {
           description: (c.description as string) || prev.description,
           businessNumber: (c.businessNumber as string) || prev.businessNumber,
           isVerified: prev.isVerified,
-        }));
+        });
       }
     } catch (e) {
       if (import.meta.env.DEV) console.warn('[Dashboard] Load error:', e);
@@ -294,7 +275,7 @@ const Dashboard: React.FC = () => {
           {/* ===== 나의 관심 분야 (3개 공고 + 더 보기 토글) ===== */}
           <section>
             <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-              <span className="material-icons-outlined text-primary mr-2">interests</span>
+              <span className="material-icons-outlined text-primary mr-2" aria-hidden="true">interests</span>
               나의 관심 분야
             </h3>
 
@@ -313,7 +294,7 @@ const Dashboard: React.FC = () => {
                       <div className={`bg-gradient-to-r ${area.gradientFrom} ${area.gradientTo} p-4 text-white`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            <span className="material-icons-outlined text-2xl mr-2 opacity-90">{area.icon}</span>
+                            <span className="material-icons-outlined text-2xl mr-2 opacity-90" aria-hidden="true">{area.icon}</span>
                             <h4 className="font-bold text-sm">{area.title}</h4>
                           </div>
                           <span className="text-2xl font-bold">{area.matchCount}</span>
@@ -373,7 +354,7 @@ const Dashboard: React.FC = () => {
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-                <span className="material-icons-outlined text-indigo-500 mr-2 text-base">bar_chart</span>
+                <span className="material-icons-outlined text-indigo-500 mr-2 text-base" aria-hidden="true">bar_chart</span>
                 공고 유형 분포
               </h3>
               {isLoading ? (
@@ -407,7 +388,7 @@ const Dashboard: React.FC = () => {
 
             <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-                <span className="material-icons-outlined text-red-500 mr-2 text-base">schedule</span>
+                <span className="material-icons-outlined text-red-500 mr-2 text-base" aria-hidden="true">schedule</span>
                 마감 임박 타임라인
               </h3>
               {isLoading ? (
@@ -461,7 +442,7 @@ const Dashboard: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                  <span className="material-icons-outlined text-white text-lg">account_balance</span>
+                  <span className="material-icons-outlined text-white text-lg" aria-hidden="true">account_balance</span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -493,7 +474,7 @@ const Dashboard: React.FC = () => {
                     </p>
                   </div>
                 )}
-                <span className="material-icons-outlined text-gray-400 text-base">chevron_right</span>
+                <span className="material-icons-outlined text-gray-400 text-base" aria-hidden="true">chevron_right</span>
               </div>
             </div>
 
@@ -524,7 +505,7 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate('/benefits')}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
                 >
-                  <span className="material-icons-outlined text-sm align-middle mr-1">search</span>
+                  <span className="material-icons-outlined text-sm align-middle mr-1" aria-hidden="true">search</span>
                   지금 스캔하기
                 </button>
               </div>
@@ -540,7 +521,7 @@ const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                    <span className="material-icons-outlined text-white text-lg">receipt_long</span>
+                    <span className="material-icons-outlined text-white text-lg" aria-hidden="true">receipt_long</span>
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">과거 수령 이력</h3>
@@ -560,7 +541,7 @@ const Dashboard: React.FC = () => {
                       )}
                     </div>
                   )}
-                  <span className="material-icons-outlined text-gray-400 text-base">chevron_right</span>
+                  <span className="material-icons-outlined text-gray-400 text-base" aria-hidden="true">chevron_right</span>
                 </div>
               </div>
             </section>
@@ -570,7 +551,7 @@ const Dashboard: React.FC = () => {
           <section className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark flex items-center">
-                <span className="material-icons-outlined text-primary mr-2 text-base">assignment</span>
+                <span className="material-icons-outlined text-primary mr-2 text-base" aria-hidden="true">assignment</span>
                 내 지원 현황
               </h3>
 

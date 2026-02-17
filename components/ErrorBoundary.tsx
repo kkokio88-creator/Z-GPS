@@ -38,7 +38,7 @@ class ErrorBoundary extends Component<Props, State> {
         <div className="flex items-center justify-center min-h-[400px] p-8">
           <div className="text-center max-w-md">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <span className="material-icons-outlined text-3xl text-red-500">error_outline</span>
+              <span className="material-icons-outlined text-3xl text-red-500" aria-hidden="true">error_outline</span>
             </div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
               문제가 발생했습니다

@@ -50,11 +50,9 @@ const mapIncheonApiData = (rawData: unknown[]): SupportProgram[] => {
       } catch { /* ignore */ }
     }
 
-    // 지원금 랜덤 생성 (3천만~2억)
-    const grant = (Math.floor(Math.random() * 17) + 3) * 10000000;
-
-    // 적합도 랜덤 생성 (60~98%)
-    const fitScore = Math.floor(Math.random() * 38) + 60;
+    // 지원금/적합도: AI 분석 전이므로 0으로 초기화
+    const grant = 0;
+    const fitScore = 0;
 
     return {
       id: `incheon_${record['번호'] || index}_${Date.now()}`,
@@ -153,10 +151,8 @@ const mapApiDataToModel = (rawData: Record<string, unknown>[]): SupportProgram[]
     const endDate = String(item.edate || item['공고종료일'] || item['접수마감일'] || "2099-12-31");
     const detailUrl = String(item.url || item['상세주소'] || `https://www.google.com/search?q=${encodeURIComponent(programName + " 공고")}`);
 
-    let grant = Number(item.expectedGrant) || 0;
-    if (grant === 0) {
-        grant = (Math.floor(Math.random() * 13) + 3) * 10000000;
-    }
+    // API 원본에 금액이 있으면 사용, 없으면 0(미확정)으로 유지
+    const grant = Number(item.expectedGrant) || 0;
 
     const internalDate = calculateInternalDeadline(endDate);
     const requiredDocuments: string[] = [];
@@ -329,8 +325,9 @@ const parseMssBizXml = (xmlText: string): SupportProgram[] => {
       }
     }
 
-    const fitScore = Math.floor(Math.random() * 30) + 65;
-    const grant = (Math.floor(Math.random() * 25) + 5) * 10000000;
+    // AI 분석 전 초기값 0
+    const fitScore = 0;
+    const grant = 0;
 
     programs.push({
       id: `mss_${itemId}_${Date.now()}`,
@@ -384,8 +381,9 @@ export const fetchKStartupPrograms = async (): Promise<SupportProgram[]> => {
         endDate = endDateStr;
       }
 
-      const fitScore = Math.floor(Math.random() * 35) + 60;
-      const grant = (Math.floor(Math.random() * 17) + 3) * 10000000;
+      // AI 분석 전 초기값 0
+      const fitScore = 0;
+      const grant = 0;
 
       return {
         id: String(item.pbanc_sn || `kstartup_${index}_${Date.now()}`),

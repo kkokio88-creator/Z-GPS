@@ -308,14 +308,6 @@ export class PositioningAgent extends BaseAgent {
         } catch { return null; }
     }
 }
-export class SupervisorAgent extends BaseAgent { async syncDeadlines(_p: unknown) { return []; } }
-export class ConsultantAgent extends BaseAgent {
-    createChatSession(_company: Company, _program: SupportProgram) {
-        // Chat sessions require direct SDK access - not supported via HTTP proxy
-        // Return null to indicate unavailability
-        return null;
-    }
-}
 
 export class ReviewAgent extends BaseAgent {
     async reviewApplication(_company: Company, _program: SupportProgram, _draftSections: unknown, persona: ReviewPersona): Promise<ReviewResult> {
@@ -347,9 +339,6 @@ export class ReviewAgent extends BaseAgent {
     }
 }
 
-export class OntologyLearningAgent extends BaseAgent {
-    async extractSuccessPatterns(_text: string): Promise<string[]> { return []; }
-}
 export class DraftRefinementAgent extends BaseAgent {
     async refine(text: string, instruction: string): Promise<string> {
         try {
@@ -391,12 +380,6 @@ export class DocumentAnalysisAgent extends BaseAgent {
     async extractFinancials(b64: string): Promise<unknown[]> { const r = await callGemini('gemini-2.0-flash', {parts:[{inlineData:{mimeType:'image/jpeg', data:b64}}, {text:"Extract financials table. JSON"}]}, {responseMimeType:"application/json"}); const parsed = cleanAndParseJSON(r.text||"[]"); return Array.isArray(parsed) ? parsed : []; }
     async extractPatent(b64: string): Promise<Record<string, unknown>> { const r = await callGemini('gemini-2.0-flash', {parts:[{inlineData:{mimeType:'image/jpeg', data:b64}}, {text:"Extract patent. JSON"}]}, {responseMimeType:"application/json"}); return cleanAndParseJSON(r.text||"{}") as Record<string, unknown>; }
 }
-export class VoiceDictationAgent extends BaseAgent {
-    async dictateAndRefine(b64: string): Promise<string> { const r = await callGemini('gemini-2.0-flash', {parts:[{inlineData:{mimeType:'audio/webm', data:b64}}, {text:"Transcribe"}]}); return r.text || ""; }
-}
-export class PresentationAgent extends BaseAgent {
-    async generateSlides(n: string, _d: unknown): Promise<string> { const r = await this.callGemini(`Slides for ${n}. Markdown.`); return r.text || ""; }
-}
 export class BudgetAgent extends BaseAgent {
     async planBudget(g: number, _t: string): Promise<Record<string, unknown>> { const r = await this.callGemini(`Budget ${g}. JSON`, {responseMimeType:"application/json"}); return cleanAndParseJSON(r.text||"{}") as Record<string, unknown>; }
 }
@@ -404,35 +387,22 @@ export class InterviewAgent extends BaseAgent {
     async generateQuestions(_t: string): Promise<string[]> { const r = await this.callGemini(`Interview Qs. JSON`, {responseMimeType:"application/json"}); const parsed = cleanAndParseJSON(r.text||"[]"); return Array.isArray(parsed) ? parsed as string[] : []; }
     async evaluateAnswer(q: string, a: string): Promise<string> { const r = await this.callGemini(`Eval answer. Q:${q} A:${a}`); return r.text || ""; }
 }
-export class CompetitorAnalysisAgent extends BaseAgent {
-    async analyze(_c: unknown): Promise<Record<string, unknown>> { const r = await this.callGemini(`Competitors. JSON`, {responseMimeType:"application/json", tools:[{googleSearch:{}}]}); return cleanAndParseJSON(r.text||"{}") as Record<string, unknown>; }
+export class MarketIntelligenceAgent extends BaseAgent { async research(_q:string, _i:string): Promise<Record<string, unknown>> { return {}; } }
+export class PitchCoachAgent extends BaseAgent { async analyzePitch(_t:string): Promise<Record<string, unknown>> { return {}; } }
+export class VocAnalysisAgent extends BaseAgent { async analyzeReviews(_t:string): Promise<Record<string, unknown>> { return {}; } }
+export class ProductVisionAgent extends BaseAgent { async analyzeCompetitorImage(_b:string): Promise<Record<string, unknown>> { return {}; } }
+export class LabNoteAgent extends BaseAgent { async refineLog(l:string): Promise<string> { return l; } }
+export class HaccpAgent extends BaseAgent { async auditFacility(_b:string, _c:string): Promise<string> { return "Demo"; } }
+export class OntologyLearningAgent extends BaseAgent {
+    async extractSuccessPatterns(_text: string): Promise<string[]> { return []; }
 }
-export class TranslationAgent extends BaseAgent {
-    async translateToBusinessEnglish(t: string): Promise<string> { const r = await this.callGemini(`Translate: ${t}`); return r.text || ""; }
-}
-export class SpeechSynthesisAgent extends BaseAgent {
-    async speak(t: string): Promise<string|null> {
-        const r = await callGemini('gemini-2.0-flash-tts', {parts:[{text:t}]}, {
-            responseModalities:['audio'],
-            speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Kore'}}}
-        });
-        return r.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+export class ConsultantAgent extends BaseAgent {
+    createChatSession(_company: Company, _program: SupportProgram) {
+        // Chat sessions require direct SDK access - not supported via HTTP proxy
+        // Return null to indicate unavailability
+        return null;
     }
 }
-export class FinancialConsultantAgent extends BaseAgent { async analyze(_f:unknown): Promise<string> { return "Demo"; } }
-export class IPEvaluationAgent extends BaseAgent { async evaluate(_i:unknown, _ind:string): Promise<string> { return "Demo"; } }
-export class TrendAnalysisAgent extends BaseAgent { async analyzeTrends(_i:string): Promise<unknown[]> { return []; } }
-export class DocumentClassifierAgent extends BaseAgent { async classifyAndAnalyze(_n:string, _b:string): Promise<Record<string, unknown>> { return {}; } }
-export class MarketIntelligenceAgent extends BaseAgent { async research(_q:string, _i:string): Promise<Record<string, unknown>> { return {}; } }
-export class SummaryAgent extends BaseAgent { async generateOnePager(_d:unknown): Promise<string> { const r = await this.callGemini(`Summary`); return r.text || ""; } }
-export class DocumentQAAgent extends BaseAgent { async ask(_d:unknown, _q:string): Promise<string> { return "Demo"; } }
-export class PitchCoachAgent extends BaseAgent { async analyzePitch(_t:string): Promise<Record<string, unknown>> { return {}; } }
-export class FileParserAgent extends BaseAgent { async parseAndMap(_c:string, _s:unknown): Promise<Record<string, unknown>> { const r = await this.callGemini(`Map sections. JSON`, {responseMimeType:"application/json"}); return cleanAndParseJSON(r.text||"{}") as Record<string, unknown>; } }
-export class VocAnalysisAgent extends BaseAgent { async analyzeReviews(_t:string): Promise<Record<string, unknown>> { return {}; } }
-export class ImageGenerationAgent extends BaseAgent { async generateConceptImage(_p:string): Promise<string|null> { return null; } }
-export class LabNoteAgent extends BaseAgent { async refineLog(l:string): Promise<string> { return l; } }
-export class ProductVisionAgent extends BaseAgent { async analyzeCompetitorImage(_b:string): Promise<Record<string, unknown>> { return {}; } }
-export class HaccpAgent extends BaseAgent { async auditFacility(_b:string, _c:string): Promise<string> { return "Demo"; } }
 
 // --- Company Research Agent (기업 검색 + 딥 리서치) ---
 
@@ -687,34 +657,20 @@ export const suitabilityAgent = new SuitabilityAssessmentAgent();
 export const draftAgent = new DraftWritingAgent();
 export const scheduleAgent = new ScheduleAgent();
 export const positioningAgent = new PositioningAgent();
-export const supervisorAgent = new SupervisorAgent();
-export const consultantAgent = new ConsultantAgent();
 export const reviewAgent = new ReviewAgent();
-export const ontologyLearningAgent = new OntologyLearningAgent();
 export const refinementAgent = new DraftRefinementAgent();
 export const programParserAgent = new ProgramParserAgent();
 export const documentAnalysisAgent = new DocumentAnalysisAgent();
-export const voiceDictationAgent = new VoiceDictationAgent();
-export const presentationAgent = new PresentationAgent();
 export const budgetAgent = new BudgetAgent();
 export const interviewAgent = new InterviewAgent();
-export const competitorAgent = new CompetitorAnalysisAgent();
-export const translationAgent = new TranslationAgent();
-export const speechAgent = new SpeechSynthesisAgent();
-export const financialAgent = new FinancialConsultantAgent();
-export const ipAgent = new IPEvaluationAgent();
-export const trendAgent = new TrendAnalysisAgent();
-export const documentClassifierAgent = new DocumentClassifierAgent();
 export const marketAgent = new MarketIntelligenceAgent();
-export const summaryAgent = new SummaryAgent();
-export const documentQAAgent = new DocumentQAAgent();
 export const pitchCoachAgent = new PitchCoachAgent();
-export const fileParserAgent = new FileParserAgent();
 export const vocAgent = new VocAnalysisAgent();
-export const imageGenAgent = new ImageGenerationAgent();
-export const labNoteAgent = new LabNoteAgent();
 export const productVisionAgent = new ProductVisionAgent();
+export const labNoteAgent = new LabNoteAgent();
 export const haccpAgent = new HaccpAgent();
+export const ontologyLearningAgent = new OntologyLearningAgent();
+export const consultantAgent = new ConsultantAgent();
 export const companyResearchAgent = new CompanyResearchAgent();
 
 // --- Strategy Analysis Agent (공고별 맞춤 전략 분석) ---

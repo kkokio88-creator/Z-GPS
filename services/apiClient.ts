@@ -13,133 +13,70 @@ interface ApiResponse<T = unknown> {
   status: number;
 }
 
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(status: number, statusText: string, data: unknown = {}) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
+async function request<T>(method: string, path: string, body?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
+  const url = `${getBaseUrl()}${path}`;
+  if (import.meta.env.DEV) {
+    console.log(`[apiClient] ${method} ${path}`);
+  }
+
+  const headers: Record<string, string> = {};
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers: { ...headers, ...(options?.headers as Record<string, string>) },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...options,
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, response.statusText, errBody);
+  }
+
+  // text 응답 지원 (XML 등)
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('xml')) {
+    const text = await response.text();
+    return { data: text as unknown as T, ok: true, status: response.status };
+  }
+
+  const data = await response.json();
+  return { data: data as T, ok: true, status: response.status };
+}
+
 export const apiClient = {
   async get<T = unknown>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
-    const url = `${getBaseUrl()}${path}`;
-    if (import.meta.env.DEV) {
-      console.log(`[apiClient] GET ${path}`);
-    }
-
-    const response = await fetch(url, {
-      method: 'GET',
-      ...options,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    // text 응답 지원 (XML 등)
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('xml')) {
-      const text = await response.text();
-      return { data: text as unknown as T, ok: true, status: response.status };
-    }
-
-    const data = await response.json();
-    return { data: data as T, ok: true, status: response.status };
+    return request<T>('GET', path, undefined, options);
   },
 
   async post<T = unknown>(path: string, body: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
-    const url = `${getBaseUrl()}${path}`;
-    if (import.meta.env.DEV) {
-      console.log(`[apiClient] POST ${path}`);
-    }
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      body: JSON.stringify(body),
-      ...options,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
-      throw error;
-    }
-
-    const data = await response.json();
-    return { data: data as T, ok: true, status: response.status };
+    return request<T>('POST', path, body, options);
   },
 
   async put<T = unknown>(path: string, body: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
-    const url = `${getBaseUrl()}${path}`;
-    if (import.meta.env.DEV) {
-      console.log(`[apiClient] PUT ${path}`);
-    }
-
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      body: JSON.stringify(body),
-      ...options,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
-      throw error;
-    }
-
-    const data = await response.json();
-    return { data: data as T, ok: true, status: response.status };
+    return request<T>('PUT', path, body, options);
   },
 
   async patch<T = unknown>(path: string, body: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
-    const url = `${getBaseUrl()}${path}`;
-    if (import.meta.env.DEV) {
-      console.log(`[apiClient] PATCH ${path}`);
-    }
-
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      body: JSON.stringify(body),
-      ...options,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
-      throw error;
-    }
-
-    const data = await response.json();
-    return { data: data as T, ok: true, status: response.status };
+    return request<T>('PATCH', path, body, options);
   },
 
   async delete<T = unknown>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
-    const url = `${getBaseUrl()}${path}`;
-    if (import.meta.env.DEV) {
-      console.log(`[apiClient] DELETE ${path}`);
-    }
-
-    const response = await fetch(url, {
-      method: 'DELETE',
-      ...options,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      const error = new Error(`HTTP ${response.status}`);
-      (error as Error & { response: { status: number; data: unknown } }).response = { status: response.status, data: errBody };
-      throw error;
-    }
-
-    const data = await response.json();
-    return { data: data as T, ok: true, status: response.status };
+    return request<T>('DELETE', path, undefined, options);
   },
 };

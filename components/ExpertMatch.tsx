@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from './Header';
 import { getStoredApplications, getStoredCompany } from '../services/storageService';
+import { useCompanyStore } from '../services/stores/companyStore';
 import { reviewAgent, ReviewPersona } from '../services/geminiAgents';
-import { Application, ReviewResult } from '../types';
+import { Application, ReviewResult, SupportProgram, EligibilityStatus } from '../types';
 
 interface AIPersona {
     id: ReviewPersona;
@@ -54,7 +55,7 @@ const ExpertMatch: React.FC = () => {
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const applications = getStoredApplications();
-    const company = getStoredCompany();
+    const company = useCompanyStore(s => s.company) ?? getStoredCompany();
 
     const handleSimulation = async () => {
         if (!selectedAppId || !selectedPersona) return;
@@ -65,7 +66,20 @@ const ExpertMatch: React.FC = () => {
         setChatMessages([]);
         
         const targetApp = applications.find(a => a.id === selectedAppId);
-        const mockProgram = { programName: "선택된 지원사업", organizer: "정보 없음", supportType: "R&D" } as any;
+        const mockProgram: SupportProgram = {
+            id: 'mock_program',
+            programName: "선택된 지원사업",
+            organizer: "정보 없음",
+            supportType: "R&D",
+            officialEndDate: '',
+            internalDeadline: '',
+            expectedGrant: 0,
+            fitScore: 0,
+            eligibility: EligibilityStatus.REVIEW_NEEDED,
+            priorityRank: 0,
+            eligibilityReason: '',
+            requiredDocuments: [],
+        };
 
         if (targetApp) {
             const reviewResult = await reviewAgent.reviewApplication(
@@ -151,7 +165,7 @@ const ExpertMatch: React.FC = () => {
                                         }`}
                                     >
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${persona.color}`}>
-                                            <span className="material-icons-outlined">{persona.icon}</span>
+                                            <span className="material-icons-outlined" aria-hidden="true">{persona.icon}</span>
                                         </div>
                                         <h4 className="font-bold text-lg mb-1">{persona.name}</h4>
                                         <span className="text-xs font-bold bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300">{persona.role}</span>
@@ -173,9 +187,9 @@ const ExpertMatch: React.FC = () => {
                                 className="px-8 py-4 bg-primary text-white rounded-full font-bold text-lg shadow-lg hover:bg-primary-dark transition-transform hover:scale-105 disabled:opacity-50 disabled:scale-100 flex items-center mx-auto"
                             >
                                 {isSimulating ? (
-                                    <><span className="material-icons-outlined animate-spin mr-2">refresh</span> AI 위원이 서류를 검토 중입니다...</>
+                                    <><span className="material-icons-outlined animate-spin mr-2" aria-hidden="true">refresh</span> AI 위원이 서류를 검토 중입니다...</>
                                 ) : (
-                                    <><span className="material-icons-outlined mr-2">play_arrow</span> {selectedPersona.name}에게 심사 받기</>
+                                    <><span className="material-icons-outlined mr-2" aria-hidden="true">play_arrow</span> {selectedPersona.name}에게 심사 받기</>
                                 )}
                             </button>
                         </div>
@@ -189,7 +203,7 @@ const ExpertMatch: React.FC = () => {
                                 <div className="bg-primary p-6 text-white flex justify-between items-center">
                                     <div className="flex items-center">
                                         <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                                            <span className="material-icons-outlined">{selectedPersona.icon}</span>
+                                            <span className="material-icons-outlined" aria-hidden="true">{selectedPersona.icon}</span>
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-lg">{selectedPersona.name}의 심사 결과</h3>
@@ -205,7 +219,7 @@ const ExpertMatch: React.FC = () => {
                                 <div className="p-8 grid grid-cols-1 gap-8">
                                     <div>
                                         <h4 className="font-bold text-gray-800 dark:text-white mb-4 flex items-center">
-                                            <span className="material-icons-outlined mr-2 text-primary">analytics</span> 항목별 점수
+                                            <span className="material-icons-outlined mr-2 text-primary" aria-hidden="true">analytics</span> 항목별 점수
                                         </h4>
                                         <div className="space-y-4">
                                             {Object.entries(result.scores).map(([key, score]) => (
@@ -226,7 +240,7 @@ const ExpertMatch: React.FC = () => {
 
                                     <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">
                                         <h4 className="font-bold text-gray-800 dark:text-white mb-4 flex items-center">
-                                            <span className="material-icons-outlined mr-2 text-red-500">rate_review</span> 날카로운 피드백
+                                            <span className="material-icons-outlined mr-2 text-red-500" aria-hidden="true">rate_review</span> 날카로운 피드백
                                         </h4>
                                         <ul className="space-y-3">
                                             {result.feedback.map((fb, idx) => (
@@ -244,7 +258,7 @@ const ExpertMatch: React.FC = () => {
                             <div className="lg:col-span-1 bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-lg flex flex-col h-[600px]">
                                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-xl flex justify-between items-center">
                                     <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                                        <span className="material-icons-outlined mr-2 text-green-600">forum</span> 심사위원 청문회
+                                        <span className="material-icons-outlined mr-2 text-green-600" aria-hidden="true">forum</span> 심사위원 청문회
                                     </h4>
                                     <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-full animate-pulse">Live</span>
                                 </div>
@@ -267,7 +281,7 @@ const ExpertMatch: React.FC = () => {
                                     {isChatThinking && (
                                         <div className="flex justify-start">
                                             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-sm text-gray-500">
-                                                <span className="material-icons-outlined animate-spin text-xs mr-2">refresh</span>
+                                                <span className="material-icons-outlined animate-spin text-xs mr-2" aria-hidden="true">refresh</span>
                                                 답변 작성 중...
                                             </div>
                                         </div>
@@ -287,7 +301,7 @@ const ExpertMatch: React.FC = () => {
                                             placeholder="질문 입력..."
                                         />
                                         <button onClick={handleChatSend} disabled={isChatThinking} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50">
-                                            <span className="material-icons-outlined text-sm">send</span>
+                                            <span className="material-icons-outlined text-sm" aria-hidden="true">send</span>
                                         </button>
                                     </div>
                                 </div>

@@ -1,15 +1,15 @@
-import { Company, SupportProgram, EligibilityStatus, Application, SectionSchema } from './types';
+import { Company, Application, SectionSchema } from './types';
 
 // Initial empty state
 export const COMPANIES: Company[] = [
   {
     id: 'c_new',
-    name: '신규 기업', 
+    name: '신규 기업',
     businessNumber: '',
     industry: '',
     description: '기업 정보가 설정되지 않았습니다.',
-    revenue: 0, 
-    employees: 0, 
+    revenue: 0,
+    employees: 0,
     address: '',
     certifications: [],
     preferredKeywords: [],
@@ -17,9 +17,6 @@ export const COMPANIES: Company[] = [
     ipList: []
   }
 ];
-
-// Initial empty state, will be populated by API/AI
-export const MOCK_PROGRAMS: SupportProgram[] = [];
 
 export const INITIAL_APPLICATION: Application = {
   id: 'app_new',
@@ -48,10 +45,3 @@ export const DEFAULT_SECTION_SCHEMA: SectionSchema[] = [
   { id: 'sec_schedule_budget', title: '5. 추진 일정 및 예산 (Schedule & Budget)', description: '구체적인 사업 추진 일정과 정부지원금 활용 계획을 기술하세요.', order: 5, required: true },
   { id: 'sec_expected_outcomes', title: '6. 기대효과 (Expected Outcomes)', description: '지역 경제 활성화, 고용 창출 등 파급 효과를 기술하세요.', order: 6, required: true },
 ];
-
-/** @deprecated DRAFT_SECTIONS 대신 DEFAULT_SECTION_SCHEMA 사용 */
-export const DRAFT_SECTIONS = DEFAULT_SECTION_SCHEMA.map(s => ({
-  id: s.id,
-  title: s.title,
-  description: s.description,
-}));

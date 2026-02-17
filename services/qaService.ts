@@ -1,8 +1,9 @@
 
-import { Company, QATestItem, QAState } from "../types";
+import { Company, QATestItem, QAState, SupportProgram, EligibilityStatus } from "../types";
 import { getStoredCompany, saveStoredCompany, getStoredDartApiKey, getStoredApiKey } from "./storageService";
 import { fetchCompanyDetailsFromDART, fetchIncheonSupportPrograms } from "./apiService";
 import { draftAgent } from "./geminiAgents";
+import { useQAStore } from "./stores/qaStore";
 
 const QA_STORAGE_KEY = 'zmis_qa_state_v1';
 
@@ -48,14 +49,12 @@ export const INITIAL_QA_CHECKLIST: QATestItem[] = [
 // --- State Management ---
 
 export const getQAState = (): QAState => {
-    const stored = localStorage.getItem(QA_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : { isActive: false, currentIndex: 0, checklist: INITIAL_QA_CHECKLIST };
+    return useQAStore.getState().qaState;
 };
 
 export const saveQAState = (state: QAState): void => {
-    localStorage.setItem(QA_STORAGE_KEY, JSON.stringify(state));
-    // Dispatch Global Event
-    window.dispatchEvent(new Event('zmis-qa-update'));
+    // Persist to store (also writes localStorage internally)
+    useQAStore.getState().setQAState(state);
 };
 
 export const startQA = (): QAState => {
@@ -81,8 +80,7 @@ export const stopQA = () => {
 };
 
 export const resetQA = () => {
-    localStorage.removeItem(QA_STORAGE_KEY);
-    window.dispatchEvent(new Event('zmis-qa-update'));
+    useQAStore.getState().resetQAState();
 };
 
 export const updateTestResult = (id: string, status: 'PASS' | 'FAIL', logs: string[], error?: string, fix?: string) => {
@@ -151,7 +149,20 @@ export const executeTestLogic = async (test: QATestItem): Promise<{ status: 'PAS
             logs.push("Testing Gemini connection...");
             const company = getStoredCompany();
             // Mock Program
-            const prog = { programName: "QA Test Program", organizer: "QA Team", supportType: "TEST" } as any;
+            const prog: SupportProgram = {
+                id: 'qa_test_program',
+                programName: "QA Test Program",
+                organizer: "QA Team",
+                supportType: "TEST",
+                officialEndDate: '',
+                internalDeadline: '',
+                expectedGrant: 0,
+                fitScore: 0,
+                eligibility: EligibilityStatus.REVIEW_NEEDED,
+                priorityRank: 0,
+                eligibilityReason: '',
+                requiredDocuments: [],
+            };
             const res = await draftAgent.writeSection(company, prog, "개요");
             logs.push(`AI Response: ${res.text.substring(0, 20)}...`);
             

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import Header from './Header';
 import { marketAgent, vocAgent, productVisionAgent, positioningAgent, pitchCoachAgent, reviewAgent, ReviewPersona } from '../services/geminiAgents';
 import { getStoredCompany, saveStoredCompany, getStoredApplications } from '../services/storageService';
-import { ResearchReport, Company, ReviewResult } from '../types';
+import { useCompanyStore } from '../services/stores/companyStore';
+import { ResearchReport, Company, ReviewResult, SupportProgram, EligibilityStatus } from '../types';
 
 // AI Persona Data (Moved from ExpertMatch.tsx)
 interface AIPersona { id: ReviewPersona; name: string; role: string; description: string; icon: string; color: string; }
@@ -43,7 +44,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
   const [isChatThinking, setIsChatThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const applications = getStoredApplications();
-  const company = getStoredCompany();
+  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
 
   // --- Handlers: Market ---
   const handleSearch = async () => { if (!query.trim()) return; setIsSearching(true); const r = await marketAgent.research(query, company.industry); setReports([{ id: `r_${Date.now()}`, query, summary: r.summary||"", keyFindings: r.keyFindings||[], sources: r.sources||[], timestamp: new Date().toISOString() }, ...reports]); setQuery(''); setIsSearching(false); };
@@ -79,7 +80,20 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
       if (!selectedAppId || !selectedPersona) return;
       setIsSimulating(true); setReviewResult(null); setChatMessages([]);
       const targetApp = applications.find(a => a.id === selectedAppId);
-      const mockProgram = { programName: "선택된 지원사업", organizer: "정보 없음", supportType: "R&D" } as any;
+      const mockProgram: SupportProgram = {
+          id: 'mock_program',
+          programName: "선택된 지원사업",
+          organizer: "정보 없음",
+          supportType: "R&D",
+          officialEndDate: '',
+          internalDeadline: '',
+          expectedGrant: 0,
+          fitScore: 0,
+          eligibility: EligibilityStatus.REVIEW_NEEDED,
+          priorityRank: 0,
+          eligibilityReason: '',
+          requiredDocuments: [],
+      };
       if (targetApp) {
           const res = await reviewAgent.reviewApplication(company, mockProgram, targetApp.draftSections, selectedPersona.id);
           setReviewResult(res);
@@ -183,7 +197,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
                             <div className="space-y-2">
                                 {AI_PERSONAS.map(p => (
                                     <div key={p.id} onClick={()=>setSelectedPersona(p)} className={`p-3 rounded border cursor-pointer flex items-center ${selectedPersona?.id === p.id ? 'border-primary bg-green-50' : 'hover:bg-gray-50'}`}>
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${p.color}`}><span className="material-icons-outlined text-sm">{p.icon}</span></div>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${p.color}`}><span className="material-icons-outlined text-sm" aria-hidden="true">{p.icon}</span></div>
                                         <div><div className="font-bold text-sm">{p.name}</div><div className="text-[10px] text-gray-500">{p.role}</div></div>
                                     </div>
                                 ))}
@@ -217,14 +231,14 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
                                         </div>
                                         <div className="flex gap-2">
                                             <input className="flex-1 border rounded p-2 text-sm" value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleExpertChat()} placeholder="심사 결과에 대해 질문..."/>
-                                            <button onClick={handleExpertChat} disabled={isChatThinking} className="bg-primary text-white px-3 rounded"><span className="material-icons-outlined">send</span></button>
+                                            <button onClick={handleExpertChat} disabled={isChatThinking} className="bg-primary text-white px-3 rounded"><span className="material-icons-outlined" aria-hidden="true">send</span></button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50 border rounded-xl">
-                                <div><span className="material-icons-outlined text-4xl block text-center mb-2">rate_review</span>좌측에서 심사 대상을 선택하세요.</div>
+                                <div><span className="material-icons-outlined text-4xl block text-center mb-2" aria-hidden="true">rate_review</span>좌측에서 심사 대상을 선택하세요.</div>
                             </div>
                         )}
                     </div>
@@ -237,7 +251,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
                     <h2 className="text-2xl font-bold mb-2">실전 발표 연습</h2>
                     <p className="text-gray-500 mb-8">마이크를 켜고 1분간 사업계획을 발표하세요. AI가 전달력과 내용을 분석합니다.</p>
                     <button onClick={isRecording ? stopRecording : startRecording} className={`w-24 h-24 rounded-full shadow-lg mb-6 flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-primary hover:bg-primary-dark'}`}>
-                        <span className="material-icons-outlined text-4xl text-white">{isRecording ? 'stop' : 'mic'}</span>
+                        <span className="material-icons-outlined text-4xl text-white" aria-hidden="true">{isRecording ? 'stop' : 'mic'}</span>
                     </button>
                     {transcription && (
                         <div className="bg-gray-100 p-4 rounded text-left text-sm text-gray-700 mb-6 min-h-[100px]">{transcription}</div>

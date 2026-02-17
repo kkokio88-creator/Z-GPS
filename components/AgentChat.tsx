@@ -112,14 +112,14 @@ const AgentChat: React.FC<AgentChatProps> = ({ isOpen, onClose, company, program
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-6 border-b border-border-light dark:border-border-dark bg-primary text-white">
         <div className="flex items-center">
-          <span className="material-icons-outlined mr-2">smart_toy</span>
+          <span className="material-icons-outlined mr-2" aria-hidden="true">smart_toy</span>
           <div>
              <h3 className="font-bold text-sm">Z-MIS AI Consultant</h3>
              <p className="text-[10px] opacity-80">{program.organizer}</p>
           </div>
         </div>
-        <button onClick={onClose} className="hover:bg-white/20 rounded-full p-1 transition-colors">
-          <span className="material-icons-outlined">close</span>
+        <button onClick={onClose} aria-label="닫기" className="hover:bg-white/20 rounded-full p-1 transition-colors">
+          <span className="material-icons-outlined" aria-hidden="true">close</span>
         </button>
       </div>
 
@@ -129,7 +129,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ isOpen, onClose, company, program
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
              {msg.role === 'model' && (
                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2 flex-shrink-0 border border-indigo-200">
-                     <span className="material-icons-outlined text-indigo-600 text-xs">smart_toy</span>
+                     <span className="material-icons-outlined text-indigo-600 text-xs" aria-hidden="true">smart_toy</span>
                  </div>
              )}
              <div 
@@ -157,12 +157,13 @@ const AgentChat: React.FC<AgentChatProps> = ({ isOpen, onClose, company, program
                 placeholder="궁금한 점을 물어보세요..."
                 className="w-full pl-4 pr-12 py-3 rounded-lg border border-border-light dark:border-border-dark bg-gray-50 dark:bg-gray-800 text-sm focus:ring-1 focus:ring-primary focus:border-primary resize-none h-14" // Fixed height for simplicity
             />
-            <button 
+            <button
                 onClick={handleSend}
                 disabled={!input.trim() || isTyping}
+                aria-label="전송"
                 className="absolute right-2 bottom-2 p-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-                <span className="material-icons-outlined text-sm">send</span>
+                <span className="material-icons-outlined text-sm" aria-hidden="true">send</span>
             </button>
         </div>
         <p className="text-[10px] text-center text-gray-400 mt-2">

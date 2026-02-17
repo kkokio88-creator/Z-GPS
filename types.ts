@@ -174,17 +174,6 @@ export interface StructureAgentResponse {
   inferredStrengths: string[];
 }
 
-export interface DraftAgentContext {
-  previousDrafts?: string[]; 
-  tone?: string;
-}
-
-export interface IndustryTrend {
-  keyword: string;
-  relevance: string; 
-  source?: string;
-}
-
 // V1.4 New Interfaces
 export interface ConsistencyCheckResult {
     score: number;

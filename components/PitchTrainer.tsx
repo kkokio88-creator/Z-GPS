@@ -80,7 +80,7 @@ const PitchTrainer: React.FC = () => {
                                 : 'bg-primary hover:bg-primary-dark hover:scale-105'
                             }`}
                         >
-                            <span className="material-icons-outlined text-5xl text-white">
+                            <span className="material-icons-outlined text-5xl text-white" aria-hidden="true">
                                 {isRecording ? 'stop' : 'mic'}
                             </span>
                         </button>
@@ -100,7 +100,7 @@ const PitchTrainer: React.FC = () => {
                     {/* Result Card */}
                     {isAnalyzing && (
                         <div className="py-10">
-                            <span className="material-icons-outlined animate-spin text-4xl text-primary">refresh</span>
+                            <span className="material-icons-outlined animate-spin text-4xl text-primary" aria-hidden="true">refresh</span>
                             <p className="mt-2 text-sm text-gray-500">AI 코치가 발표 내용을 분석 중입니다...</p>
                         </div>
                     )}
@@ -109,7 +109,7 @@ const PitchTrainer: React.FC = () => {
                         <div className="bg-white dark:bg-surface-dark rounded-xl border border-primary/20 dark:border-primary/20 shadow-lg overflow-hidden animate-fade-in-up text-left">
                             <div className="bg-primary p-6 text-white flex justify-between items-center">
                                 <h3 className="font-bold text-lg flex items-center">
-                                    <span className="material-icons-outlined mr-2">assessment</span> 분석 리포트
+                                    <span className="material-icons-outlined mr-2" aria-hidden="true">assessment</span> 분석 리포트
                                 </h3>
                                 <div className="text-right">
                                     <span className="block text-xs opacity-70">전달력 점수</span>

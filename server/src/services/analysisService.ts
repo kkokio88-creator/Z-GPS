@@ -7,7 +7,7 @@ import { callGeminiDirect, cleanAndParseJSON } from './geminiService.js';
 import { extractRegionFromAddress, isRegionMismatch } from './programFetcher.js';
 import type { NpsLookupResult } from './employeeDataService.js';
 
-interface CompanyInfo {
+export interface CompanyInfo {
   name: string;
   industry?: string;
   description?: string;
