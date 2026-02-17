@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import Header from './Header';
-import { getStoredCompany, saveStoredCompany } from '../services/storageService';
+import { saveStoredCompany } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { Company } from '../types';
 
 const InternalKnowledge: React.FC = () => { // Renamed conceptually
-    const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+    const company = useCompanyStore(s => s.company);
     const setCompany = useCompanyStore(s => s.setCompany);
     const [activeTab, setActiveTab] = useState<'KEYWORDS' | 'SNIPPETS'>('KEYWORDS');
     const [newSnippetTitle, setNewSnippetTitle] = useState('');

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { logoutUser, getStoredCompany } from '../services/storageService';
+import { logoutUser } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDark, setIsDark] = useState(false);
-  const companyName = useCompanyStore(s => s.company)?.name || getStoredCompany()?.name || '기업 미설정';
+  const companyName = useCompanyStore(s => s.company)?.name || '기업 미설정';
 
   const isActive = (path: string) => location.pathname === path;
 

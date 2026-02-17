@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
-import { getStoredCompany, saveStoredCompany, getStoredDeepResearch, saveStoredDeepResearch } from '../services/storageService';
+import { saveStoredCompany, getStoredDeepResearch, saveStoredDeepResearch } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { useQAStore } from '../services/stores/qaStore';
 import { Company, CompanySearchResult, DeepResearchResult, ResearchProgress } from '../types';
@@ -71,7 +71,7 @@ const CompanyProfile: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedCompany = useCompanyStore.getState().company ?? getStoredCompany();
+    const storedCompany = useCompanyStore.getState().company;
     setCompany(storedCompany);
     setIsQaActive(useQAStore.getState().qaState.isActive);
 
@@ -96,7 +96,7 @@ const CompanyProfile: React.FC = () => {
     }
 
     const handleStorage = () => {
-      const updatedCompany = useCompanyStore.getState().company ?? getStoredCompany();
+      const updatedCompany = useCompanyStore.getState().company;
       setCompany(updatedCompany);
       const updatedResearch = getStoredDeepResearch();
       if (updatedResearch) {

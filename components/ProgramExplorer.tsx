@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram } from '../services/vaultService';
 import {
-  getStoredCompany,
   getStoredApplications,
   saveStoredApplication,
   getStoredProgramCategories,
@@ -43,7 +42,7 @@ const createDraftIfNeeded = (program: SupportProgram, companyId: string): void =
 
 const ProgramExplorer: React.FC = () => {
   const navigate = useNavigate();
-  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+  const company = useCompanyStore(s => s.company);
   const [allPrograms, setAllPrograms] = useState<CategorizedProgram[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedProgram, setSelectedProgram] = useState<CategorizedProgram | null>(null);

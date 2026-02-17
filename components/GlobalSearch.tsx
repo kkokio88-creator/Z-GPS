@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getStoredApplications, getStoredCompany } from '../services/storageService';
+import { getStoredApplications } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 
 type SearchItem = {
@@ -18,7 +18,7 @@ const GlobalSearch: React.FC = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+  const company = useCompanyStore(s => s.company);
   const applications = getStoredApplications();
 
   // Basic menu items

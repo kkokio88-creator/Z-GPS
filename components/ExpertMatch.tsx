@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from './Header';
-import { getStoredApplications, getStoredCompany } from '../services/storageService';
+import { getStoredApplications } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { reviewAgent, ReviewPersona } from '../services/geminiAgents';
 import { Application, ReviewResult, SupportProgram, EligibilityStatus } from '../types';
@@ -55,7 +55,7 @@ const ExpertMatch: React.FC = () => {
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const applications = getStoredApplications();
-    const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+    const company = useCompanyStore(s => s.company);
 
     const handleSimulation = async () => {
         if (!selectedAppId || !selectedPersona) return;

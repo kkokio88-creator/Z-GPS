@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './Header';
-import { getStoredApplications, getStoredCompany, getStoredCalendarEvents } from '../services/storageService';
+import { getStoredApplications, getStoredCalendarEvents } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { Application, SupportProgram, CalendarEvent } from '../types';
 import { fetchIncheonSupportPrograms } from '../services/apiService';
@@ -50,7 +50,7 @@ const ExecutionManager: React.FC = () => {
 
     // Handlers (Execution)
     const handleAddExpense = () => { const i = prompt("항목"); const a = prompt("금액"); if(i&&a) setExpenses([...expenses, {item:i, amount:parseInt(a), date: new Date().toISOString().split('T')[0]}]); };
-    const handleGenerateReport = async () => { if(!selectedApp) return; setIsGeneratingReport(true); const r = await draftAgent.writeSection(useCompanyStore.getState().company ?? getStoredCompany(), programs[0], "결과보고서", false, "성과 중심 변환"); setReportDraft(r.text); setIsGeneratingReport(false); };
+    const handleGenerateReport = async () => { if(!selectedApp) return; setIsGeneratingReport(true); const r = await draftAgent.writeSection(useCompanyStore.getState().company, programs[0], "결과보고서", false, "성과 중심 변환"); setReportDraft(r.text); setIsGeneratingReport(false); };
     const handleAddLabLog = async () => { if(!newLog) return; setIsRefiningLog(true); const r = await labNoteAgent.refineLog(newLog); setLabLogs([...labLogs, {date:new Date().toISOString().split('T')[0], content:r}]); setNewLog(''); setIsRefiningLog(false); };
     const handleHaccpUpload = (e:any) => { const f=e.target.files[0]; if(f) { const r=new FileReader(); r.onloadend=()=>setHaccpImage(r.result as string); r.readAsDataURL(f); }};
     const handleRunHaccpAudit = async () => { if(!haccpImage) return; setIsHaccpAuditing(true); const r = await haccpAgent.auditFacility(haccpImage.split(',')[1], haccpChecklist); setHaccpResult(r); setIsHaccpAuditing(false); };

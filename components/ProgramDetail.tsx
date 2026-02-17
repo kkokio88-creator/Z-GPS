@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgramDetail, FitDimensions } from '../services/vaultService';
 import {
-  getStoredCompany,
   getStoredApplications,
   saveStoredApplication,
 } from '../services/storageService';
@@ -227,7 +226,7 @@ const ProgramDetail: React.FC = () => {
 
   const handleCreateApplication = () => {
     if (!slug) return;
-    const company = useCompanyStore.getState().company ?? getStoredCompany();
+    const company = useCompanyStore.getState().company;
     const myApplications = getStoredApplications();
     const existing = myApplications.find(a => a.programId === slug);
 

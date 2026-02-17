@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
-import { getStoredApplications, getStoredCompany, saveStoredApplication } from '../services/storageService';
+import { getStoredApplications, saveStoredApplication } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { Application, Company, SupportProgram, EligibilityStatus } from '../types';
 import { vaultService, VaultProgram } from '../services/vaultService';
@@ -297,7 +297,7 @@ const ConfirmModal: React.FC<{
 const ApplicationList: React.FC = () => {
   const navigate = useNavigate();
   const [applications, setApplications] = useState<Application[]>([]);
-  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+  const company = useCompanyStore(s => s.company);
   const [mainTab, setMainTab] = useState<'APPLY' | 'EXECUTION' | 'CALENDAR'>('APPLY');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ appId: string; action: 'abandon' | 'delete' } | null>(null);
@@ -500,7 +500,7 @@ const ApplicationList: React.FC = () => {
     if (!selectedApp || programs.length === 0) return;
     setIsGeneratingReport(true);
     try {
-      const r = await draftAgent.writeSection(useCompanyStore.getState().company ?? getStoredCompany(), programs[0], `${reportType}보고서`, false, "성과 중심");
+      const r = await draftAgent.writeSection(useCompanyStore.getState().company, programs[0], `${reportType}보고서`, false, "성과 중심");
       setReportDraft(r.text);
     } catch {
       setReportDraft(`[${reportType}보고서 초안]\n\n1. 연구개요\n\n2. 연구 수행 내용\n\n3. 연구 결과\n\n4. 기대효과 및 활용방안`);

@@ -3,7 +3,6 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
 import type { BenefitSummary, TaxScanResult } from '../types';
-import { getStoredCompany } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { Company } from '../types';
 import Header from './Header';
@@ -64,7 +63,7 @@ const matchProgramToFocus = (program: VaultProgram, keywords: string[]): boolean
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+  const company = useCompanyStore(s => s.company);
   const [programs, setPrograms] = useState<VaultProgram[]>([]);
   const [myApplications, setMyApplications] = useState<VaultApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +96,7 @@ const Dashboard: React.FC = () => {
       }
       if (companyResult.status === 'fulfilled' && companyResult.value.company) {
         const c = companyResult.value.company;
-        const prev = useCompanyStore.getState().company ?? getStoredCompany();
+        const prev = useCompanyStore.getState().company;
         useCompanyStore.getState().setCompany({
           ...prev,
           name: (c.name as string) || prev.name,

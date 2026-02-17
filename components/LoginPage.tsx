@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, saveStoredCompany, getStoredCompany } from '../services/storageService';
+import { loginUser, saveStoredCompany } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { fetchCompanyDetailsFromDART } from '../services/apiService';
 import { Company } from '../types';
@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
     try {
         // --- DATA PERSISTENCE SAFEGUARD ---
         // 1. Check if we already have data for this company
-        const existingData = useCompanyStore.getState().company ?? getStoredCompany();
+        const existingData = useCompanyStore.getState().company;
         const existingRawNum = existingData?.businessNumber?.replace(/-/g, '');
 
         if (existingData && existingRawNum === rawNum && existingData.name !== '신규 기업') {

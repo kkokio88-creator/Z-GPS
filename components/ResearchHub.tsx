@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from './Header';
 import { marketAgent, vocAgent, productVisionAgent, positioningAgent, pitchCoachAgent, reviewAgent, ReviewPersona } from '../services/geminiAgents';
-import { getStoredCompany, saveStoredCompany, getStoredApplications } from '../services/storageService';
+import { saveStoredCompany, getStoredApplications } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { ResearchReport, Company, ReviewResult, SupportProgram, EligibilityStatus } from '../types';
 
@@ -44,7 +44,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
   const [isChatThinking, setIsChatThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const applications = getStoredApplications();
-  const company = useCompanyStore(s => s.company) ?? getStoredCompany();
+  const company = useCompanyStore(s => s.company);
 
   // --- Handlers: Market ---
   const handleSearch = async () => { if (!query.trim()) return; setIsSearching(true); const r = await marketAgent.research(query, company.industry); setReports([{ id: `r_${Date.now()}`, query, summary: r.summary||"", keyFindings: r.keyFindings||[], sources: r.sources||[], timestamp: new Date().toISOString() }, ...reports]); setQuery(''); setIsSearching(false); };
@@ -55,7 +55,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
   const startRecording = () => {
       setIsRecording(true); setTranscription(''); setPitchResult(null);
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
           recognitionRef.current = new SpeechRecognition();
           recognitionRef.current.continuous = true; recognitionRef.current.lang = 'ko-KR'; recognitionRef.current.interimResults = true;
           recognitionRef.current.onresult = (e: any) => {

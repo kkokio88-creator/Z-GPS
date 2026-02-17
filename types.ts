@@ -92,6 +92,19 @@ export interface DraftComment {
   isResolved: boolean;
 }
 
+export const ApplicationStatus = {
+  DRAFT_BEFORE: '작성 전',
+  DRAFTING: '작성 중',
+  SUBMITTED: '제출 완료',
+  DOC_REVIEW: '서류 심사',
+  PRESENTATION: '발표 평가',
+  SELECTED: '최종 선정',
+  REJECTED: '탈락',
+  WITHDRAWN: '포기',
+} as const;
+
+export type ApplicationStatus = typeof ApplicationStatus[keyof typeof ApplicationStatus];
+
 export interface Application {
   id: string;
   programId: string;
@@ -107,7 +120,7 @@ export interface Application {
       detailUrl?: string; // New
   };
   companyId: string;
-  status: '작성 전' | '작성 중' | '제출 완료' | '서류 심사' | '발표 평가' | '최종 선정' | '탈락' | '포기';
+  status: ApplicationStatus;
   draftSections: {
     [key: string]: string; 
   };

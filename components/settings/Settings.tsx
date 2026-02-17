@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import Header from '../Header';
 import { vaultService, type VaultStats, type VaultDocumentMeta } from '../../services/vaultService';
 import {
-  getStoredCompany,
   saveStoredCompany,
   getStoredApiKey,
   saveStoredApiKey,
@@ -66,7 +65,7 @@ const Settings: React.FC = () => {
 
   // Company
   const _storeCompany = useCompanyStore(s => s.company);
-  const [company, setCompany] = React.useState<Company>(() => _storeCompany ?? getStoredCompany());
+  const [company, setCompany] = React.useState<Company | null>(() => _storeCompany);
   const _setStoreCompany = useCompanyStore(s => s.setCompany);
   React.useEffect(() => {
     if (_storeCompany) setCompany(_storeCompany);

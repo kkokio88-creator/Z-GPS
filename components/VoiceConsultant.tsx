@@ -39,8 +39,8 @@ const VoiceConsultant: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey });
             
             // Setup Audio Contexts
-            inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-            outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            inputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            outputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
             
             // Setup Input Stream
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
