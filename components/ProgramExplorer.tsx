@@ -17,6 +17,7 @@ import ProgramListView from './programs/ProgramListView';
 import ProgramSwipeView from './programs/ProgramSwipeView';
 import ProgramDetailPanel from './programs/ProgramDetailPanel';
 import { useDragHandler } from './programs/useDragHandler';
+import { FIT_SCORE_THRESHOLD } from '../constants';
 
 /** 관심 등록 시 자동 DRAFT 생성 (순수 함수) */
 const createDraftIfNeeded = (program: SupportProgram, companyId: string): void => {
@@ -119,7 +120,7 @@ const ProgramExplorer: React.FC = () => {
   const filteredPrograms = allPrograms
     .filter(p => {
       if (activeTab === 'all') return p.category === 'none';
-      if (activeTab === 'recommended') return p.fitScore >= 80 && p.category === 'none';
+      if (activeTab === 'recommended') return p.fitScore >= FIT_SCORE_THRESHOLD && p.category === 'none';
       return p.category === activeTab;
     })
     .filter(p => {
@@ -238,7 +239,7 @@ const ProgramExplorer: React.FC = () => {
   const stats = {
     total: allPrograms.length,
     remaining: allPrograms.filter(p => p.category === 'none').length,
-    recommended: allPrograms.filter(p => p.fitScore >= 80 && p.category === 'none').length,
+    recommended: allPrograms.filter(p => p.fitScore >= FIT_SCORE_THRESHOLD && p.category === 'none').length,
     interested: allPrograms.filter(p => p.category === 'interested').length,
     rejected: allPrograms.filter(p => p.category === 'rejected').length
   };

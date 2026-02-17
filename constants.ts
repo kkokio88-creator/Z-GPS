@@ -1,5 +1,8 @@
 import { Company, Application, SectionSchema } from './types';
 
+// 추천 공고 매칭 threshold (Dashboard, ProgramExplorer, ProgramDetail 공통 기준)
+export const FIT_SCORE_THRESHOLD = 70;
+
 // Initial empty state
 export const COMPANIES: Company[] = [
   {

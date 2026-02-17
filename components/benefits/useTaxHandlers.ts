@@ -8,7 +8,7 @@ interface UseTaxHandlersReturn {
   taxScanning: boolean;
   taxError: string | null;
   taxErrorCode: number | null;
-  scanStep: 0 | 1 | 2 | 3;
+  scanStep: number;
   expandedOpportunity: string | null;
   setExpandedOpportunity: Dispatch<SetStateAction<string | null>>;
   generatingWorksheet: string | null;
@@ -34,7 +34,7 @@ export function useTaxHandlers(): UseTaxHandlersReturn {
   const [taxScanning, setTaxScanning] = useState(false);
   const [taxError, setTaxError] = useState<string | null>(null);
   const [taxErrorCode, setTaxErrorCode] = useState<number | null>(null);
-  const [scanStep, setScanStep] = useState<0 | 1 | 2 | 3>(0);
+  const [scanStep, setScanStep] = useState<number>(0);
   const [expandedOpportunity, setExpandedOpportunity] = useState<string | null>(null);
   const [generatingWorksheet, setGeneratingWorksheet] = useState<string | null>(null);
   const [showNpsTrend, setShowNpsTrend] = useState(false);

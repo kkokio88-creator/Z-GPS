@@ -11,7 +11,7 @@ interface TaxRefundProps {
   taxScanning: boolean;
   taxError: string | null;
   taxErrorCode: number | null;
-  scanStep: 0 | 1 | 2 | 3;
+  scanStep: number;
   sortedOpportunities: TaxRefundOpportunity[];
   taxSortBy: 'refund' | 'confidence' | 'difficulty';
   taxFilterStatus: string;

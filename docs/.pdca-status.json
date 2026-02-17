@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-17T17:22:46.503Z",
+  "lastUpdated": "2026-02-17T17:49:35.111Z",
   "activeFeatures": [
     "phase4-quality",
     "stores",
@@ -13,9 +13,12 @@
     "company",
     "settings",
     "qa",
-    "editor"
+    "editor",
+    "vaultService.ts",
+    "documentExport.ts",
+    "e2e"
   ],
-  "primaryFeature": "phase4-quality",
+  "primaryFeature": "phase5-obsidian-workflow",
   "features": {
     "middleware": {
       "phase": "do",
@@ -65,9 +68,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-17T13:02:55.279Z",
-        "lastUpdated": "2026-02-17T17:22:46.503Z"
+        "lastUpdated": "2026-02-17T17:48:50.490Z"
       },
-      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/types.ts"
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/playwright.config.ts"
     },
     "storageService.ts": {
       "phase": "do",
@@ -143,9 +146,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-17T13:15:24.676Z",
-        "lastUpdated": "2026-02-17T16:09:08.200Z"
+        "lastUpdated": "2026-02-17T17:40:15.339Z"
       },
-      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/routes/vault/benefits.ts"
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/routes/vault/index.ts"
     },
     "phase4-quality": {
       "phase": "check",
@@ -230,9 +233,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-17T16:15:53.515Z",
-        "lastUpdated": "2026-02-17T16:48:01.112Z"
+        "lastUpdated": "2026-02-17T17:48:26.418Z"
       },
-      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/benefits/BenefitForm.tsx"
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/benefits/TaxRefund.tsx"
     },
     "company": {
       "phase": "do",
@@ -282,9 +285,68 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-17T16:45:34.052Z",
-        "lastUpdated": "2026-02-17T16:47:57.061Z"
+        "lastUpdated": "2026-02-17T17:46:29.653Z"
       },
-      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/editor/GanttModal.tsx"
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/editor/ExportModal.tsx"
+    },
+    "phase5-obsidian-workflow": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [
+        "AI 기업 리서치 버그 수정",
+        "추천 공고 매칭 threshold 통일",
+        "Obsidian-First 워크플로우 구축",
+        "문서 포맷 지원 (PDF/HWP/Word)",
+        "Playwright E2E 검증 + 세금 환급"
+      ],
+      "documents": {
+        "plan": "docs/01-plan/features/phase5-obsidian-workflow.plan.md"
+      },
+      "timestamps": {
+        "started": "2026-02-18T12:00:00.000Z",
+        "lastUpdated": "2026-02-18T12:00:00.000Z"
+      }
+    },
+    "vaultService.ts": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-17T17:39:43.124Z",
+        "lastUpdated": "2026-02-17T17:42:58.884Z"
+      },
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/vaultService.ts"
+    },
+    "documentExport.ts": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-17T17:45:14.659Z",
+        "lastUpdated": "2026-02-17T17:46:34.158Z"
+      },
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/documentExport.ts"
+    },
+    "e2e": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-17T17:49:05.243Z",
+        "lastUpdated": "2026-02-17T17:49:35.111Z"
+      },
+      "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/tests/e2e/vault-sync.spec.ts"
     }
   },
   "pipeline": {
@@ -295,7 +357,7 @@
   "session": {
     "startedAt": "2026-02-17T12:36:09.585Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-17T17:22:46.503Z"
+    "lastActivity": "2026-02-17T17:49:35.111Z"
   },
   "history": [
     {
@@ -1609,6 +1671,252 @@
     {
       "timestamp": "2026-02-17T17:22:46.503Z",
       "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:29.227Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:30.102Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:33.880Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:36.866Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:38.228Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:40.555Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:43.663Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:45.665Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:46.766Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:52.532Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:52.969Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:55.465Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:36:58.467Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:37:03.886Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:37:04.437Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:37:13.446Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:37:30.022Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:39:35.517Z",
+      "feature": "vault",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:39:43.124Z",
+      "feature": "vaultService.ts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:39:49.649Z",
+      "feature": "vaultService.ts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:40:03.519Z",
+      "feature": "vault",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:40:15.339Z",
+      "feature": "vault",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:42:56.898Z",
+      "feature": "vaultService.ts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:42:58.884Z",
+      "feature": "vaultService.ts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:44:57.235Z",
+      "feature": "editor",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:45:02.703Z",
+      "feature": "editor",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:45:11.647Z",
+      "feature": "editor",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:45:14.659Z",
+      "feature": "documentExport.ts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:45:16.403Z",
+      "feature": "editor",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:45:25.023Z",
+      "feature": "editor",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:46:29.653Z",
+      "feature": "editor",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:46:34.158Z",
+      "feature": "documentExport.ts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:48:11.674Z",
+      "feature": "benefits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:48:16.659Z",
+      "feature": "benefits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:48:26.418Z",
+      "feature": "benefits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:48:50.490Z",
+      "feature": "Z-GPS",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:49:05.243Z",
+      "feature": "e2e",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:49:12.602Z",
+      "feature": "e2e",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:49:19.280Z",
+      "feature": "e2e",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:49:27.916Z",
+      "feature": "e2e",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-17T17:49:35.111Z",
+      "feature": "e2e",
       "phase": "do",
       "action": "updated"
     }

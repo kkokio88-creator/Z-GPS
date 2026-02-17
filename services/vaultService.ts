@@ -171,6 +171,22 @@ export const vaultService = {
     return data;
   },
 
+  /** Vault 동기화 상태 조회 */
+  async getSyncStatus(): Promise<{
+    lastSyncedAt: string;
+    programCount: number;
+    applicationCount: number;
+    companyExists: boolean;
+  }> {
+    const { data } = await apiClient.post<{
+      lastSyncedAt: string;
+      programCount: number;
+      applicationCount: number;
+      companyExists: boolean;
+    }>('/api/vault/sync-status', {});
+    return data;
+  },
+
   /** 단일 프로그램 딥크롤 */
   async deepCrawlProgram(slug: string): Promise<DeepCrawlResult> {
     const { data } = await apiClient.post<DeepCrawlResult>(
@@ -301,6 +317,54 @@ export const vaultService = {
     const { data } = await apiClient.put<{ success: boolean; updatedAt: string }>(
       `/api/vault/application/${encodeURIComponent(slug)}`,
       { sections }
+    );
+    return data;
+  },
+
+  /** 지원서 섹션 목록 조회 */
+  async getApplicationSections(
+    slug: string
+  ): Promise<{ sections: { sectionId: string; title: string; status: string; updatedAt: string }[] }> {
+    const { data } = await apiClient.get<{
+      sections: { sectionId: string; title: string; status: string; updatedAt: string }[];
+    }>(`/api/vault/application/${encodeURIComponent(slug)}/sections`);
+    return data;
+  },
+
+  /** 지원서 단일 섹션 조회 */
+  async getApplicationSection(
+    slug: string,
+    sectionId: string
+  ): Promise<{ frontmatter: Record<string, unknown>; content: string }> {
+    const { data } = await apiClient.get<{ frontmatter: Record<string, unknown>; content: string }>(
+      `/api/vault/application/${encodeURIComponent(slug)}/sections/${encodeURIComponent(sectionId)}`
+    );
+    return data;
+  },
+
+  /** 지원서 단일 섹션 수정 */
+  async updateApplicationSection(
+    slug: string,
+    sectionId: string,
+    content: string
+  ): Promise<{ success: boolean; updatedAt: string }> {
+    const { data } = await apiClient.put<{ success: boolean; updatedAt: string }>(
+      `/api/vault/application/${encodeURIComponent(slug)}/sections/${encodeURIComponent(sectionId)}`,
+      { content }
+    );
+    return data;
+  },
+
+  /** 지원서 섹션 피드백 전송 */
+  async sendSectionFeedback(
+    slug: string,
+    sectionId: string,
+    feedback: string,
+    action: 'revise' | 'approve'
+  ): Promise<{ success: boolean }> {
+    const { data } = await apiClient.post<{ success: boolean }>(
+      `/api/vault/application/${encodeURIComponent(slug)}/feedback`,
+      { sectionId, feedback, action }
     );
     return data;
   },

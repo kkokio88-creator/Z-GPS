@@ -8,6 +8,7 @@ import {
 import { useCompanyStore } from '../services/stores/companyStore';
 import { Application } from '../types';
 import Header from './Header';
+import { FIT_SCORE_THRESHOLD } from '../constants';
 
 /** HTML 태그 제거 */
 const stripHtml = (html: string): string => {
@@ -214,7 +215,7 @@ const ProgramDetail: React.FC = () => {
       setLoadingStrategy(true);
       try {
         let s = await vaultService.getStrategy(slug);
-        if (!s && fitScore >= 60) {
+        if (!s && fitScore >= FIT_SCORE_THRESHOLD) {
           await vaultService.generateStrategy(slug);
           s = await vaultService.getStrategy(slug);
         }
@@ -280,7 +281,7 @@ const ProgramDetail: React.FC = () => {
   const strategyStatus = useMemo(() => {
     if (loadingStrategy) return '생성 중';
     if (strategy) return '완료';
-    if (fitScore >= 60) return '대기';
+    if (fitScore >= FIT_SCORE_THRESHOLD) return '대기';
     return '미분석';
   }, [strategy, loadingStrategy, fitScore]);
 
@@ -693,14 +694,14 @@ const ProgramDetail: React.FC = () => {
                 ) : (
                   <div className="text-center py-12">
                     <span className="material-icons-outlined text-4xl text-gray-300 mb-3" aria-hidden="true">auto_awesome</span>
-                    {fitScore >= 60 ? (
+                    {fitScore >= FIT_SCORE_THRESHOLD ? (
                       <>
                         <p className="text-sm text-gray-500">전략 문서를 불러오지 못했습니다.</p>
                         <p className="text-xs text-gray-400 mt-1">잠시 후 다시 시도해주세요.</p>
                       </>
                     ) : fitScore > 0 ? (
                       <>
-                        <p className="text-sm text-gray-500">적합도 60점 이상인 공고에 대해 전략이 생성됩니다.</p>
+                        <p className="text-sm text-gray-500">적합도 {FIT_SCORE_THRESHOLD}점 이상인 공고에 대해 전략이 생성됩니다.</p>
                         <p className="text-xs text-gray-400 mt-1">현재 적합도: {fitScore}점</p>
                       </>
                     ) : (

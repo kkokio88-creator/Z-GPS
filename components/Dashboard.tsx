@@ -7,6 +7,7 @@ import { useCompanyStore } from '../services/stores/companyStore';
 import { Company } from '../types';
 import Header from './Header';
 import { formatKRW, getDday } from '../services/utils/formatters';
+import { FIT_SCORE_THRESHOLD } from '../constants';
 
 interface FocusArea {
   id: string;
@@ -149,7 +150,7 @@ const Dashboard: React.FC = () => {
     const avgFit = analyzedPrograms.length > 0
       ? Math.round(analyzedPrograms.reduce((sum, p) => sum + p.fitScore, 0) / analyzedPrograms.length)
       : 0;
-    const recommendedCount = activePrograms.filter(p => p.fitScore >= 60).length;
+    const recommendedCount = activePrograms.filter(p => p.fitScore >= FIT_SCORE_THRESHOLD).length;
 
     return {
       totalPrograms: activePrograms.length,

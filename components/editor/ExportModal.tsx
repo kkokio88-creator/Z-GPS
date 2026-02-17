@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DEFAULT_SECTION_SCHEMA } from '../../constants';
 import { Company, SupportProgram, SectionSchema } from '../../types';
 import { vaultService } from '../../services/vaultService';
+import { exportToPdf, exportToDocx, exportToHwp } from '../../services/documentExport';
 
 interface Attachment {
   name: string;
@@ -24,6 +25,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<string | null>(null); // 'pdf' | 'docx' | 'hwp' | null
 
   // 첨부파일 로드
   useEffect(() => {
@@ -54,6 +56,42 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
     if (name.endsWith('.xlsx') || name.endsWith('.xls')) return 'table_chart';
     if (name.endsWith('.zip')) return 'folder_zip';
     return 'insert_drive_file';
+  };
+
+  const handleExportPdf = async () => {
+    setIsExporting('pdf');
+    try {
+        exportToPdf('export-preview-content');
+    } catch {
+        // silent - print dialog handles its own errors
+    } finally {
+        setTimeout(() => setIsExporting(null), 1000);
+    }
+  };
+
+  const handleExportDocx = async () => {
+    setIsExporting('docx');
+    try {
+        await exportToDocx({
+            company: { name: company.name, businessNumber: company.businessNumber || '', industry: company.industry || '' },
+            programName: program.programName,
+            sections: sectionList.map(s => ({ id: s.id, title: s.title })),
+            draftSections,
+        });
+    } catch (err) {
+        if (import.meta.env.DEV) console.error('DOCX export failed:', err);
+        alert('DOCX 내보내기에 실패했습니다.');
+    } finally {
+        setIsExporting(null);
+    }
+  };
+
+  const handleExportHwp = () => {
+    try {
+      exportToHwp();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'HWP 내보내기 실패');
+    }
   };
 
   return (
@@ -195,7 +233,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
         {activeTab === 'preview' && (
           <>
             <div className="flex-1 overflow-y-auto p-8 bg-gray-200 dark:bg-gray-900 flex justify-center">
-              <div className="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-lg text-black text-[11pt] leading-[1.6] font-serif">
+              <div id="export-preview-content" className="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-lg text-black text-[11pt] leading-[1.6] font-serif">
                 {/* Title */}
                 <div className="border-4 border-double border-black p-4 mb-8 text-center">
                   <h1 className="text-3xl font-bold tracking-widest mb-4">[사업계획서]</h1>
@@ -239,11 +277,29 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
               </div>
             </div>
             <div className="px-6 py-4 bg-white dark:bg-surface-dark border-t border-gray-200 flex justify-end gap-3">
-              <button className="px-4 py-2 border rounded flex items-center hover:bg-gray-50">
-                <span className="material-icons-outlined mr-2" aria-hidden="true">picture_as_pdf</span>PDF 저장
+              <button
+                onClick={handleExportPdf}
+                disabled={isExporting !== null}
+                className="px-4 py-2 border rounded flex items-center hover:bg-gray-50 disabled:opacity-50"
+              >
+                <span className="material-icons-outlined mr-2" aria-hidden="true">picture_as_pdf</span>
+                {isExporting === 'pdf' ? '준비 중...' : 'PDF 저장'}
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded flex items-center hover:bg-blue-700">
-                <span className="material-icons-outlined mr-2" aria-hidden="true">file_download</span>HWP 다운로드
+              <button
+                onClick={handleExportDocx}
+                disabled={isExporting !== null}
+                className="px-4 py-2 border border-blue-300 text-blue-700 rounded flex items-center hover:bg-blue-50 disabled:opacity-50"
+              >
+                <span className="material-icons-outlined mr-2" aria-hidden="true">description</span>
+                {isExporting === 'docx' ? '생성 중...' : 'DOCX 다운로드'}
+              </button>
+              <button
+                onClick={handleExportHwp}
+                disabled={isExporting !== null}
+                className="px-4 py-2 bg-blue-600 text-white rounded flex items-center hover:bg-blue-700 disabled:opacity-50"
+              >
+                <span className="material-icons-outlined mr-2" aria-hidden="true">file_download</span>
+                HWP 다운로드
               </button>
             </div>
           </>

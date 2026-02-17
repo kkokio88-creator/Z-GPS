@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
-import { saveStoredCompany, getStoredDeepResearch, saveStoredDeepResearch } from '../services/storageService';
+import { getStoredDeepResearch, saveStoredDeepResearch } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { useQAStore } from '../services/stores/qaStore';
 import { Company, CompanySearchResult, DeepResearchResult, ResearchProgress } from '../types';
 import { companyResearchAgent } from '../services/geminiAgents';
 import { vaultService } from '../services/vaultService';
-import { getSannamchonMockData } from './company/companyMockData';
+import { useToast } from './Toast';
 import { CompanySearchInput, CompanySearchResults } from './company/CompanySearch';
 import CompanyResearchProgress from './company/CompanyResearchProgress';
 import CompanyResearch from './company/CompanyResearch';
@@ -54,6 +54,7 @@ const convertCompanyToResearchData = (comp: Company): DeepResearchResult => ({
 
 const CompanyProfile: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [company, setCompany] = useState<Company | null>(null);
   const [isQaActive, setIsQaActive] = useState(false);
 
@@ -69,6 +70,9 @@ const CompanyProfile: React.FC = () => {
   const [selectedCompanyName, setSelectedCompanyName] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Guard flag: prevents the storage event listener from overriding data that was
+  // just saved by the active research flow.
+  const isResearchingRef = useRef(false);
 
   useEffect(() => {
     const storedCompany = useCompanyStore.getState().company;
@@ -80,22 +84,15 @@ const CompanyProfile: React.FC = () => {
       setDeepResearchData(storedResearch);
       setSearchMode('COMPLETE');
     } else if (storedCompany && storedCompany.name && storedCompany.name !== '신규 기업') {
-      if (storedCompany.name === '산너머남촌' || storedCompany.name === '(주)산너머남촌') {
-        const mockData = getSannamchonMockData();
-        setDeepResearchData(mockData);
-        saveStoredDeepResearch(mockData);
-      } else {
-        setDeepResearchData(convertCompanyToResearchData(storedCompany));
-      }
-      setSearchMode('COMPLETE');
-    } else {
-      const mockData = getSannamchonMockData();
-      setDeepResearchData(mockData);
-      saveStoredDeepResearch(mockData);
+      setDeepResearchData(convertCompanyToResearchData(storedCompany));
       setSearchMode('COMPLETE');
     }
 
     const handleStorage = () => {
+      // Bug 3 fix: skip storage sync while a research flow is actively writing data
+      // to avoid overriding the freshly-fetched result.
+      if (isResearchingRef.current) return;
+
       const updatedCompany = useCompanyStore.getState().company;
       setCompany(updatedCompany);
       const updatedResearch = getStoredDeepResearch();
@@ -103,11 +100,7 @@ const CompanyProfile: React.FC = () => {
         setDeepResearchData(updatedResearch);
         setSearchMode('COMPLETE');
       } else if (updatedCompany && updatedCompany.name && updatedCompany.name !== '신규 기업') {
-        if (updatedCompany.name === '산너머남촌' || updatedCompany.name === '(주)산너머남촌') {
-          setDeepResearchData(getSannamchonMockData());
-        } else {
-          setDeepResearchData(convertCompanyToResearchData(updatedCompany));
-        }
+        setDeepResearchData(convertCompanyToResearchData(updatedCompany));
         setSearchMode('COMPLETE');
       }
     };
@@ -139,6 +132,9 @@ const CompanyProfile: React.FC = () => {
     setSearchMode('RESEARCHING');
     setErrorMessage(null);
     setResearchProgress({ stage: 'RESEARCHING', message: '딥 리서치 시작...', progress: 0 });
+    // Bug 3 fix: raise the guard so storage events do not interfere with the
+    // data we are about to write.
+    isResearchingRef.current = true;
     try {
       const data = await companyResearchAgent.deepResearch(
         result.name,
@@ -159,6 +155,8 @@ const CompanyProfile: React.FC = () => {
       setErrorMessage(msg);
       setResearchProgress({ stage: 'ERROR', message: msg, progress: 0 });
       setSearchMode('RESULTS');
+    } finally {
+      isResearchingRef.current = false;
     }
   };
 
@@ -193,7 +191,13 @@ const CompanyProfile: React.FC = () => {
       description: newCompany.description,
       coreCompetencies: newCompany.coreCompetencies,
       certifications: newCompany.certifications,
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      // Bug 2 fix: vault is secondary storage — the save still succeeds, but we
+      // surface the error so the user knows the cloud backup did not complete.
+      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      if (import.meta.env.DEV) console.error('[CompanyProfile] Vault save failed:', msg);
+      showToast('Vault 저장에 실패했습니다. 로컬에는 정상 저장되었습니다.', 'warning');
+    });
     alert('기업 정보가 저장되었습니다!');
   };
 
