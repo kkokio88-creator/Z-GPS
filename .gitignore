@@ -16,8 +16,8 @@ dist-ssr
 server/.env
 server/dist
 
-# Obsidian Vault (local data)
-vault/
+# Obsidian Vault (local data, root level only)
+/vault/
 
 # Editor directories and files
 .vscode/*

@@ -16,9 +16,10 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  */
 export async function callGeminiDirect(
   prompt: string,
-  config?: Record<string, unknown>
+  config?: Record<string, unknown>,
+  overrideApiKey?: string
 ): Promise<GeminiDirectResponse> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || overrideApiKey;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY not configured');
   }

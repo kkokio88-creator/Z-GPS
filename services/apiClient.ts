@@ -3,6 +3,8 @@
  * 모든 API 호출이 백엔드 프록시를 경유하도록 함
  */
 
+import { getStoredApiKey } from './storageService';
+
 const getBaseUrl = (): string => {
   return import.meta.env.VITE_API_BASE_URL || '';
 };
@@ -34,6 +36,12 @@ async function request<T>(method: string, path: string, body?: unknown, options?
   const headers: Record<string, string> = {};
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
+  }
+  // Railway 재배포 시 서버의 env var가 소실될 수 있으므로
+  // 프론트엔드에 저장된 API 키를 헤더로 전달 (서버가 fallback으로 사용)
+  const storedKey = getStoredApiKey();
+  if (storedKey) {
+    headers['X-Gemini-Api-Key'] = storedKey;
   }
 
   const response = await fetch(url, {

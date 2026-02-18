@@ -15,7 +15,8 @@ const generateRequestSchema = z.object({
  * Gemini API 프록시 - generateContent 호출
  */
 router.post('/generate', async (req: Request, res: Response) => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  // 클라이언트가 보낸 키 우선 (사용자가 Settings에서 저장한 최신 키)
+  const apiKey = (req.headers['x-gemini-api-key'] as string) || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: 'AI 서비스를 현재 사용할 수 없습니다. 잠시 후 다시 시도해주세요.' });
     return;
@@ -82,9 +83,9 @@ router.post('/generate', async (req: Request, res: Response) => {
  * Gemini API 연결 검증
  */
 router.post('/verify', async (req: Request, res: Response) => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const serverKey = (req.headers['x-gemini-api-key'] as string) || process.env.GEMINI_API_KEY;
   // 클라이언트가 사용자 입력 키를 테스트할 수 있도록 body에서 키를 받을 수도 있음
-  const testKey = (req.body as { apiKey?: string }).apiKey || apiKey;
+  const testKey = (req.body as { apiKey?: string }).apiKey || serverKey;
 
   if (!testKey || testKey.trim().length < 10) {
     res.json({ success: false, message: 'API Key 형식이 올바르지 않습니다.' });
