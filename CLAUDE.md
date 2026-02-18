@@ -72,6 +72,15 @@ if (import.meta.env.DEV) {
 }
 ```
 
+## 빌드 검증 (필수)
+> **절대 규칙**: `git push` 전에 반드시 `npx vite build`가 성공하는지 확인할 것.
+> pre-push hook이 설치되어 있으나, 코드 변경/패키지 추가 시 수동으로도 확인 권장.
+
+- 새 패키지 import 추가 시 → 반드시 `npm install <pkg>` 후 `package.json`에 반영 확인
+- 프론트엔드(`components/`, `services/`, `hooks/`)에서 외부 패키지 import 시 → `package.json` dependencies에 존재하는지 확인
+- 서버(`server/src/`)에서 외부 패키지 import 시 → `server/package.json` dependencies에 존재하는지 확인
+- **빌드 실패 상태로 push 금지** — Vercel 배포가 실패하면 모든 변경사항이 반영되지 않음
+
 ## Git Commit 규칙
 ```
 <type>: <subject>
