@@ -108,6 +108,10 @@ export const getStoredCompany = (): Company => {
 
 export const saveStoredCompany = (company: Company) => {
   localStorage.setItem(KEYS.COMPANY, JSON.stringify(company));
+  // Supabase 동시 쓰기 (비동기, 실패해도 무시)
+  import('./supabaseClient').then(({ upsertCompany }) => {
+    upsertCompany(company as unknown as Record<string, unknown>).catch(() => {});
+  }).catch(() => {});
 };
 
 // Application Management

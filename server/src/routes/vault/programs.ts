@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fg from 'fast-glob';
 import fs from 'fs/promises';
+import { isSupabaseConfigured, upsertProgramsBatch } from '../../services/supabaseService.js';
 import {
   ensureVaultStructure,
   readNote,
@@ -430,6 +431,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
  */
 router.post('/sync', async (req: Request, res: Response) => {
   const useSSE = req.headers.accept === 'text/event-stream';
+  const forceReanalyze = req.body?.forceReanalyze === true;
 
   try {
     await ensureVaultStructure();
@@ -644,7 +646,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         const { frontmatter: ef, content: ec } = await readNote(file);
         const ep = Number(ef.enrichmentPhase) || 0;
         const status = (ef.status as string) || '';
-        if (status === 'deep_crawled' || ep >= 2) continue;
+        if (!forceReanalyze && (status === 'deep_crawled' || ep >= 2)) continue;
         const detailUrl = (ef.detailUrl as string) || '';
         if (!detailUrl) continue;
         phase2Targets.push({ file, frontmatter: ef, content: ec });
@@ -688,8 +690,8 @@ router.post('/sync', async (req: Request, res: Response) => {
         const { frontmatter: ef, content: ec } = await readNote(file);
         const ep = Number(ef.enrichmentPhase) || 0;
         const status = (ef.status as string) || '';
-        if (status === 'deep_crawled' || ep >= 3) continue;
-        if (ep < 2) continue;
+        if (!forceReanalyze && (status === 'deep_crawled' || ep >= 3)) continue;
+        if (!forceReanalyze && ep < 2) continue;
         phase3Targets.push({ file, frontmatter: ef, content: ec });
       } catch { /* 읽기 실패 무시 */ }
     }
@@ -851,7 +853,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         const fitScore = Number(ef.fitScore) || 0;
         const ep = Number(ef.enrichmentPhase) || 0;
         const status = (ef.status as string) || '';
-        if (fitScore > 0 || status === 'analyzed' || ep === 99) continue;
+        if (!forceReanalyze && (fitScore > 0 || status === 'analyzed' || ep === 99)) continue;
         phase4Targets.push({ file });
       } catch { /* 읽기 실패 무시 */ }
     }
@@ -942,6 +944,32 @@ router.post('/sync', async (req: Request, res: Response) => {
       } catch (e) {
         console.warn(`[vault/sync] Phase 4 분석 실패:`, e);
         phase4Errors++;
+      }
+    }
+
+    // Supabase 동기화 (설정된 경우에만)
+    if (isSupabaseConfigured()) {
+      try {
+        const allFiles = await listNotes(path.join(vaultRoot2, 'programs'));
+        const supabasePrograms: { slug: string; programName: string; organizer?: string; fitScore?: number; eligibility?: string; status?: string; frontmatter?: Record<string, unknown> }[] = [];
+        for (const file of allFiles) {
+          try {
+            const { frontmatter: sf } = await readNote(file);
+            supabasePrograms.push({
+              slug: (sf.slug as string) || '',
+              programName: (sf.programName as string) || '',
+              organizer: sf.organizer as string,
+              fitScore: Number(sf.fitScore) || 0,
+              eligibility: sf.eligibility as string,
+              status: sf.status as string,
+              frontmatter: sf,
+            });
+          } catch { /* skip */ }
+        }
+        const synced = await upsertProgramsBatch(supabasePrograms.filter(p => p.slug));
+        if (synced > 0) console.log(`[vault/sync] Supabase: ${synced}건 동기화`);
+      } catch (e) {
+        console.warn('[vault/sync] Supabase 동기화 실패:', e);
       }
     }
 

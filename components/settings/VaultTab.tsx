@@ -97,6 +97,7 @@ interface VaultTabProps {
   syncResult: string;
   syncProgress: SSEProgressEvent | null;
   onSync: () => void;
+  onForceReanalyze: () => void;
   onCopyPath: (path: string) => void;
 }
 
@@ -106,6 +107,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
   syncResult,
   syncProgress,
   onSync,
+  onForceReanalyze,
   onCopyPath,
 }) => (
   <div className="space-y-6">
@@ -191,8 +193,17 @@ const VaultTab: React.FC<VaultTabProps> = ({
           <span className="material-icons-outlined text-sm" aria-hidden="true">cloud_download</span>
           공고 동기화
         </button>
+        <button
+          onClick={onForceReanalyze}
+          disabled={syncing}
+          className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          <span className="material-icons-outlined text-sm" aria-hidden="true">refresh</span>
+          전체 재분석
+        </button>
       </div>
       <p className="text-xs text-gray-400 mt-1">API 수집 → URL 크롤링 → AI 강화 → 적합도 분석 (4단계 자동 진행)</p>
+      <p className="text-xs text-orange-400 mt-0.5">전체 재분석: 이미 분석된 공고도 강제로 다시 분석합니다</p>
       <ProgressBar active={syncing} label="동기화 진행 중..." progress={syncProgress} />
       {syncResult && (
         <p className={`mt-3 text-sm ${syncResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>

@@ -19,8 +19,10 @@ import {
 } from '../../services/analysisService.js';
 import type { FitAnalysisResult, FitDimensions } from '../../services/analysisService.js';
 import { initSSE, sendProgress, sendComplete, sendError } from '../../utils/sse.js';
+import { isSupabaseConfigured, upsertApplication } from '../../services/supabaseService.js';
 import {
   loadAttachmentText,
+  loadPdfAnalysisForSlug,
   isValidSlug,
   buildFitSectionMarkdown,
   strategyToMarkdown,
@@ -331,6 +333,12 @@ router.post('/analyze-sections/:slug', async (req: Request, res: Response) => {
       pdfAnalysis = pdc;
     }
 
+    // slug 기반 PDF 분석 텍스트도 로드 (.txt 파일들)
+    const pdfAnalysisText = await loadPdfAnalysisForSlug(slug);
+    if (pdfAnalysisText) {
+      pdfAnalysis = pdfAnalysis ? `${pdfAnalysis}\n\n${pdfAnalysisText}` : pdfAnalysisText;
+    }
+
     let applicationFormText = '';
     const attachments = (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
     const formPatterns = ['서식', '양식', '지원서', '신청서', '사업계획서', '작성', '신청양식', '제출서류'];
@@ -416,11 +424,14 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
       pdfContext = pdc;
     }
 
+    // slug 기반 PDF 분석 텍스트도 로드 (.txt 파일들)
+    const pdfAnalysisText = await loadPdfAnalysisForSlug(slug);
+
     const rawAttachmentText = await loadAttachmentText(
       (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [], 4000
     );
 
-    const fullContext = [analysisContext, pdfContext, rawAttachmentText].filter(Boolean).join('\n\n');
+    const fullContext = [analysisContext, pdfContext, pdfAnalysisText, rawAttachmentText].filter(Boolean).join('\n\n');
 
     const companyInfo = {
       name: (company.name as string) || '미등록 기업',
@@ -550,6 +561,18 @@ ${consistencyResult.suggestion}
 
     pf.status = 'applied';
     await writeNote(programPath, pf, pc);
+
+    // Supabase 동기화
+    if (isSupabaseConfigured()) {
+      upsertApplication({
+        programSlug: slug,
+        draftSections: sections,
+        sectionSchema: { programSlug: slug, sections: sectionSchema, generatedAt: new Date().toISOString(), source: schemaResult.source },
+        review: reviewResult as unknown as Record<string, unknown>,
+        consistency: consistencyResult as unknown as Record<string, unknown>,
+        status: 'draft',
+      }).catch(e => console.warn('[vault/generate-app] Supabase sync failed:', e));
+    }
 
     res.json({
       success: true,
@@ -684,6 +707,228 @@ router.post('/generate-strategy/:slug', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[vault/generate-strategy] Error:', error);
     res.status(500).json({ error: '전략 문서 생성 실패', details: String(error) });
+  }
+});
+
+/**
+ * POST /api/vault/generate-apps-batch
+ * 적합도 70+ 공고에 대해 지원서 일괄 자동 생성 (SSE 진행률)
+ */
+router.post('/generate-apps-batch', async (req: Request, res: Response) => {
+  const useSSE = req.headers.accept === 'text/event-stream';
+  const minFitScore = Number(req.body?.minFitScore) || 70;
+
+  try {
+    if (useSSE) initSSE(res);
+
+    // 1. 기업 정보 로드
+    const companyPath = path.join('company', 'profile.md');
+    let company: Record<string, unknown> = {};
+    if (await noteExists(companyPath)) {
+      const { frontmatter } = await readNote(companyPath);
+      company = frontmatter;
+    }
+
+    const companyInfo = {
+      name: (company.name as string) || '미등록 기업',
+      industry: company.industry as string,
+      description: company.description as string,
+      revenue: company.revenue as number,
+      employees: company.employees as number,
+      address: company.address as string,
+      certifications: company.certifications as string[],
+      coreCompetencies: company.coreCompetencies as string[],
+    };
+
+    // 2. fitScore >= minFitScore인 프로그램 필터링
+    const vaultRoot = getVaultRoot();
+    const programFiles = await listNotes(path.join(vaultRoot, 'programs'));
+    const targets: { file: string; slug: string; programName: string; fitScore: number }[] = [];
+
+    for (const file of programFiles) {
+      try {
+        const { frontmatter: pf } = await readNote(file);
+        const fitScore = Number(pf.fitScore) || 0;
+        const slug = (pf.slug as string) || '';
+        if (fitScore < minFitScore || !slug) continue;
+
+        // 이미 지원서가 있으면 스킵
+        const draftPath = path.join('applications', slug, 'draft.md');
+        if (await noteExists(draftPath)) continue;
+
+        targets.push({
+          file,
+          slug,
+          programName: (pf.programName as string) || slug,
+          fitScore,
+        });
+      } catch { /* 읽기 실패 무시 */ }
+    }
+
+    // fitScore 높은 순으로 정렬
+    targets.sort((a, b) => b.fitScore - a.fitScore);
+
+    const total = targets.length;
+    if (useSSE) sendProgress(res, `지원서 일괄 생성 시작 (${total}건)`, 0, total, '', 1);
+
+    const results: { slug: string; programName: string; success: boolean; error?: string }[] = [];
+
+    // 3. 각 프로그램에 대해 지원서 생성
+    for (let i = 0; i < targets.length; i++) {
+      const { file, slug, programName } = targets[i];
+
+      if (useSSE) sendProgress(res, '지원서 생성 중', i + 1, total, programName, 1);
+
+      try {
+        const { frontmatter: pf, content: pc } = await readNote(file);
+
+        // 분석 컨텍스트 로드
+        let analysisContext = '';
+        const analysisPath = path.join('analysis', `${slug}-fit.md`);
+        if (await noteExists(analysisPath)) {
+          const { content: ac } = await readNote(analysisPath);
+          analysisContext = ac;
+        }
+
+        // PDF 분석 텍스트 로드
+        const pdfContext = await loadPdfAnalysisForSlug(slug);
+        const rawAttachmentText = await loadAttachmentText(
+          (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [], 4000
+        );
+        const fullContext = [analysisContext, pdfContext, rawAttachmentText].filter(Boolean).join('\n\n');
+
+        const programInfo = {
+          programName: pf.programName as string,
+          organizer: pf.organizer as string,
+          supportType: pf.supportType as string,
+          description: (pf.description as string) || pc.substring(0, 500),
+          expectedGrant: pf.expectedGrant as number,
+          officialEndDate: pf.officialEndDate as string,
+        };
+
+        // 섹션 스키마 분석
+        const schemaResult = await analyzeSections(
+          {
+            programName: pf.programName as string,
+            evaluationCriteria: pf.evaluationCriteria as string[] || [],
+            requiredDocuments: pf.requiredDocuments as string[] || [],
+            objectives: pf.objectives as string[] || [],
+            supportDetails: pf.supportDetails as string[] || [],
+            selectionProcess: pf.selectionProcess as string[] || [],
+            fullDescription: pf.fullDescription as string || pf.description as string || '',
+            targetAudience: pf.targetAudience as string || '',
+          },
+          pdfContext,
+          pc.substring(0, 3000)
+        );
+
+        const sectionSchema = schemaResult.sections;
+        const sections: Record<string, string> = {};
+
+        // 각 섹션 초안 생성
+        for (const sec of sectionSchema) {
+          const result = await generateDraftSectionV2(companyInfo, programInfo, sec.title, fullContext, {
+            evaluationCriteria: pf.evaluationCriteria as string[] || [],
+            hints: sec.hints,
+            evaluationWeight: sec.evaluationWeight,
+            sectionDescription: sec.description,
+          });
+          sections[sec.id] = result.text;
+          await new Promise(r => setTimeout(r, 2000));
+        }
+
+        // 초안 저장
+        const appDir = path.join('applications', slug);
+        const draftContent = sectionSchema
+          .map(sec => `## ${sec.title}\n\n${sections[sec.id] || ''}`)
+          .join('\n\n---\n\n');
+
+        await writeNote(
+          path.join(appDir, 'draft.md'),
+          {
+            slug,
+            programName: pf.programName,
+            generatedAt: new Date().toISOString(),
+            status: 'draft',
+            sectionSchema: {
+              programSlug: slug,
+              sections: sectionSchema,
+              generatedAt: new Date().toISOString(),
+              source: schemaResult.source,
+            },
+            sections: sectionSchema.map(s => s.id),
+          },
+          `# 지원서 초안: ${pf.programName}\n\n${draftContent}`
+        );
+
+        // 리뷰
+        const reviewSections: Record<string, string> = {};
+        for (const sec of sectionSchema) {
+          reviewSections[sec.title] = sections[sec.id] || '';
+        }
+
+        await new Promise(r => setTimeout(r, 2000));
+        const reviewResult = await reviewDraft(reviewSections);
+
+        await writeNote(
+          path.join(appDir, 'review.md'),
+          {
+            slug,
+            totalScore: reviewResult.totalScore,
+            reviewedAt: new Date().toISOString(),
+            ...reviewResult.scores,
+          },
+          `# 리뷰 결과: ${pf.programName}\n\n## 총점: ${reviewResult.totalScore}/100\n\n## 피드백\n${reviewResult.feedback.map(f => `- ${f}`).join('\n')}\n`
+        );
+
+        // 일관성 검사
+        await new Promise(r => setTimeout(r, 2000));
+        const consistencyResult = await checkConsistency(reviewSections);
+
+        await writeNote(
+          path.join(appDir, 'consistency.md'),
+          {
+            slug,
+            score: consistencyResult.score,
+            checkedAt: new Date().toISOString(),
+          },
+          `# 일관성 검사: ${pf.programName}\n\n## 점수: ${consistencyResult.score}/100\n\n## 발견된 문제\n${consistencyResult.issues.map(i => `- [${i.severity}] ${i.section}: ${i.description}`).join('\n')}\n\n## 개선 제안\n${consistencyResult.suggestion}\n`
+        );
+
+        // 프로그램 상태 업데이트
+        pf.status = 'applied';
+        await writeNote(file, pf, pc);
+
+        results.push({ slug, programName, success: true });
+      } catch (e) {
+        console.error(`[vault/generate-apps-batch] ${slug} 실패:`, e);
+        results.push({ slug, programName, success: false, error: String(e) });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    const resultData = {
+      success: true,
+      total,
+      generated: successCount,
+      failed: failCount,
+      results,
+    };
+
+    if (useSSE) {
+      sendComplete(res, resultData);
+    } else {
+      res.json(resultData);
+    }
+  } catch (error) {
+    console.error('[vault/generate-apps-batch] Error:', error);
+    if (useSSE) {
+      sendError(res, String(error));
+    } else {
+      res.status(500).json({ error: '일괄 지원서 생성 실패', details: String(error) });
+    }
   }
 });
 

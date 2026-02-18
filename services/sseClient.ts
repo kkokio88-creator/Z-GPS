@@ -28,7 +28,8 @@ const getBaseUrl = (): string => {
  */
 export function connectSSE(
   path: string,
-  callbacks: SSECallbacks
+  callbacks: SSECallbacks,
+  body?: Record<string, unknown>
 ): AbortController {
   const controller = new AbortController();
   const url = `${getBaseUrl()}${path}`;
@@ -39,7 +40,7 @@ export function connectSSE(
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(body ?? {}),
     signal: controller.signal,
   })
     .then(async (response) => {

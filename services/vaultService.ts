@@ -143,6 +143,14 @@ export interface AnalyzeAllResult {
   results: { slug: string; fitScore: number; eligibility: string }[];
 }
 
+export interface BatchGenerateResult {
+  success: boolean;
+  total: number;
+  generated: number;
+  failed: number;
+  results: { slug: string; programName: string; success: boolean; error?: string }[];
+}
+
 export interface GenerateAppResult {
   success: boolean;
   sections: Record<string, string>;
@@ -166,8 +174,10 @@ export const vaultService = {
   },
 
   /** 3개 API → 볼트에 프로그램 동기화 (3단계 파이프라인) */
-  async syncPrograms(): Promise<SyncResult> {
-    const { data } = await apiClient.post<SyncResult>('/api/vault/sync', {});
+  async syncPrograms(options?: { forceReanalyze?: boolean }): Promise<SyncResult> {
+    const { data } = await apiClient.post<SyncResult>('/api/vault/sync', {
+      forceReanalyze: options?.forceReanalyze ?? false,
+    });
     return data;
   },
 
@@ -229,7 +239,8 @@ export const vaultService = {
 
   /** SSE: 동기화 + 실시간 진행률 (3단계 파이프라인) */
   syncProgramsWithProgress(
-    onProgress: (event: SSEProgressEvent) => void
+    onProgress: (event: SSEProgressEvent) => void,
+    options?: { forceReanalyze?: boolean }
   ): { promise: Promise<SyncResult>; abort: () => void } {
     let resolvePromise: (value: SyncResult) => void;
     let rejectPromise: (reason: Error) => void;
@@ -243,7 +254,7 @@ export const vaultService = {
       onProgress,
       onComplete: (data) => resolvePromise!(data as unknown as SyncResult),
       onError: (error) => rejectPromise!(new Error(error)),
-    });
+    }, { forceReanalyze: options?.forceReanalyze ?? false });
 
     return {
       promise,
@@ -289,6 +300,40 @@ export const vaultService = {
     const { data } = await apiClient.post<GenerateAppResult>(
       `/api/vault/generate-app/${encodeURIComponent(slug)}`,
       {}
+    );
+    return data;
+  },
+
+  /** 일괄 지원서 생성 (SSE 진행률) */
+  generateAppsBatchWithProgress(
+    onProgress: (event: SSEProgressEvent) => void,
+    minFitScore?: number
+  ): { promise: Promise<BatchGenerateResult>; abort: () => void } {
+    let resolvePromise: (value: BatchGenerateResult) => void;
+    let rejectPromise: (reason: Error) => void;
+
+    const promise = new Promise<BatchGenerateResult>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+
+    const controller = connectSSE('/api/vault/generate-apps-batch', {
+      onProgress,
+      onComplete: (data) => resolvePromise!(data as unknown as BatchGenerateResult),
+      onError: (error) => rejectPromise!(new Error(error)),
+    }, { minFitScore: minFitScore ?? 70 });
+
+    return {
+      promise,
+      abort: () => controller.abort(),
+    };
+  },
+
+  /** 일괄 지원서 생성 (비SSE) */
+  async generateAppsBatch(minFitScore?: number): Promise<BatchGenerateResult> {
+    const { data } = await apiClient.post<BatchGenerateResult>(
+      '/api/vault/generate-apps-batch',
+      { minFitScore: minFitScore ?? 70 }
     );
     return data;
   },

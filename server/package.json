@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
+    "@supabase/supabase-js": "^2.96.0",
     "adm-zip": "^0.5.16",
     "cheerio": "^1.2.0",
     "cors": "^2.8.5",

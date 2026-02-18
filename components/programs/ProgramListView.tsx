@@ -11,6 +11,7 @@ interface ProgramListViewProps {
   analyzingSlug: string | null;
   isLoadingStrategy: boolean;
   vaultData: Map<string, VaultProgram>;
+  applicationSlugs?: Set<string>;
   onReAnalyze: (e: React.MouseEvent, program: CategorizedProgram) => void;
   onCategorize: (program: CategorizedProgram, direction: 'left' | 'right') => void;
   onViewStrategy: (slug: string) => void;
@@ -23,6 +24,7 @@ const ProgramListView: React.FC<ProgramListViewProps> = ({
   analyzingSlug,
   isLoadingStrategy,
   vaultData,
+  applicationSlugs,
   onReAnalyze,
   onCategorize,
   onViewStrategy,
@@ -70,6 +72,15 @@ const ProgramListView: React.FC<ProgramListViewProps> = ({
                       추천
                     </span>
                   )}
+                  {applicationSlugs && applicationSlugs.has(program.id) ? (
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-medium">
+                      지원서 작성됨
+                    </span>
+                  ) : program.fitScore >= 70 ? (
+                    <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300 rounded font-medium">
+                      지원서 미작성
+                    </span>
+                  ) : null}
                 </div>
                 <h3 className="font-bold text-sm text-gray-800 dark:text-white truncate">
                   {program.programName}

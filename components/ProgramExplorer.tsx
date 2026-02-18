@@ -68,6 +68,7 @@ const ProgramExplorer: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('');
   const [sortBy, setSortBy] = useState<'fitScore' | 'deadline' | 'grant'>('fitScore');
   const [analyzingSlug, setAnalyzingSlug] = useState<string | null>(null);
+  const [applicationSlugs, setApplicationSlugs] = useState<Set<string>>(new Set());
   const vaultDataRef = useRef<Map<string, VaultProgram>>(new Map());
 
   // 프로그램 로드
@@ -75,7 +76,11 @@ const ProgramExplorer: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const vaultPrograms = await vaultService.getPrograms();
+      const [vaultPrograms, vaultApps] = await Promise.all([
+        vaultService.getPrograms(),
+        vaultService.getApplications().catch(() => []),
+      ]);
+      setApplicationSlugs(new Set(vaultApps.map(a => a.slug)));
       const vMap = new Map<string, VaultProgram>();
       vaultPrograms.forEach(vp => vMap.set(vp.slug || vp.id, vp));
       vaultDataRef.current = vMap;
@@ -345,6 +350,7 @@ const ProgramExplorer: React.FC = () => {
               analyzingSlug={analyzingSlug}
               isLoadingStrategy={isLoadingStrategy}
               vaultData={vaultDataRef.current}
+              applicationSlugs={applicationSlugs}
               onReAnalyze={handleReAnalyze}
               onCategorize={handleCategorizeInList}
               onViewStrategy={handleViewStrategy}

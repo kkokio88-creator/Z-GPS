@@ -157,10 +157,10 @@ const Settings: React.FC = () => {
 
   // ─── Handlers ────────────────────────────────
 
-  const handleSync = async () => {
+  const handleSync = async (options?: { forceReanalyze?: boolean }) => {
     setSyncing(true); setSyncResult(''); setSyncProgress(null);
     try {
-      const { promise, abort } = vaultService.syncProgramsWithProgress(e => setSyncProgress(e));
+      const { promise, abort } = vaultService.syncProgramsWithProgress(e => setSyncProgress(e), options);
       syncAbortRef.current = abort;
       const r = await promise;
       const parts = [`완료: ${r.totalFetched}건 수집, ${r.created}건 생성, ${r.updated}건 갱신`];
@@ -232,7 +232,8 @@ const Settings: React.FC = () => {
             syncing={syncing}
             syncResult={syncResult}
             syncProgress={syncProgress}
-            onSync={handleSync}
+            onSync={() => handleSync()}
+            onForceReanalyze={() => handleSync({ forceReanalyze: true })}
             onCopyPath={handleCopyPath}
           />
         );
