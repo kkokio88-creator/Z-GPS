@@ -157,7 +157,8 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
         const swot = (sa && nonEmpty(sa.swot)) ? sa.swot as Record<string, string[]> : undefined;
         const gf = nonEmpty(deepResearchData.governmentFundingFit) ? deepResearchData.governmentFundingFit as Record<string, unknown> : undefined;
         const mp = nonEmpty(deepResearchData.marketPosition) ? deepResearchData.marketPosition as Record<string, unknown> : undefined;
-        const hasAnySections = !!(swot || gf || mp);
+        const ii = nonEmpty(deepResearchData.industryInsights) ? deepResearchData.industryInsights as Record<string, unknown> : undefined;
+        const hasAnySections = !!(swot || gf || mp || ii);
 
         return (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800 p-5">
@@ -205,6 +206,22 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
                     <div><p className="font-medium text-xs mb-1">경쟁사</p>{(mp.competitors as string[]).map((c, i) => <span key={i} className="inline-block mr-1.5 mb-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">{c}</span>)}</div>
                   ) : null}
                   {mp.marketShare && <p className="text-xs"><strong>시장점유율:</strong> {mp.marketShare as string}</p>}
+                  {(mp.uniqueSellingPoints as string[] | undefined)?.length ? (
+                    <div className="mt-1"><p className="font-medium text-xs mb-1">차별화 포인트</p>{(mp.uniqueSellingPoints as string[]).map((u, i) => <p key={i} className="text-xs">- {u}</p>)}</div>
+                  ) : null}
+                  {mp.targetMarket && <p className="text-xs mt-1"><strong>타깃 시장:</strong> {mp.targetMarket as string}</p>}
+                </AccordionSection>
+              )}
+              {ii && (
+                <AccordionSection id="industry" icon="trending_up" title="산업 인사이트">
+                  {(ii.marketTrends as string[] | undefined)?.length ? (
+                    <div><p className="font-medium text-xs mb-1">시장 트렌드</p>{(ii.marketTrends as string[]).map((t, i) => <p key={i} className="text-xs">- {t}</p>)}</div>
+                  ) : null}
+                  {ii.industryOutlook && <p className="text-xs mt-1"><strong>산업 전망:</strong> {ii.industryOutlook as string}</p>}
+                  {ii.regulatoryEnvironment && <p className="text-xs mt-1"><strong>규제 환경:</strong> {ii.regulatoryEnvironment as string}</p>}
+                  {(ii.technologyTrends as string[] | undefined)?.length ? (
+                    <div className="mt-1"><p className="font-medium text-xs mb-1">기술 트렌드</p>{(ii.technologyTrends as string[]).map((t, i) => <p key={i} className="text-xs text-blue-600 dark:text-blue-400">- {t}</p>)}</div>
+                  ) : null}
                 </AccordionSection>
               )}
               {gf && (
@@ -212,8 +229,14 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
                   {(gf.recommendedPrograms as string[] | undefined)?.length ? (
                     <div><p className="font-medium text-xs mb-1">추천 지원사업</p>{(gf.recommendedPrograms as string[]).map((r, i) => <p key={i} className="text-xs text-indigo-600 dark:text-indigo-400">- {r}</p>)}</div>
                   ) : null}
+                  {(gf.eligibilityStrengths as string[] | undefined)?.length ? (
+                    <div className="mt-1"><p className="font-medium text-xs mb-1">자격 강점</p>{(gf.eligibilityStrengths as string[]).map((s, i) => <p key={i} className="text-xs text-green-600 dark:text-green-400">- {s}</p>)}</div>
+                  ) : null}
+                  {(gf.potentialChallenges as string[] | undefined)?.length ? (
+                    <div className="mt-1"><p className="font-medium text-xs mb-1">도전과제</p>{(gf.potentialChallenges as string[]).map((c, i) => <p key={i} className="text-xs text-amber-600 dark:text-amber-400">- {c}</p>)}</div>
+                  ) : null}
                   {gf.applicationTips && (
-                    <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded p-2 text-xs text-indigo-700 dark:text-indigo-300">
+                    <div className="mt-1 bg-indigo-50 dark:bg-indigo-950/20 rounded p-2 text-xs text-indigo-700 dark:text-indigo-300">
                       <strong>지원 팁:</strong> {gf.applicationTips as string}
                     </div>
                   )}

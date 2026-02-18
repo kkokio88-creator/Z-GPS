@@ -133,6 +133,7 @@ function generateResearchMarkdown(companyName: string, data: Record<string, unkn
     if (mp.marketShare) md += `### 시장점유율\n${mp.marketShare}\n\n`;
     const usp = mp.uniqueSellingPoints as string[] | undefined;
     if (usp?.length) md += `### 차별화 포인트\n${usp.map(u => `- ${u}`).join('\n')}\n\n`;
+    if (mp.targetMarket) md += `### 타깃 시장\n${mp.targetMarket}\n\n`;
   }
 
   if (ii) {
@@ -268,22 +269,36 @@ router.post('/company/research', async (req: Request, res: Response) => {
       process.env.GEMINI_API_KEY = headerApiKey;
       console.log('[company/research] Restored GEMINI_API_KEY from client header');
     }
+    // NPS/DART 키도 동일하게 복원
+    const headerNpsKey = req.headers['x-datagokr-api-key'] as string | undefined;
+    if (headerNpsKey && !process.env.DATA_GO_KR_API_KEY) {
+      process.env.DATA_GO_KR_API_KEY = headerNpsKey;
+      console.log('[company/research] Restored DATA_GO_KR_API_KEY from client header');
+    }
+    const headerDartKey = req.headers['x-dart-api-key'] as string | undefined;
+    if (headerDartKey && !process.env.DART_API_KEY) {
+      process.env.DART_API_KEY = headerDartKey;
+      console.log('[company/research] Restored DART_API_KEY from client header');
+    }
 
-    const prompt = `당신은 한국 기업 정보 전문 리서처입니다.
+    const prompt = `당신은 한국 기업 정보 전문 리서처이자 정부지원사업 컨설턴트입니다.
 
 ## 작업
-"${companyName.trim()}" 기업에 대해 알고 있는 모든 정보를 아래 JSON 형식으로 정리하세요.
+"${companyName.trim()}" 기업에 대해 알고 있는 **모든** 정보를 아래 JSON 형식으로 상세하게 정리하세요.
+이 데이터는 정부지원사업 계획서 작성의 기초자료로 사용됩니다. 최대한 풍부하고 구체적으로 작성해주세요.
 
 ## 중요 규칙
-0. **반드시 "${companyName.trim()}"에 대한 정보만 반환하세요. 다른 기업의 정보를 반환하지 마세요.**
-1. 정확히 확인된 정보만 포함. 추측은 하지 마세요.
-2. 해당 기업을 찾을 수 없으면 {"name": null, "error": "기업 정보를 찾을 수 없습니다"}만 반환
-3. 모르는 필드는 빈 문자열, 빈 배열 또는 null로 유지
-4. 매출액은 원(KRW) 단위 숫자로 반환 (예: 10억 = 1000000000)
-5. 사업자등록번호는 "000-00-00000" 형식
-6. 핵심역량과 인증은 구체적으로 작성
-7. SWOT 분석은 각 항목 3~5개씩 구체적으로 작성
-8. 정부지원금 적합성은 해당 기업의 실제 강점을 기반으로 분석
+0. **반드시 "${companyName.trim()}"에 대한 정보만 반환하세요.**
+1. 확인된 사실은 그대로, 업종/규모 기반으로 합리적 추론이 가능한 부분은 "추정:" 접두어를 붙여 작성
+2. 해당 기업을 전혀 찾을 수 없으면 {"name": null}만 반환
+3. 매출액은 원(KRW) 단위 숫자 (예: 10억 = 1000000000)
+4. **SWOT 분석**: 각 항목 최소 3개 이상, 해당 업종/규모 특성을 반영하여 구체적으로
+5. **핵심역량**: 해당 업종에서의 기술력, 인프라, 인적자원, 네트워크 등 5개 이상
+6. **정부지원금 적합성**: 중소기업 지원사업(R&D, 시설투자, 수출, 고용, 스마트공장 등) 관점에서 구체적 추천
+7. **인증**: HACCP, ISO, GMP, 벤처인증, 이노비즈 등 업종 관련 인증 모두 파악
+8. **시장분석**: 경쟁사 3개 이상, 시장 트렌드 3개 이상, 차별화 포인트 구체적으로
+9. description은 5~8문장으로 상세 작성 (사업 모델, 핵심 가치, 시장 위치 포함)
+10. history는 설립 배경, 주요 투자/성장 이정표, 최근 동향까지 포함
 
 반드시 아래 JSON 형식만 반환하세요:
 {
@@ -297,10 +312,10 @@ router.post('/company/research', async (req: Request, res: Response) => {
   "factoryAddress": "공장/생산시설 주소",
   "revenue": 0,
   "employees": 0,
-  "description": "기업 소개 (3~5문장)",
-  "coreCompetencies": ["핵심역량1", "핵심역량2"],
-  "certifications": ["인증1", "인증2"],
-  "mainProducts": ["주요 제품/서비스1"],
+  "description": "기업 소개 (5~8문장: 사업 모델, 핵심 기술, 시장 위치, 성장 전략 포함)",
+  "coreCompetencies": ["핵심역량을 각각 한 문장으로 (5개 이상)"],
+  "certifications": ["인증/특허/지적재산 목록"],
+  "mainProducts": ["주요 제품/서비스 - 간단한 설명 포함"],
   "phone": "대표 전화번호",
   "email": "대표 이메일",
   "website": "홈페이지 URL",
@@ -319,9 +334,10 @@ router.post('/company/research', async (req: Request, res: Response) => {
     "riskFactors": ["리스크1", "리스크2"]
   },
   "marketPosition": {
-    "competitors": ["경쟁사1", "경쟁사2"],
-    "marketShare": "시장점유율 추정",
-    "uniqueSellingPoints": ["차별화 포인트1"]
+    "competitors": ["경쟁사명 - 특징 (3개 이상)"],
+    "marketShare": "시장점유율 추정 (근거 포함)",
+    "uniqueSellingPoints": ["차별화 포인트 (3개 이상)"],
+    "targetMarket": "주요 타깃 시장/고객층"
   },
   "industryInsights": {
     "marketTrends": ["시장 트렌드1"],
@@ -330,10 +346,10 @@ router.post('/company/research', async (req: Request, res: Response) => {
     "technologyTrends": ["기술 트렌드1"]
   },
   "governmentFundingFit": {
-    "recommendedPrograms": ["추천 지원사업1", "추천 지원사업2"],
-    "eligibilityStrengths": ["지원 자격 강점1"],
-    "potentialChallenges": ["도전과제1"],
-    "applicationTips": "지원 시 조언"
+    "recommendedPrograms": ["추천 지원사업명 - 개요 (5개 이상)"],
+    "eligibilityStrengths": ["자격 강점 (3개 이상)"],
+    "potentialChallenges": ["도전과제 (3개 이상)"],
+    "applicationTips": "지원서 작성 핵심 전략 (3~5문장)"
   },
   "financialInfo": {
     "recentRevenue": 0,
@@ -546,41 +562,60 @@ router.post('/company/research', async (req: Request, res: Response) => {
 
     if (!hasSwot || !hasFunding) {
       try {
-        const enrichPrompt = `아래 기업 정보를 바탕으로 전략 분석을 JSON으로 작성하세요.
+        const enrichPrompt = `당신은 한국 중소기업 정부지원사업 전문 컨설턴트입니다.
+아래 기업 정보를 바탕으로 **정부지원사업 계획서 작성에 활용할 수 있는 심층 전략 분석**을 JSON으로 작성하세요.
+가능한 한 구체적이고 풍부하게 작성해주세요. 각 배열 항목은 한 문장 이상의 설명을 포함하세요.
 
-기업명: ${result.name}
-업종: ${result.industry || ''}
-설명: ${result.description || ''}
-직원수: ${result.employees || 0}명
-주소: ${result.address || ''}
-주요제품: ${(result.mainProducts as string[] || []).join(', ')}
+## 기업 정보
+- 기업명: ${result.name}
+- 업종: ${result.industry || '정보 없음'}
+- 설명: ${result.description || '정보 없음'}
+- 직원수: ${result.employees || '정보 없음'}명
+- 주소: ${result.address || '정보 없음'}
+- 주요제품: ${(result.mainProducts as string[] || []).join(', ') || '정보 없음'}
+- 매출: ${result.revenue ? `${(Number(result.revenue) / 100000000).toFixed(1)}억원` : '정보 없음'}
+- 설립일: ${result.foundedDate || '정보 없음'}
+
+## 작성 규칙
+1. SWOT 각 항목 최소 3개 이상, 해당 업종의 실제 특성을 반영
+2. 경쟁사는 실제 기업명 3개 이상 (동종업계 국내 기업 위주)
+3. 추천 지원사업은 2026년 기준 실제 존재하는 사업명 포함
+4. 기술 트렌드는 해당 산업의 최신 동향 3개 이상
+5. 확인된 사실 그대로, 추론 시 "추정:" 접두어
 
 반드시 아래 JSON만 반환:
 {
   "strategicAnalysis": {
     "swot": {
-      "strengths": ["강점1", "강점2", "강점3"],
-      "weaknesses": ["약점1", "약점2"],
-      "opportunities": ["기회1", "기회2"],
-      "threats": ["위협1", "위협2"]
+      "strengths": ["해당 기업/업종 특화 강점 (3개 이상)"],
+      "weaknesses": ["구체적 약점 (3개 이상)"],
+      "opportunities": ["시장/정책 기회 (3개 이상)"],
+      "threats": ["경쟁/규제 위협 (3개 이상)"]
     },
-    "competitiveAdvantage": "핵심 경쟁우위",
-    "growthPotential": "성장 잠재력 평가",
-    "riskFactors": ["리스크1", "리스크2"]
+    "competitiveAdvantage": "핵심 경쟁우위를 3~5문장으로 상세 서술",
+    "growthPotential": "중장기 성장 잠재력을 시장 규모, 성장률, 전략 방향 포함하여 서술",
+    "riskFactors": ["구체적 리스크 요인 3개 이상"]
   },
   "marketPosition": {
-    "competitors": ["경쟁사1", "경쟁사2"],
-    "marketShare": "시장점유율 추정",
-    "uniqueSellingPoints": ["차별화1"]
+    "competitors": ["경쟁사명 - 간단한 특징 설명 (3개 이상)"],
+    "marketShare": "시장점유율 추정 근거와 함께 서술",
+    "uniqueSellingPoints": ["구체적 차별화 포인트 3개 이상"],
+    "targetMarket": "주요 타깃 시장/고객층"
+  },
+  "industryInsights": {
+    "marketTrends": ["최신 시장 트렌드 3개 이상"],
+    "industryOutlook": "향후 3~5년 산업 전망을 구체적으로",
+    "regulatoryEnvironment": "관련 법규, 인허가, 정책 동향",
+    "technologyTrends": ["관련 기술 트렌드 3개 이상"]
   },
   "governmentFundingFit": {
-    "recommendedPrograms": ["추천 지원사업1", "추천 지원사업2"],
-    "eligibilityStrengths": ["자격 강점1"],
-    "potentialChallenges": ["도전과제1"],
-    "applicationTips": "지원 시 조언"
+    "recommendedPrograms": ["추천 지원사업명 - 사업 개요 (5개 이상, 예: 중소기업 R&D역량강화사업, 스마트공장 지원사업 등)"],
+    "eligibilityStrengths": ["지원 자격 측면의 강점 3개 이상"],
+    "potentialChallenges": ["지원 시 예상 도전과제 3개 이상"],
+    "applicationTips": "지원서 작성 시 강조해야 할 핵심 포인트와 전략을 3~5문장으로"
   },
-  "coreCompetencies": ["핵심역량1", "핵심역량2", "핵심역량3"],
-  "certifications": ["인증1"]
+  "coreCompetencies": ["핵심역량을 각각 한 문장으로 설명 (5개 이상)"],
+  "certifications": ["보유 가능한 인증/특허 목록 (업종 기반 추정 포함)"]
 }`;
         const enrichResp = await callGeminiDirect(enrichPrompt, {
           model: 'gemini-2.0-flash',
@@ -594,6 +629,14 @@ router.post('/company/research', async (req: Request, res: Response) => {
           if (enriched.marketPosition) {
             const empComp = (result.marketPosition as Record<string, unknown> | undefined)?.competitors;
             if (!Array.isArray(empComp) || empComp.length === 0) result.marketPosition = enriched.marketPosition;
+          }
+          // industryInsights 보강
+          if (enriched.industryInsights) {
+            const existingII = result.industryInsights as Record<string, unknown> | undefined;
+            const iiTrends = (existingII?.marketTrends as string[] | undefined);
+            if (!existingII || !Array.isArray(iiTrends) || iiTrends.length === 0) {
+              result.industryInsights = enriched.industryInsights;
+            }
           }
           // coreCompetencies/certifications 보강
           if (Array.isArray(enriched.coreCompetencies) && (enriched.coreCompetencies as string[]).length > 0 &&

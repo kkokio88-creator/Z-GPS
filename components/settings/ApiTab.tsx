@@ -106,7 +106,7 @@ const ApiTab: React.FC<ApiTabProps> = ({
                 className="flex-1 border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
               />
               <a
-                href="https://www.data.go.kr/data/15083277/openapi.do"
+                href="https://www.data.go.kr/data/3046071/openapi.do"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-1 transition-colors whitespace-nowrap text-sm"
