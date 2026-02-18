@@ -395,10 +395,14 @@ router.post('/company/research', async (req: Request, res: Response) => {
           errors.push(`${label}: 파싱 결과가 객체가 아님`);
           return false;
         }
+        // 유효 키 카운팅: 0, 빈 객체, error 필드는 제외
         const keys = Object.keys(candidate).filter(k => {
+          if (k === 'error') return false; // error 필드는 유효 데이터가 아님
           const v = candidate[k];
-          return v !== null && v !== undefined && v !== '' &&
-            !(Array.isArray(v) && v.length === 0);
+          if (v === null || v === undefined || v === '' || v === 0) return false;
+          if (Array.isArray(v) && v.length === 0) return false;
+          if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return false;
+          return true;
         });
         console.log(`[company/research] ${label}: 파싱 결과 유효 키 ${keys.length}개 [${keys.slice(0, 8).join(', ')}...]`);
         if (hasValidContent(candidate)) {
@@ -406,7 +410,8 @@ router.post('/company/research', async (req: Request, res: Response) => {
           console.log(`[company/research] ${label}: ✓ 유효 데이터 확인`);
           return true;
         }
-        if (keys.length >= 3 && !parsed) {
+        // name이 없는 "not found" 응답은 부분 데이터로 수락하지 않음
+        if (keys.length >= 3 && !parsed && candidate.name) {
           parsed = candidate;
           console.log(`[company/research] ${label}: △ 부분 데이터 사용 (유효 키 ${keys.length}개)`);
           return true;
@@ -460,13 +465,16 @@ router.post('/company/research', async (req: Request, res: Response) => {
     const result = parsed as Record<string, unknown>;
     const queryName = companyName.trim();
 
-    if (result.error) {
+    // name이 null이면서 error가 있으면 진짜 "찾을 수 없음"
+    // name이 있으면 부분 정보라도 사용 (error 필드 제거)
+    if (!result.name && result.error) {
       res.status(404).json({
         error: `"${queryName}" 기업 정보를 찾을 수 없습니다. 정확한 기업명을 입력해주세요.`,
         notFound: true,
       });
       return;
     }
+    delete result.error; // 부분 성공 시 error 필드 정리
 
     if (!result.name || String(result.name).trim().length === 0) {
       result.name = queryName;

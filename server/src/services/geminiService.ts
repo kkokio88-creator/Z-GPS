@@ -19,7 +19,7 @@ export async function callGeminiDirect(
   config?: Record<string, unknown>,
   overrideApiKey?: string
 ): Promise<GeminiDirectResponse> {
-  const apiKey = process.env.GEMINI_API_KEY || overrideApiKey;
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY not configured');
   }
