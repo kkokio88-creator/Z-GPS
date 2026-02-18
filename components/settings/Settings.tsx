@@ -20,17 +20,16 @@ import type { SSEProgressEvent } from '../../services/sseClient';
 import VaultTab from './VaultTab';
 import CompanyTab from './CompanyTab';
 import ApiTab from './ApiTab';
-import CrawlingTab, { type CrawlingConfig } from './CrawlingTab';
+import { type CrawlingConfig } from './CrawlingTab';
 import SystemTab from './SystemTab';
 import { useResearchCompany } from './useResearchCompany';
 
-type TabId = 'vault' | 'company' | 'api' | 'crawling' | 'system';
+type TabId = 'vault' | 'company' | 'api' | 'system';
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'vault', label: '공고 데이터', icon: 'folder_open' },
   { id: 'company', label: '우리 기업', icon: 'business' },
   { id: 'api', label: 'API 연동', icon: 'vpn_key' },
-  { id: 'crawling', label: '공고 수집', icon: 'travel_explore' },
   { id: 'system', label: '시스템', icon: 'settings' },
 ];
 
@@ -235,6 +234,10 @@ const Settings: React.FC = () => {
             onSync={() => handleSync()}
             onForceReanalyze={() => handleSync({ forceReanalyze: true })}
             onCopyPath={handleCopyPath}
+            crawlingConfig={crawlingConfig}
+            crawlingSaved={crawlingSaved}
+            onCrawlingConfigChange={setCrawlingConfig}
+            onSaveCrawling={handleSaveCrawling}
           />
         );
       case 'company':
@@ -274,15 +277,6 @@ const Settings: React.FC = () => {
             onNpsApiKeyChange={setNpsApiKey}
             onAiModelChange={setAiModel}
             onSave={handleSaveApi}
-          />
-        );
-      case 'crawling':
-        return (
-          <CrawlingTab
-            crawlingConfig={crawlingConfig}
-            crawlingSaved={crawlingSaved}
-            onConfigChange={setCrawlingConfig}
-            onSave={handleSaveCrawling}
           />
         );
       case 'system':

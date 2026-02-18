@@ -618,61 +618,65 @@ const Dashboard: React.FC = () => {
           </section>
 
           {/* ===== 일괄 지원서 생성 ===== */}
-          {appStats.eligibleCount > 0 && (
-            <section className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800/30 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                    <span className="material-icons-outlined text-white text-lg" aria-hidden="true">auto_awesome</span>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">AI 일괄 지원서 생성</h3>
+          <section className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800/30 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                  <span className="material-icons-outlined text-white text-lg" aria-hidden="true">auto_awesome</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">AI 일괄 지원서 생성</h3>
+                  {appStats.eligibleCount > 0 ? (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       적합도 70%+ 공고: <span className="font-bold text-green-600">{appStats.eligibleCount}건</span>
                       {' / '}지원서 작성: <span className="font-bold text-blue-600">{appStats.eligibleWithApp}건</span>
                       {' / '}미작성: <span className="font-bold text-orange-600">{appStats.eligibleWithoutApp}건</span>
                     </p>
-                  </div>
-                </div>
-                {appStats.eligibleWithoutApp > 0 && (
-                  <button
-                    onClick={handleBatchGenerate}
-                    disabled={batchGenerating}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
-                  >
-                    <span className="material-icons-outlined text-sm" aria-hidden="true">
-                      {batchGenerating ? 'hourglass_top' : 'bolt'}
-                    </span>
-                    {batchGenerating ? '생성 중...' : `${appStats.eligibleWithoutApp}건 일괄 생성`}
-                  </button>
-                )}
-              </div>
-
-              {batchGenerating && batchProgress && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between text-xs text-green-700 dark:text-green-400 mb-1">
-                    <span>{batchProgress.stage}</span>
-                    <span className="font-mono">{batchProgress.current}/{batchProgress.total} ({batchProgress.percent}%)</span>
-                  </div>
-                  <div className="w-full bg-green-200 dark:bg-green-900/50 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${batchProgress.percent}%` }}
-                    />
-                  </div>
-                  {batchProgress.programName && (
-                    <p className="text-[10px] text-gray-500 mt-1 truncate">{batchProgress.programName}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      적합도 70%+ 공고가 없습니다. 설정 &gt; 공고 데이터에서 동기화를 먼저 실행하세요.
+                    </p>
                   )}
                 </div>
+              </div>
+              {appStats.eligibleWithoutApp > 0 && (
+                <button
+                  onClick={handleBatchGenerate}
+                  disabled={batchGenerating}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                >
+                  <span className="material-icons-outlined text-sm" aria-hidden="true">
+                    {batchGenerating ? 'hourglass_top' : 'bolt'}
+                  </span>
+                  {batchGenerating ? '생성 중...' : `${appStats.eligibleWithoutApp}건 일괄 생성`}
+                </button>
               )}
+            </div>
 
-              {batchResult && (
-                <p className={`mt-2 text-xs ${batchResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
-                  {batchResult}
-                </p>
-              )}
-            </section>
-          )}
+            {batchGenerating && batchProgress && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between text-xs text-green-700 dark:text-green-400 mb-1">
+                  <span>{batchProgress.stage}</span>
+                  <span className="font-mono">{batchProgress.current}/{batchProgress.total} ({batchProgress.percent}%)</span>
+                </div>
+                <div className="w-full bg-green-200 dark:bg-green-900/50 rounded-full h-2">
+                  <div
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${batchProgress.percent}%` }}
+                  />
+                </div>
+                {batchProgress.programName && (
+                  <p className="text-[10px] text-gray-500 mt-1 truncate">{batchProgress.programName}</p>
+                )}
+              </div>
+            )}
+
+            {batchResult && (
+              <p className={`mt-2 text-xs ${batchResult.includes('실패') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+                {batchResult}
+              </p>
+            )}
+          </section>
 
         </div>
       </main>

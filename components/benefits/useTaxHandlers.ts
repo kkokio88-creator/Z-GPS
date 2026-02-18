@@ -1,5 +1,6 @@
 import { Dispatch, SetStateAction, useState, useMemo } from 'react';
 import { vaultService } from '../../services/vaultService';
+import { ApiError } from '../../services/apiClient';
 import type { TaxScanResult, TaxRefundOpportunity } from '../../types';
 
 interface UseTaxHandlersReturn {
@@ -69,15 +70,17 @@ export function useTaxHandlers(): UseTaxHandlersReturn {
       await new Promise(r => setTimeout(r, 300));
       setTaxScan(result);
     } catch (e: unknown) {
-      const resp = (e && typeof e === 'object' && 'response' in e)
-        ? (e as { response?: { status?: number; data?: { error?: string } } }).response : null;
-      const status = resp?.status || 0;
-      const serverMsg = resp?.data?.error;
+      let status = 0;
+      let serverMsg: string | undefined;
+      if (e instanceof ApiError) {
+        status = e.status;
+        serverMsg = (e.data as { error?: string })?.error;
+      }
       setTaxErrorCode(status);
-      if (status === 503) setTaxError(serverMsg || 'Gemini API 키가 설정되지 않았습니다.');
-      else if (status === 400) setTaxError(serverMsg || '기업 정보가 등록되지 않았습니다.');
-      else if (status >= 500) setTaxError(serverMsg || '세금 환급 스캔에 실패했습니다.');
-      else setTaxError('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
+      if (status === 503) setTaxError(serverMsg || 'Gemini API 키가 설정되지 않았습니다. 설정 > API 연동에서 키를 입력하세요.');
+      else if (status === 400) setTaxError(serverMsg || '기업 정보가 등록되지 않았습니다. 설정 > 우리 기업에서 먼저 등록하세요.');
+      else if (status >= 500) setTaxError(serverMsg || '세금 환급 스캔에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      else setTaxError('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
       if (import.meta.env.DEV) console.error('[BenefitTracker] Tax scan error:', e);
     }
     setScanStep(0); setTaxScanning(false);
