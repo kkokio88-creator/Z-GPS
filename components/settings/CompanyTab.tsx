@@ -83,7 +83,16 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
 }) => {
   const [researchQuery, setResearchQuery] = useState('');
 
-  const nonEmpty = (obj: unknown) => obj && typeof obj === 'object' && Object.keys(obj as object).length > 0;
+  // 객체가 실제 유효한 데이터를 가지는지 검사 (빈 배열/null만 있는 객체는 false)
+  const nonEmpty = (obj: unknown): boolean => {
+    if (!obj || typeof obj !== 'object') return false;
+    return Object.values(obj as Record<string, unknown>).some(v => {
+      if (v === null || v === undefined || v === '' || v === 0) return false;
+      if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === 'object') return Object.keys(v).length > 0;
+      return true;
+    });
+  };
 
   const AccordionSection: React.FC<{ id: string; icon: string; title: string; children: React.ReactNode }> = ({ id, icon, title, children }) => (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

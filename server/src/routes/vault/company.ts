@@ -537,6 +537,80 @@ router.post('/company/research', async (req: Request, res: Response) => {
       }
     }
 
+    // 분석 섹션이 비어있으면 AI에게 2차 분석 요청
+    const sa = result.strategicAnalysis as Record<string, unknown> | undefined;
+    const swot = sa?.swot as Record<string, string[]> | undefined;
+    const gf = result.governmentFundingFit as Record<string, unknown> | undefined;
+    const hasSwot = swot && (swot.strengths?.length > 0 || swot.weaknesses?.length > 0);
+    const hasFunding = gf && Array.isArray(gf.recommendedPrograms) && (gf.recommendedPrograms as string[]).length > 0;
+
+    if (!hasSwot || !hasFunding) {
+      try {
+        const enrichPrompt = `아래 기업 정보를 바탕으로 전략 분석을 JSON으로 작성하세요.
+
+기업명: ${result.name}
+업종: ${result.industry || ''}
+설명: ${result.description || ''}
+직원수: ${result.employees || 0}명
+주소: ${result.address || ''}
+주요제품: ${(result.mainProducts as string[] || []).join(', ')}
+
+반드시 아래 JSON만 반환:
+{
+  "strategicAnalysis": {
+    "swot": {
+      "strengths": ["강점1", "강점2", "강점3"],
+      "weaknesses": ["약점1", "약점2"],
+      "opportunities": ["기회1", "기회2"],
+      "threats": ["위협1", "위협2"]
+    },
+    "competitiveAdvantage": "핵심 경쟁우위",
+    "growthPotential": "성장 잠재력 평가",
+    "riskFactors": ["리스크1", "리스크2"]
+  },
+  "marketPosition": {
+    "competitors": ["경쟁사1", "경쟁사2"],
+    "marketShare": "시장점유율 추정",
+    "uniqueSellingPoints": ["차별화1"]
+  },
+  "governmentFundingFit": {
+    "recommendedPrograms": ["추천 지원사업1", "추천 지원사업2"],
+    "eligibilityStrengths": ["자격 강점1"],
+    "potentialChallenges": ["도전과제1"],
+    "applicationTips": "지원 시 조언"
+  },
+  "coreCompetencies": ["핵심역량1", "핵심역량2", "핵심역량3"],
+  "certifications": ["인증1"]
+}`;
+        const enrichResp = await callGeminiDirect(enrichPrompt, {
+          model: 'gemini-2.0-flash',
+          responseMimeType: 'application/json',
+        }, effectiveApiKey);
+        if (enrichResp.text) {
+          const enriched = cleanAndParseJSON(enrichResp.text) as Record<string, unknown>;
+          // 기존 빈 분석 섹션만 덮어쓰기
+          if (!hasSwot && enriched.strategicAnalysis) result.strategicAnalysis = enriched.strategicAnalysis;
+          if (!hasFunding && enriched.governmentFundingFit) result.governmentFundingFit = enriched.governmentFundingFit;
+          if (enriched.marketPosition) {
+            const empComp = (result.marketPosition as Record<string, unknown> | undefined)?.competitors;
+            if (!Array.isArray(empComp) || empComp.length === 0) result.marketPosition = enriched.marketPosition;
+          }
+          // coreCompetencies/certifications 보강
+          if (Array.isArray(enriched.coreCompetencies) && (enriched.coreCompetencies as string[]).length > 0 &&
+              (!Array.isArray(result.coreCompetencies) || (result.coreCompetencies as string[]).length === 0)) {
+            result.coreCompetencies = enriched.coreCompetencies;
+          }
+          if (Array.isArray(enriched.certifications) && (enriched.certifications as string[]).length > 0 &&
+              (!Array.isArray(result.certifications) || (result.certifications as string[]).length === 0)) {
+            result.certifications = enriched.certifications;
+          }
+          console.log('[company/research] 2차 분석 보강 완료');
+        }
+      } catch (e) {
+        console.warn('[company/research] 2차 분석 보강 실패 (무시):', String(e).substring(0, 100));
+      }
+    }
+
     try {
       const researchMd = generateResearchMarkdown(companyName.trim(), result);
       const researchPath = path.join('company', 'research.md');
