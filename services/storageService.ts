@@ -50,7 +50,14 @@ export const saveStoredApiKey = (key: string) => {
 };
 
 export const getStoredAiModel = (): string => {
-  return localStorage.getItem(KEYS.AI_MODEL) || 'gemini-2.5-flash-preview';
+  const stored = localStorage.getItem(KEYS.AI_MODEL) || 'gemini-2.5-flash';
+  // 마이그레이션: 더 이상 존재하지 않는 -preview 모델명 자동 수정
+  if (stored.endsWith('-preview')) {
+    const fixed = stored.replace(/-preview$/, '');
+    localStorage.setItem(KEYS.AI_MODEL, fixed);
+    return fixed;
+  }
+  return stored;
 };
 
 export const saveStoredAiModel = (model: string) => {

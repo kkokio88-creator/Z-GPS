@@ -141,8 +141,8 @@ const ApiTab: React.FC<ApiTabProps> = ({
               onChange={e => onAiModelChange(e.target.value)}
               className="w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
             >
-              <option value="gemini-2.5-flash-preview">Gemini 2.5 Flash (빠름)</option>
-              <option value="gemini-2.5-pro-preview">Gemini 2.5 Pro (정확)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (빠름)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (정확)</option>
               <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
             </select>
           </div>

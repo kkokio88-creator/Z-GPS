@@ -91,7 +91,7 @@ const Settings: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [dartApiKey, setDartApiKey] = useState('');
   const [npsApiKey, setNpsApiKey] = useState('');
-  const [aiModel, setAiModel] = useState('gemini-2.5-flash-preview');
+  const [aiModel, setAiModel] = useState('gemini-2.5-flash');
   const [apiSaved, setApiSaved] = useState(false);
 
   // Crawling
