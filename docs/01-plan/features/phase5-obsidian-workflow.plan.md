@@ -147,11 +147,11 @@ vault_root/
 | 포맷 | 라이브러리 | 방식 | 제한사항 |
 |------|-----------|------|---------|
 | **PDF** 읽기 | `pdfjs-dist` (프론트) | 브라우저에서 직접 파싱 | 이미 attachment 미리보기에 일부 사용 |
-| **PDF** 쓰기 | `@react-pdf/renderer` (프론트) 또는 `puppeteer` (서버) | 신청서 → PDF 변환 | 서버 puppeteer가 품질 우수 |
-| **HWP** 읽기 | `hwp.js` (서버) | 서버에서 파싱 후 JSON 반환 | 복잡한 레이아웃 제한적 |
-| **HWP** 쓰기 | 서버 템플릿 기반 | 공고 양식 HWP 템플릿에 데이터 삽입 | hwp.js 쓰기 미지원 → 대안 필요 |
-| **DOCX** 읽기 | `mammoth` (서버) | HTML 변환 후 프론트 표시 | 스타일 일부 손실 |
-| **DOCX** 쓰기 | `docx` npm 패키지 (서버) | 템플릿 기반 생성 | 완전 지원 |
+| **PDF** 쓰기 | 브라우저 `window.print()` | 클라이언트 사이드 인쇄 | Tailwind CSS 복사로 스타일 유지 |
+| ~~**HWP** 읽기~~ | ~~`hwp.js` (서버)~~ | ~~Descoped (D-2)~~ | ~~Phase 6+ 재검토~~ |
+| **HWP** 쓰기 | 미지원 (에러 메시지 표시) | 클라이언트에서 안내 | hwp.js 쓰기 미지원 확인됨 |
+| ~~**DOCX** 읽기~~ | ~~`mammoth` (서버)~~ | ~~Descoped (D-3)~~ | ~~Phase 6+ 필요 시 추가~~ |
+| **DOCX** 쓰기 | `docx` npm 패키지 (클라이언트) | `file-saver`로 다운로드 | 완전 지원 |
 
 **백엔드 API 추가** (server/src/routes/documents.ts):
 | Endpoint | Method | 기능 |
@@ -237,7 +237,22 @@ vault_root/
 
 ---
 
-## 6. 리스크 및 완화 전략
+## 6. Descoped Items (Iteration #1에서 범위 조정)
+
+> **조정 사유**: Gap Analysis (72%) 후 실현 가능성과 ROI를 평가하여, 현재 Phase에서 제외하고 향후 Phase로 이관합니다.
+
+| # | 원래 계획 | Descope 사유 | 대안 / 이관 |
+|---|-----------|-------------|-------------|
+| D-1 | 서버 문서 라우트 (`/api/documents/*`) | 클라이언트 사이드 PDF/DOCX 생성이 충분. 서버 라우트는 과도한 복잡성 추가 | 현재 `documentExport.ts` 클라이언트 방식 유지 |
+| D-2 | HWP 읽기 (`hwp.js` 서버) | hwp.js 라이브러리 성숙도 부족 (Plan 리스크 항목에서 예측됨) | Phase 6+ 에서 재검토 |
+| D-3 | DOCX 읽기 (`mammoth` 서버) | DOCX 쓰기는 완료됨. 읽기는 현재 워크플로우에서 미사용 | Phase 6+ 에서 필요 시 추가 |
+| D-4 | 서버사이드 PDF 생성 (`puppeteer`) | 브라우저 `window.print()` + Tailwind CSS 복사 방식이 실용적 | 품질 요구사항 증가 시 재검토 |
+| D-5 | LeftPanel 파일 드래그앤드롭 업로드 | 서버 문서 파싱 라우트가 없으면 업로드해도 처리 불가 | D-1과 함께 Phase 6+ 이관 |
+| D-6 | SSE/폴링 기반 피드백 자동 갱신 | SSE 인프라 복잡도 대비 현재 사용 빈도 낮음 | 피드백 후 수동 refetch로 대체 |
+
+---
+
+## 7. 리스크 및 완화 전략
 
 | 리스크 | 영향도 | 완화 전략 |
 |--------|:------:|----------|
@@ -257,6 +272,6 @@ vault_root/
 - [ ] 피드백 루프: 웹 피드백 입력 → Vault MD 수정 → 웹 자동 갱신
 - [ ] PDF 내보내기: 신청서 → PDF 다운로드 정상 동작
 - [ ] DOCX 내보내기: 신청서 → DOCX 다운로드 정상 동작
-- [ ] HWP 읽기: .hwp 파일 업로드 → 텍스트 추출 성공
+- [x] ~~HWP 읽기: .hwp 파일 업로드 → 텍스트 추출 성공~~ **(Descoped D-2: hwp.js 미성숙)**
 - [ ] 세금 환급: BenefitTracker 스캔 → 혜택 항목 정상 표시 (Playwright 통과)
 - [ ] Playwright: 핵심 5개 E2E 테스트 전체 통과

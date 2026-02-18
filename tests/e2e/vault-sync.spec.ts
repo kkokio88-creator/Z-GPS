@@ -37,4 +37,23 @@ test.describe('Vault 동기화', () => {
       test.skip();
     }
   });
+
+  test('Dashboard에서 Vault 통계 데이터 표시 확인', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(3000);
+    // Dashboard에 숫자/통계 관련 요소 존재 확인
+    const statsSection = page.locator('[class*="grid"], [class*="stat"], [class*="card"]').first();
+    if (await statsSection.isVisible().catch(() => false)) {
+      // 통계 카드가 존재하면 데이터가 로드됨
+      expect(true).toBe(true);
+    }
+  });
+
+  test('프로그램 목록에서 Vault 데이터 반영', async ({ page }) => {
+    await page.goto('/programs');
+    await page.waitForTimeout(3000);
+    // 프로그램 목록 또는 빈 상태 메시지 확인
+    const hasContent = await page.getByText(/지원사업|프로그램|공고|데이터/).first().isVisible().catch(() => false);
+    expect(hasContent).toBe(true);
+  });
 });

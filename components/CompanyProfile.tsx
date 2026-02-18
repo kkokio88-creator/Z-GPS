@@ -79,14 +79,29 @@ const CompanyProfile: React.FC = () => {
     setCompany(storedCompany);
     setIsQaActive(useQAStore.getState().qaState.isActive);
 
-    const storedResearch = getStoredDeepResearch();
-    if (storedResearch) {
-      setDeepResearchData(storedResearch);
-      setSearchMode('COMPLETE');
-    } else if (storedCompany && storedCompany.name && storedCompany.name !== '신규 기업') {
-      setDeepResearchData(convertCompanyToResearchData(storedCompany));
-      setSearchMode('COMPLETE');
-    }
+    // Gap #5 fix: Try Vault first, fallback to localStorage
+    vaultService.getCompany()
+      .then(({ company: vaultCompany }) => {
+        if (vaultCompany && vaultCompany.name) {
+          // Vault has data — use it as primary source
+          const vaultResearch = convertCompanyToResearchData(vaultCompany as unknown as Company);
+          setDeepResearchData(vaultResearch);
+          setSearchMode('COMPLETE');
+          return;
+        }
+        throw new Error('no vault data');
+      })
+      .catch(() => {
+        // Fallback to localStorage
+        const storedResearch = getStoredDeepResearch();
+        if (storedResearch) {
+          setDeepResearchData(storedResearch);
+          setSearchMode('COMPLETE');
+        } else if (storedCompany && storedCompany.name && storedCompany.name !== '신규 기업') {
+          setDeepResearchData(convertCompanyToResearchData(storedCompany));
+          setSearchMode('COMPLETE');
+        }
+      });
 
     const handleStorage = () => {
       // Bug 3 fix: skip storage sync while a research flow is actively writing data
@@ -181,7 +196,7 @@ const CompanyProfile: React.FC = () => {
     useCompanyStore.getState().setCompany(newCompany);
     saveStoredDeepResearch(deepResearchData);
     setCompany(newCompany);
-    vaultService.saveCompany({
+    const vaultPayload = {
       name: newCompany.name,
       businessNumber: newCompany.businessNumber,
       industry: newCompany.industry,
@@ -191,14 +206,17 @@ const CompanyProfile: React.FC = () => {
       description: newCompany.description,
       coreCompetencies: newCompany.coreCompetencies,
       certifications: newCompany.certifications,
-    }).catch((err: unknown) => {
-      // Bug 2 fix: vault is secondary storage — the save still succeeds, but we
-      // surface the error so the user knows the cloud backup did not complete.
-      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
-      if (import.meta.env.DEV) console.error('[CompanyProfile] Vault save failed:', msg);
-      showToast('Vault 저장에 실패했습니다. 로컬에는 정상 저장되었습니다.', 'warning');
-    });
-    alert('기업 정보가 저장되었습니다!');
+    };
+    // Gap #1 fix: 1-retry for vault save (secondary storage)
+    vaultService.saveCompany(vaultPayload)
+      .catch(() => vaultService.saveCompany(vaultPayload))
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+        if (import.meta.env.DEV) console.error('[CompanyProfile] Vault save failed after retry:', msg);
+        showToast('Vault 저장에 실패했습니다. 로컬에는 정상 저장되었습니다.', 'warning');
+      });
+    // Gap #2 fix: alert() → showToast()
+    showToast('기업 정보가 저장되었습니다!', 'success');
   };
 
   const handleReset = () => {

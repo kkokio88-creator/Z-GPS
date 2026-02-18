@@ -369,6 +369,23 @@ export const vaultService = {
     return data;
   },
 
+  /** Gap #4 fix: 피드백 전송 + 섹션 데이터 재조회 (SSE 대신 수동 refetch) */
+  async sendFeedbackAndRefetch(
+    slug: string,
+    sectionId: string,
+    feedback: string,
+    action: 'revise' | 'approve'
+  ): Promise<{ success: boolean; updatedSection: { frontmatter: Record<string, unknown>; content: string } | null }> {
+    const result = await this.sendSectionFeedback(slug, sectionId, feedback, action);
+    if (!result.success) return { success: false, updatedSection: null };
+    try {
+      const section = await this.getApplicationSection(slug, sectionId);
+      return { success: true, updatedSection: section };
+    } catch {
+      return { success: true, updatedSection: null };
+    }
+  },
+
   /** 기업 정보 저장 */
   async saveCompany(companyData: Record<string, unknown>): Promise<{ success: boolean }> {
     const { data } = await apiClient.put<{ success: boolean }>(

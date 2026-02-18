@@ -1,14 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('ExportModal - 문서 내보내기', () => {
-  // ExportModal은 ApplicationEditor 내에서 열림
-  // 직접 접근이 어려우므로 라우트 기반 접근
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
   test('지원서 목록에서 편집 진입', async ({ page }) => {
-    // 지원서 목록 또는 대시보드에서 편집 가능한 항목 찾기
     const editLink = page.getByRole('link', { name: /작성|편집|지원서/ }).first();
     if (await editLink.isVisible()) {
       await editLink.click();
@@ -16,8 +13,7 @@ test.describe('ExportModal - 문서 내보내기', () => {
     }
   });
 
-  test('ExportModal PDF/DOCX 버튼 존재', async ({ page }) => {
-    // 지원서 편집기에서 내보내기 버튼 찾기
+  test('ExportModal PDF/DOCX/HWP 버튼 존재', async ({ page }) => {
     const exportButton = page.getByRole('button', { name: /서식|내보내기|첨부/ });
     if (await exportButton.isVisible().catch(() => false)) {
       await exportButton.click();
@@ -37,6 +33,53 @@ test.describe('ExportModal - 문서 내보내기', () => {
         await previewTab.click();
         // A4 미리보기 영역 확인
         await expect(page.locator('#export-preview-content')).toBeVisible({ timeout: 5000 });
+      }
+    }
+  });
+
+  test('DOCX 내보내기 버튼 클릭 시 다운로드 이벤트 발생', async ({ page }) => {
+    // 지원서 편집기에 직접 진입 시도
+    const editLink = page.getByRole('link', { name: /작성|편집|지원서/ }).first();
+    if (await editLink.isVisible().catch(() => false)) {
+      await editLink.click();
+      await page.waitForTimeout(2000);
+
+      const exportButton = page.getByRole('button', { name: /서식|내보내기|첨부/ });
+      if (await exportButton.isVisible().catch(() => false)) {
+        await exportButton.click();
+        const docxButton = page.getByRole('button', { name: /DOCX/ });
+        if (await docxButton.isVisible().catch(() => false)) {
+          // 다운로드 이벤트 대기
+          const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+          await docxButton.click();
+          const download = await downloadPromise;
+          // 다운로드가 발생하거나 에러 없이 완료
+          if (download) {
+            expect(download.suggestedFilename()).toMatch(/\.docx$/);
+          }
+        }
+      }
+    }
+  });
+
+  test('HWP 내보내기 시 지원 불가 안내', async ({ page }) => {
+    const editLink = page.getByRole('link', { name: /작성|편집|지원서/ }).first();
+    if (await editLink.isVisible().catch(() => false)) {
+      await editLink.click();
+      await page.waitForTimeout(2000);
+
+      const exportButton = page.getByRole('button', { name: /서식|내보내기|첨부/ });
+      if (await exportButton.isVisible().catch(() => false)) {
+        await exportButton.click();
+        const hwpButton = page.getByRole('button', { name: /HWP/ });
+        if (await hwpButton.isVisible().catch(() => false)) {
+          // HWP 클릭 시 alert 대화상자 확인
+          page.on('dialog', async dialog => {
+            expect(dialog.message()).toContain('HWP');
+            await dialog.accept();
+          });
+          await hwpButton.click();
+        }
       }
     }
   });

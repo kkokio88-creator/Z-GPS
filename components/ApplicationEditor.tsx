@@ -5,6 +5,7 @@ import {
     interviewAgent, scheduleAgent, consistencyAgent, dueDiligenceAgent
 } from '../services/geminiAgents';
 import { saveStoredApplication } from '../services/storageService';
+import { vaultService } from '../services/vaultService';
 import Header from './Header';
 import LeftPanel from './editor/LeftPanel';
 import SectionCard from './editor/SectionCard';
@@ -62,6 +63,15 @@ const ApplicationEditor: React.FC = () => {
         source: editor.sectionSchemaSource === 'saved' ? 'ai_analyzed' : editor.sectionSchemaSource,
       },
     });
+
+    // Gap #6 fix: Also save to Vault for Obsidian-First workflow
+    const editorSlug = slug || programId;
+    if (editorSlug) {
+      vaultService.updateApplication(editorSlug, editor.draftSections).catch((err: unknown) => {
+        if (import.meta.env.DEV) console.error('[ApplicationEditor] Vault save failed:', err);
+      });
+    }
+
     alert('저장되었습니다.');
   };
 
