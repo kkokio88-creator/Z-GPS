@@ -86,6 +86,92 @@ export async function callGeminiDirect(
 }
 
 /**
+ * Gemini API multimodal 호출 (PDF/이미지 + 텍스트 프롬프트)
+ * inlineData part를 사용하여 바이너리 파일을 직접 전달
+ */
+export async function callGeminiMultimodal(
+  base64Data: string,
+  mimeType: 'application/pdf' | 'image/png',
+  textPrompt: string,
+  config?: Record<string, unknown>,
+  overrideApiKey?: string
+): Promise<GeminiDirectResponse> {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  // PDF 15MB 제한 (base64는 원본 대비 ~33% 커짐)
+  const estimatedSize = (base64Data.length * 3) / 4;
+  if (estimatedSize > 15 * 1024 * 1024) {
+    throw new Error(`파일 크기 초과: ${(estimatedSize / 1024 / 1024).toFixed(1)}MB (최대 15MB)`);
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const model = (config?.model as string) || 'gemini-2.0-flash';
+
+  const processedConfig: Record<string, unknown> = { ...(config || {}) };
+  delete processedConfig.model;
+
+  const timeoutMs = 60_000;
+  const maxRetries = 3;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const apiCall = ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { data: base64Data, mimeType } },
+              { text: textPrompt },
+            ],
+          },
+        ],
+        config: processedConfig,
+      });
+
+      const response = await Promise.race([
+        apiCall,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Gemini API 타임아웃 (${timeoutMs / 1000}초)`)), timeoutMs)
+        ),
+      ]);
+
+      let text = '';
+      try {
+        text = response.text || '';
+      } catch {
+        const candidates = (response as unknown as Record<string, unknown>).candidates as
+          Array<Record<string, unknown>> | undefined;
+        const parts = (candidates?.[0]?.content as Record<string, unknown> | undefined)?.parts as
+          Array<Record<string, unknown>> | undefined;
+        if (parts) {
+          text = parts.filter(p => typeof p.text === 'string').map(p => p.text as string).join('');
+        }
+      }
+      return { text };
+    } catch (error: unknown) {
+      lastError = error;
+      const errStr = String(error);
+
+      if (errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED') || errStr.includes('타임아웃')) {
+        const waitMs = Math.pow(2, attempt + 2) * 1000;
+        console.warn(`[geminiService] multimodal ${errStr.includes('타임아웃') ? '타임아웃' : '429 에러'}, ${waitMs}ms 후 재시도 (attempt ${attempt + 1}/${maxRetries})`);
+        await delay(waitMs);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * JSON 응답 파싱 헬퍼
  */
 export function cleanAndParseJSON(text: string): Record<string, unknown> | unknown[] {

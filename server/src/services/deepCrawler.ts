@@ -444,6 +444,32 @@ async function extractTextFromHwpx(buffer: Buffer): Promise<string> {
   }
 }
 
+/** DOCX 버퍼에서 텍스트 추출 (ZIP + XML 파싱) */
+async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+  try {
+    const AdmZip = (await import('adm-zip')).default;
+    const zip = new AdmZip(buffer);
+    const entry = zip.getEntry('word/document.xml');
+    if (!entry) return '';
+
+    const xml = entry.getData().toString('utf-8');
+    const textParts: string[] = [];
+    // <w:t> 태그 안의 텍스트 추출 (HWPX의 <hp:t> 추출과 동일 패턴)
+    const texts = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+    if (texts) {
+      for (const t of texts) {
+        const content = t.replace(/<[^>]+>/g, '').trim();
+        if (content) textParts.push(content);
+      }
+    }
+
+    return textParts.join('\n');
+  } catch (e) {
+    console.warn('[deepCrawler] DOCX 텍스트 추출 실패:', e);
+    return '';
+  }
+}
+
 /** 파일 타입 감지 → 적절한 추출기 호출 */
 export async function extractTextFromFile(buffer: Buffer): Promise<{ type: DetectedFileType; text: string }> {
   const type = await detectFileType(buffer);
@@ -455,6 +481,9 @@ export async function extractTextFromFile(buffer: Buffer): Promise<{ type: Detec
       break;
     case 'hwpx':
       text = await extractTextFromHwpx(buffer);
+      break;
+    case 'docx':
+      text = await extractTextFromDocx(buffer);
       break;
     case 'hwp5':
       console.log('[deepCrawler] HWP5 포맷 감지 (텍스트 추출 미지원)');

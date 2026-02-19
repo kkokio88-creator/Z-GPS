@@ -6,6 +6,7 @@
 import { callGeminiDirect, cleanAndParseJSON } from './geminiService.js';
 import { extractRegionFromAddress, isRegionMismatch } from './programFetcher.js';
 import type { NpsLookupResult } from './employeeDataService.js';
+import type { FormExtractionResult } from './formExtractorService.js';
 
 export interface CompanyInfo {
   name: string;
@@ -114,6 +115,10 @@ export interface SectionSchema {
   required: boolean;
   evaluationWeight?: string;
   hints?: string[];
+  formQuestion?: string;      // 양식의 실제 질문 텍스트
+  charLimit?: number;         // 글자수 제한
+  fieldType?: string;         // 'text' | 'textarea' | 'table' 등
+  formSourceFile?: string;    // 출처 파일명
 }
 
 const DEFAULT_SECTIONS: SectionSchema[] = [
@@ -222,6 +227,22 @@ ${programList}
   return allResults;
 }
 
+/** 양식 필드 → SectionSchema 변환 헬퍼 */
+function formFieldsToSectionSchemas(formResult: FormExtractionResult): SectionSchema[] {
+  return formResult.fields.map((field, i) => ({
+    id: `sec_form_${i + 1}`,
+    title: `${i + 1}. ${field.fieldTitle}`,
+    description: field.questionText || field.fieldTitle,
+    order: field.order || i + 1,
+    required: field.required,
+    formQuestion: field.questionText || field.fieldTitle,
+    charLimit: field.charLimit,
+    fieldType: field.fieldType,
+    formSourceFile: formResult.sourceFile,
+    hints: field.notes ? [field.notes] : undefined,
+  }));
+}
+
 /** 공고별 동적 섹션 스키마 분석 */
 export async function analyzeSections(
   programData: {
@@ -235,10 +256,26 @@ export async function analyzeSections(
     targetAudience?: string;
   },
   pdfAnalysis?: string,
-  crawledContent?: string
-): Promise<{ sections: SectionSchema[]; source: 'ai_analyzed' | 'default_fallback' }> {
+  crawledContent?: string,
+  formResult?: FormExtractionResult | null
+): Promise<{ sections: SectionSchema[]; source: 'ai_analyzed' | 'default_fallback' | 'form_extracted' }> {
+  // 우선순위 1: formResult가 있고 fields >= 3개 → 양식 기반 스키마
+  if (formResult && formResult.fields.length >= 3) {
+    console.log(`[analysisService] 양식 기반 섹션 스키마 사용 (${formResult.fields.length}개 필드, 출처: ${formResult.sourceFile})`);
+    return {
+      sections: formFieldsToSectionSchemas(formResult),
+      source: 'form_extracted',
+    };
+  }
+
   try {
     const contextParts: string[] = [];
+
+    // 우선순위 2: formResult가 있지만 fields < 3 → AI 프롬프트에 양식 필드명 추가
+    if (formResult && formResult.fields.length > 0) {
+      const fieldNames = formResult.fields.map(f => f.fieldTitle).join(', ');
+      contextParts.push(`신청서 양식 필드 (${formResult.sourceFile}):\n${fieldNames}`);
+    }
 
     if (programData.evaluationCriteria?.length) {
       contextParts.push(`평가 기준:\n${programData.evaluationCriteria.map(c => `- ${c}`).join('\n')}`);
@@ -348,6 +385,9 @@ export async function generateDraftSectionV2(
     hints?: string[];
     evaluationWeight?: string;
     sectionDescription?: string;
+    formQuestion?: string;
+    charLimit?: number;
+    fieldType?: string;
   }
 ): Promise<DraftSectionResult> {
   const evalBlock = options?.evaluationCriteria?.length
@@ -363,7 +403,46 @@ export async function generateDraftSectionV2(
     ? `\n\n섹션 안내: ${options.sectionDescription}`
     : '';
 
-  const prompt = `Role: Professional Government Grant Writer (Korean).
+  // 양식 질문이 있으면 전용 프롬프트 모드
+  let prompt: string;
+
+  if (options?.formQuestion) {
+    const charLimitInstruction = options.charLimit
+      ? `\n- 반드시 ${options.charLimit}자 이내로 작성하세요.`
+      : '';
+    const tableInstruction = options.fieldType === 'table'
+      ? '\n- Markdown 표 형식으로 작성하세요.'
+      : '';
+
+    prompt = `Role: Professional Government Grant Writer (Korean).
+Task: 정부 지원사업 "${program.programName}" 신청서의 실제 양식 항목에 답변을 작성합니다.
+
+현재 작성 항목: "${sectionTitle}"
+실제 양식 질문: "${options.formQuestion}"
+${options.charLimit ? `글자수 제한: ${options.charLimit}자 이내` : ''}
+
+Applicant: "${company.name}" (${company.industry || '미등록'})
+Company Context: ${company.description || '없음'}
+Core Competencies: ${company.coreCompetencies?.join(', ') || '없음'}
+Certifications: ${company.certifications?.join(', ') || '없음'}
+
+Program: ${program.programName}
+Organizer: ${program.organizer}
+Grant: ${(program.expectedGrant / 100000000).toFixed(1)}억원
+Description: ${program.description || '없음'}
+${evalBlock}${weightBlock}${hintBlock}
+
+${context ? `Reference Materials: ${context}` : ''}
+
+Requirements:
+- Language: Korean (Formal, Professional, '합니다' style)
+- Tone: Persuasive, Data-driven, Confident
+- 위 양식 질문에 대한 답변을 기업 정보를 기반으로 작성하세요.${charLimitInstruction}${tableInstruction}
+${options?.evaluationWeight ? `- IMPORTANT: This section carries "${options.evaluationWeight}" in evaluation. Emphasize accordingly.` : ''}
+
+Output only the text content for this form field answer.`;
+  } else {
+    prompt = `Role: Professional Government Grant Writer (Korean).
 Task: Write the "${sectionTitle}" section for the grant application: "${program.programName}".
 
 Applicant: "${company.name}" (${company.industry || '미등록'})
@@ -387,6 +466,7 @@ Requirements:
 ${options?.evaluationWeight ? `- IMPORTANT: This section carries "${options.evaluationWeight}" in evaluation. Emphasize accordingly.` : ''}
 
 Output only the text content for the section.`;
+  }
 
   try {
     const response = await callGeminiDirect(prompt);

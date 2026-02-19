@@ -18,6 +18,8 @@ import {
   generateStrategyDocument,
 } from '../../services/analysisService.js';
 import type { FitAnalysisResult, FitDimensions } from '../../services/analysisService.js';
+import { extractFormSchema } from '../../services/formExtractorService.js';
+import type { FormExtractionResult } from '../../services/formExtractorService.js';
 import { initSSE, sendProgress, sendComplete, sendError, isSSEConnected } from '../../utils/sse.js';
 import { isSupabaseConfigured, upsertApplication } from '../../services/supabaseService.js';
 import {
@@ -342,21 +344,40 @@ router.post('/analyze-sections/:slug', async (req: Request, res: Response) => {
     let applicationFormText = '';
     const attachments = (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
     const formPatterns = ['서식', '양식', '지원서', '신청서', '사업계획서', '작성', '신청양식', '제출서류'];
+    const FORM_EXTENSIONS = ['.pdf', '.hwp', '.hwpx', '.docx'];
     const formAttachments = attachments.filter(a =>
-      formPatterns.some(pattern => a.name.includes(pattern)) && a.path.endsWith('.pdf')
+      formPatterns.some(pattern => a.name.includes(pattern)) &&
+      FORM_EXTENSIONS.some(ext => a.path.toLowerCase().endsWith(ext))
     );
 
+    // 양식 구조 추출 시도
+    let formResult: FormExtractionResult | null = null;
     if (formAttachments.length > 0) {
       const vaultRoot = getVaultRoot();
       for (const att of formAttachments.slice(0, 2)) {
         try {
-          const pdfPath = path.join(vaultRoot, att.path);
-          const pdfBuffer = await fs.readFile(pdfPath);
-          const base64 = pdfBuffer.toString('base64');
-          const analysis = await analyzePdf(base64, `${pf.programName} - ${att.name}`);
-          applicationFormText += `\n\n[지원서 양식: ${att.name}]\n${analysis.summary}\n필수 항목: ${analysis.qualifications.join(', ')}\n핵심 사항: ${analysis.keyPoints.join(', ')}`;
+          const filePath = path.join(vaultRoot, att.path);
+          const fileBuffer = await fs.readFile(filePath);
+          formResult = await extractFormSchema(fileBuffer, att.name, pf.programName as string);
+          if (formResult && formResult.fields.length >= 3) break; // 충분한 필드 추출 성공
         } catch (e) {
-          console.warn(`[vault/analyze-sections] 양식 PDF 분석 실패: ${att.name}`, e);
+          console.warn(`[vault/analyze-sections] 양식 추출 실패: ${att.name}`, e);
+        }
+      }
+
+      // 양식 추출 실패 시 기존 PDF 분석 폴백
+      if (!formResult) {
+        const pdfFormAttachments = formAttachments.filter(a => a.path.toLowerCase().endsWith('.pdf'));
+        for (const att of pdfFormAttachments.slice(0, 2)) {
+          try {
+            const pdfPath = path.join(vaultRoot, att.path);
+            const pdfBuffer = await fs.readFile(pdfPath);
+            const base64 = pdfBuffer.toString('base64');
+            const analysis = await analyzePdf(base64, `${pf.programName} - ${att.name}`);
+            applicationFormText += `\n\n[지원서 양식: ${att.name}]\n${analysis.summary}\n필수 항목: ${analysis.qualifications.join(', ')}\n핵심 사항: ${analysis.keyPoints.join(', ')}`;
+          } catch (e) {
+            console.warn(`[vault/analyze-sections] 양식 PDF 분석 실패: ${att.name}`, e);
+          }
         }
       }
     }
@@ -376,7 +397,8 @@ router.post('/analyze-sections/:slug', async (req: Request, res: Response) => {
         targetAudience: pf.targetAudience as string || '',
       },
       combinedPdfAnalysis,
-      pc.substring(0, 3000)
+      pc.substring(0, 3000),
+      formResult
     );
 
     res.json(result);
@@ -427,11 +449,33 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
     // slug 기반 PDF 분석 텍스트도 로드 (.txt 파일들)
     const pdfAnalysisText = await loadPdfAnalysisForSlug(slug);
 
-    const rawAttachmentText = await loadAttachmentText(
-      (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [], 4000
-    );
+    const appAttachments = (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
+    const rawAttachmentText = await loadAttachmentText(appAttachments, 4000);
 
     const fullContext = [analysisContext, pdfContext, pdfAnalysisText, rawAttachmentText].filter(Boolean).join('\n\n');
+
+    // 양식 추출
+    let appFormResult: FormExtractionResult | null = null;
+    const appFormPatterns = ['서식', '양식', '지원서', '신청서', '사업계획서', '작성', '신청양식', '제출서류'];
+    const APP_FORM_EXTENSIONS = ['.pdf', '.hwp', '.hwpx', '.docx'];
+    const appFormAttachments = appAttachments.filter(a =>
+      appFormPatterns.some(pattern => a.name.includes(pattern)) &&
+      APP_FORM_EXTENSIONS.some(ext => a.path.toLowerCase().endsWith(ext))
+    );
+
+    if (appFormAttachments.length > 0) {
+      const vaultRoot = getVaultRoot();
+      for (const att of appFormAttachments.slice(0, 2)) {
+        try {
+          const filePath = path.join(vaultRoot, att.path);
+          const fileBuffer = await fs.readFile(filePath);
+          appFormResult = await extractFormSchema(fileBuffer, att.name, pf.programName as string);
+          if (appFormResult && appFormResult.fields.length >= 3) break;
+        } catch (e) {
+          console.warn(`[vault/generate-app] 양식 추출 실패: ${att.name}`, e);
+        }
+      }
+    }
 
     const companyInfo = {
       name: (company.name as string) || '미등록 기업',
@@ -465,7 +509,8 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
         targetAudience: pf.targetAudience as string || '',
       },
       pdfContext,
-      pc.substring(0, 3000)
+      pc.substring(0, 3000),
+      appFormResult
     );
 
     const sectionSchema = schemaResult.sections;
@@ -477,6 +522,9 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
         hints: sec.hints,
         evaluationWeight: sec.evaluationWeight,
         sectionDescription: sec.description,
+        formQuestion: sec.formQuestion,
+        charLimit: sec.charLimit,
+        fieldType: sec.fieldType,
       });
       sections[sec.id] = result.text;
       await new Promise(r => setTimeout(r, 4000)); // 429 방지: 4초 딜레이
@@ -798,10 +846,34 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
 
         // PDF 분석 텍스트 로드
         const pdfContext = await loadPdfAnalysisForSlug(slug);
-        const rawAttachmentText = await loadAttachmentText(
-          (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [], 4000
-        );
+        const batchAttachments = (pf.attachments as { path: string; name: string; analyzed: boolean }[]) || [];
+        const rawAttachmentText = await loadAttachmentText(batchAttachments, 4000);
         const fullContext = [analysisContext, pdfContext, rawAttachmentText].filter(Boolean).join('\n\n');
+
+        // 양식 추출
+        let batchFormResult: FormExtractionResult | null = null;
+        const batchFormPatterns = ['서식', '양식', '지원서', '신청서', '사업계획서', '작성', '신청양식', '제출서류'];
+        const BATCH_FORM_EXTENSIONS = ['.pdf', '.hwp', '.hwpx', '.docx'];
+        const batchFormAttachments = batchAttachments.filter(a =>
+          batchFormPatterns.some(pattern => a.name.includes(pattern)) &&
+          BATCH_FORM_EXTENSIONS.some(ext => a.path.toLowerCase().endsWith(ext))
+        );
+
+        if (batchFormAttachments.length > 0) {
+          const vaultRoot = getVaultRoot();
+          for (const att of batchFormAttachments.slice(0, 2)) {
+            try {
+              const filePath = path.join(vaultRoot, att.path);
+              const fileBuffer = await fs.readFile(filePath);
+              batchFormResult = await extractFormSchema(fileBuffer, att.name, pf.programName as string);
+              if (batchFormResult && batchFormResult.fields.length >= 3) break;
+            } catch (e) {
+              console.warn(`[vault/generate-apps-batch] 양식 추출 실패: ${att.name}`, e);
+            }
+          }
+          // 양식 추출 후 rate limit 보호
+          await new Promise(r => setTimeout(r, 4000));
+        }
 
         const programInfo = {
           programName: pf.programName as string,
@@ -825,7 +897,8 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
             targetAudience: pf.targetAudience as string || '',
           },
           pdfContext,
-          pc.substring(0, 3000)
+          pc.substring(0, 3000),
+          batchFormResult
         );
 
         const sectionSchema = schemaResult.sections;
@@ -838,6 +911,9 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
             hints: sec.hints,
             evaluationWeight: sec.evaluationWeight,
             sectionDescription: sec.description,
+            formQuestion: sec.formQuestion,
+            charLimit: sec.charLimit,
+            fieldType: sec.fieldType,
           });
           sections[sec.id] = result.text;
           await new Promise(r => setTimeout(r, 4000)); // 429 방지: 4초 딜레이
