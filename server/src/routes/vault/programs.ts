@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fg from 'fast-glob';
 import fs from 'fs/promises';
-import { isSupabaseConfigured, upsertProgramsBatch } from '../../services/supabaseService.js';
+import { isSupabaseConfigured, upsertProgramsBatch, pullProgramsFromSupabase, getLastApiSyncTimestamp, updateLastApiSync } from '../../services/supabaseService.js';
 import {
   ensureVaultStructure,
   readNote,
@@ -446,12 +446,87 @@ router.post('/sync', async (req: Request, res: Response) => {
       }
     } catch { /* company 정보 없으면 무시 */ }
 
-    if (useSSE) sendProgress(res, 'API 데이터 수집 중', 0, 1, '', 1);
+    // ── Phase 0: Supabase → Vault 복원 (크로스디바이스) ──
+    let restoredFromSupabase = 0;
+    if (isSupabaseConfigured()) {
+      if (useSSE) sendProgress(res, 'Supabase 동기화 확인 중', 0, 1, '', 0);
+      try {
+        const sbPrograms = await pullProgramsFromSupabase();
+        if (sbPrograms.length > 0) {
+          const vaultProgramDir = path.join(getVaultRoot(), 'programs');
+          const existingVaultFiles = await listNotes(vaultProgramDir);
+          const existingSlugs = new Set<string>();
+          for (const file of existingVaultFiles) {
+            existingSlugs.add(path.basename(file, '.md'));
+          }
 
-    const { programs, filterStats } = await fetchAllProgramsServerSide({ companyAddress });
+          for (const sbp of sbPrograms) {
+            if (!sbp.slug || existingSlugs.has(sbp.slug)) continue;
+            try {
+              const fm: Record<string, unknown> = (sbp.frontmatter && typeof sbp.frontmatter === 'object')
+                ? { ...(sbp.frontmatter as Record<string, unknown>) }
+                : {
+                    type: 'program',
+                    slug: sbp.slug,
+                    programName: sbp.program_name,
+                    organizer: sbp.organizer,
+                    fitScore: sbp.fit_score,
+                    eligibility: sbp.eligibility,
+                    status: sbp.status,
+                  };
+              fm.enrichmentPhase = sbp.enrichment_phase || 0;
+              if (sbp.crawled_content) fm.crawledContent = sbp.crawled_content;
+
+              const name = (fm.programName as string) || sbp.program_name || '';
+              const org = (fm.organizer as string) || sbp.organizer || '';
+              const scale = (fm.supportScale as string) || '';
+              const deadline = (fm.officialEndDate as string) || '';
+              const desc = (fm.fullDescription as string) || (fm.description as string) || '';
+
+              let md = `# ${name}\n\n> [!info] 기본 정보\n> - **주관**: ${org}\n`;
+              if (scale) md += `> - **지원 규모**: ${scale}\n`;
+              if (deadline) md += `> - **마감**: ${deadline}\n`;
+              if (desc) md += `\n## 사업 상세 설명\n${desc}\n`;
+              md += `\n## 적합도\n${Number(fm.fitScore) > 0 ? `적합도 점수: ${fm.fitScore}점` : '(적합도 분석 후 채워짐)'}\n`;
+
+              await writeNote(path.join('programs', `${sbp.slug}.md`), fm, md);
+              restoredFromSupabase++;
+            } catch (e) {
+              console.warn(`[vault/sync] Supabase 복원 실패 (${sbp.slug}):`, e);
+            }
+          }
+          if (restoredFromSupabase > 0) {
+            console.log(`[vault/sync] Supabase에서 ${restoredFromSupabase}건 복원`);
+          }
+        }
+      } catch (e) {
+        console.warn('[vault/sync] Phase 0 Supabase pull 실패:', e);
+      }
+      if (useSSE) sendProgress(res, `Supabase 동기화 완료${restoredFromSupabase > 0 ? ` (${restoredFromSupabase}건 복원)` : ''}`, 1, 1, '', 0);
+    }
+
+    // ── Phase 1: API 데이터 수집 (TTL 캐시 적용) ──
+    let apiSkipped = false;
+    let programs: ServerSupportProgram[] = [];
+    let filterStats = { totalFetched: 0, finalCount: 0, filteredByRegion: 0, filteredByStartup: 0 };
+
+    const TTL_HOURS = 24;
+    const lastApiSync = isSupabaseConfigured() ? await getLastApiSyncTimestamp() : null;
+    const isTTLValid = lastApiSync && (Date.now() - new Date(lastApiSync).getTime()) < TTL_HOURS * 60 * 60 * 1000;
+
+    if (!forceReanalyze && isTTLValid) {
+      apiSkipped = true;
+      if (useSSE) sendProgress(res, `API 캐시 사용 (${TTL_HOURS}시간 이내 동기화됨)`, 1, 1, '', 1);
+      console.log(`[vault/sync] API TTL 유효 (마지막: ${lastApiSync}) → API 호출 건너뜀`);
+    } else {
+      if (useSSE) sendProgress(res, 'API 데이터 수집 중', 0, 1, '', 1);
+      const result = await fetchAllProgramsServerSide({ companyAddress });
+      programs = result.programs;
+      filterStats = result.filterStats;
+      if (useSSE) sendProgress(res, 'API 수집 완료', 1, 1, '', 1);
+    }
+
     const total = programs.length;
-
-    if (useSSE) sendProgress(res, 'API 수집 완료', 1, 1, '', 1);
 
     let created = 0;
     let updated = 0;
@@ -478,6 +553,14 @@ router.post('/sync', async (req: Request, res: Response) => {
         await writeNote(filePath, frontmatter, content);
         created++;
       }
+    }
+
+    // Phase 1 완료: API sync 타임스탬프 업데이트
+    if (!apiSkipped && isSupabaseConfigured() && programs.length > 0) {
+      const syncedSlugs = programs.map(p => generateSlug(p.programName, p.id));
+      await updateLastApiSync(syncedSlugs).catch(e =>
+        console.warn('[vault/sync] updateLastApiSync 실패:', e)
+      );
     }
 
     if (useSSE) sendProgress(res, '중복/필터 클린업 중', 0, 1, '', 1);
@@ -950,14 +1033,24 @@ router.post('/sync', async (req: Request, res: Response) => {
       }
     }
 
-    // Supabase 동기화 (설정된 경우에만)
+    // ── Supabase 양방향 동기화 (enrichment 데이터 포함) ──
     if (isSupabaseConfigured()) {
       try {
         const allFiles = await listNotes(path.join(vaultRoot2, 'programs'));
-        const supabasePrograms: { slug: string; programName: string; organizer?: string; fitScore?: number; eligibility?: string; status?: string; frontmatter?: Record<string, unknown> }[] = [];
+        const supabasePrograms: {
+          slug: string; programName: string; organizer?: string;
+          fitScore?: number; eligibility?: string; status?: string;
+          frontmatter?: Record<string, unknown>;
+          enrichmentPhase?: number; crawledContent?: string | null;
+          attachmentTexts?: string[] | null; lastApiSync?: string | null;
+        }[] = [];
         for (const file of allFiles) {
           try {
             const { frontmatter: sf } = await readNote(file);
+            const crawledContent = (sf.crawledContent as string) || null;
+            const attTexts = await loadAttachmentTextsRaw(
+              (sf.attachments as { path: string; name: string; analyzed: boolean }[]) || []
+            );
             supabasePrograms.push({
               slug: (sf.slug as string) || '',
               programName: (sf.programName as string) || '',
@@ -966,11 +1059,15 @@ router.post('/sync', async (req: Request, res: Response) => {
               eligibility: sf.eligibility as string,
               status: sf.status as string,
               frontmatter: sf,
+              enrichmentPhase: Number(sf.enrichmentPhase) || 0,
+              crawledContent: crawledContent ? crawledContent.substring(0, 50000) : null,
+              attachmentTexts: attTexts.length > 0 ? attTexts.map(t => t.substring(0, 10000)) : null,
+              lastApiSync: new Date().toISOString(),
             });
           } catch { /* skip */ }
         }
         const synced = await upsertProgramsBatch(supabasePrograms.filter(p => p.slug));
-        if (synced > 0) console.log(`[vault/sync] Supabase: ${synced}건 동기화`);
+        if (synced > 0) console.log(`[vault/sync] Supabase: ${synced}건 동기화 (enrichment 포함)`);
       } catch (e) {
         console.warn('[vault/sync] Supabase 동기화 실패:', e);
       }
@@ -978,6 +1075,8 @@ router.post('/sync', async (req: Request, res: Response) => {
 
     const resultData = {
       success: true,
+      apiSkipped,
+      restoredFromSupabase,
       totalFetched: filterStats.totalFetched,
       afterFiltering: filterStats.finalCount,
       filteredByRegion: filterStats.filteredByRegion,
