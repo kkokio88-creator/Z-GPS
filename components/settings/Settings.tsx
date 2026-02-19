@@ -161,7 +161,13 @@ const Settings: React.FC = () => {
     try {
       const { promise, abort } = vaultService.syncProgramsWithProgress(e => setSyncProgress(e), options);
       syncAbortRef.current = abort;
-      const r = await promise;
+      const SYNC_TIMEOUT = 10 * 60 * 1000; // 10분 타임아웃
+      const r = await Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => { abort(); reject(new Error('동기화 시간 초과 (10분)')); }, SYNC_TIMEOUT)
+        ),
+      ]);
       const parts = [`완료: ${r.totalFetched}건 수집, ${r.created}건 생성, ${r.updated}건 갱신`];
       if (r.preScreenPassed || r.preScreenRejected) parts.push(`사전심사 ${r.preScreenPassed||0}건 통과/${r.preScreenRejected||0}건 탈락`);
       if (r.phase2Crawled) parts.push(`${r.phase2Crawled}건 크롤`);

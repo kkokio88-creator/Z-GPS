@@ -5,7 +5,7 @@
 
 import { Response } from 'express';
 
-/** SSE 응답 헤더 설정 */
+/** SSE 응답 헤더 설정 + 연결 끊김 감지 */
 export function initSSE(res: Response): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -14,15 +14,31 @@ export function initSSE(res: Response): void {
     'X-Accel-Buffering': 'no', // nginx proxy buffering 비활성화
   });
   res.flushHeaders();
+
+  // 클라이언트 연결 끊김 감지 플래그
+  (res as any).__sseDisconnected = false;
+  res.on('close', () => {
+    (res as any).__sseDisconnected = true;
+  });
 }
 
-/** SSE 이벤트 전송 */
+/** 클라이언트가 아직 연결되어 있는지 확인 */
+export function isSSEConnected(res: Response): boolean {
+  return !(res as any).__sseDisconnected;
+}
+
+/** SSE 이벤트 전송 (연결 끊김 시 무시) */
 export function sendSSE(
   res: Response,
   event: string,
   data: Record<string, unknown>
 ): void {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  if ((res as any).__sseDisconnected) return;
+  try {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  } catch {
+    (res as any).__sseDisconnected = true;
+  }
 }
 
 /** SSE 진행률 이벤트 전송 */
@@ -50,11 +66,15 @@ export function sendComplete(
   data: Record<string, unknown>
 ): void {
   sendSSE(res, 'complete', data);
-  res.end();
+  if (!((res as any).__sseDisconnected)) {
+    res.end();
+  }
 }
 
 /** SSE 에러 이벤트 전송 후 연결 종료 */
 export function sendError(res: Response, message: string): void {
   sendSSE(res, 'error', { error: message });
-  res.end();
+  if (!((res as any).__sseDisconnected)) {
+    res.end();
+  }
 }

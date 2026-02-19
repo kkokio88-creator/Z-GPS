@@ -45,7 +45,7 @@ import {
   type HtmlCrawlResult,
 } from '../../services/deepCrawler.js';
 import { deepCrawlProgramFull } from '../../services/deepCrawler.js';
-import { initSSE, sendProgress, sendComplete, sendError } from '../../utils/sse.js';
+import { initSSE, sendProgress, sendComplete, sendError, isSSEConnected } from '../../utils/sse.js';
 import {
   parseAmountFromScale,
   extractGrantFromText,
@@ -657,6 +657,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     if (useSSE && phase2Total > 0) sendProgress(res, 'URL 크롤링 시작', 0, phase2Total, '', 3);
 
     for (let i = 0; i < phase2Targets.length; i++) {
+      if (useSSE && !isSSEConnected(res)) { console.log('[vault/sync] 클라이언트 연결 끊김 (Phase 2)'); break; }
       const { file, frontmatter: ef, content: ec } = phase2Targets[i];
       const pName = (ef.programName as string) || '';
       const detailUrl = (ef.detailUrl as string) || '';
@@ -700,6 +701,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     if (useSSE && phase3Total > 0) sendProgress(res, 'AI 강화 시작', 0, phase3Total, '', 4);
 
     for (let i = 0; i < phase3Targets.length; i++) {
+      if (useSSE && !isSSEConnected(res)) { console.log('[vault/sync] 클라이언트 연결 끊김 (Phase 3)'); break; }
       const { file, frontmatter: ef } = phase3Targets[i];
       const pName = (ef.programName as string) || '';
       const slug = (ef.slug as string) || '';
@@ -862,6 +864,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     if (useSSE && phase4Total > 0) sendProgress(res, 'AI 분석 시작', 0, phase4Total, '', 5);
 
     for (let i = 0; i < phase4Targets.length; i++) {
+      if (useSSE && !isSSEConnected(res)) { console.log('[vault/sync] 클라이언트 연결 끊김 (Phase 4)'); break; }
       const { file } = phase4Targets[i];
       try {
         const { frontmatter: pf, content: pc } = await readNote(file);

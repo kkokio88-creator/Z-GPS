@@ -141,11 +141,19 @@ const Dashboard: React.FC = () => {
     try {
       const { promise, abort } = vaultService.generateAppsBatchWithProgress(
         (e) => setBatchProgress(e),
-        70
+        70,
+        3
       );
       batchAbortRef.current = abort;
-      const result = await promise;
-      setBatchResult(`완료: ${result.generated}건 생성, ${result.failed}건 실패 (총 ${result.total}건)`);
+      const BATCH_TIMEOUT = 15 * 60 * 1000; // 15분 타임아웃
+      const result = await Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => { abort(); reject(new Error('지원서 생성 시간 초과 (15분)')); }, BATCH_TIMEOUT)
+        ),
+      ]);
+      const skippedMsg = result.skipped ? `, ${result.skipped}건 대기` : '';
+      setBatchResult(`완료: ${result.generated}건 생성, ${result.failed}건 실패 (총 ${result.total}건${skippedMsg})`);
       loadData();
     } catch (e) {
       setBatchResult(`실패: ${String(e)}`);
@@ -627,11 +635,16 @@ const Dashboard: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">AI 일괄 지원서 생성</h3>
                   {appStats.eligibleCount > 0 ? (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      적합도 70%+ 공고: <span className="font-bold text-green-600">{appStats.eligibleCount}건</span>
-                      {' / '}지원서 작성: <span className="font-bold text-blue-600">{appStats.eligibleWithApp}건</span>
-                      {' / '}미작성: <span className="font-bold text-orange-600">{appStats.eligibleWithoutApp}건</span>
-                    </p>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        적합도 70%+ 공고: <span className="font-bold text-green-600">{appStats.eligibleCount}건</span>
+                        {' / '}지원서 작성: <span className="font-bold text-blue-600">{appStats.eligibleWithApp}건</span>
+                        {' / '}미작성: <span className="font-bold text-orange-600">{appStats.eligibleWithoutApp}건</span>
+                      </p>
+                      {appStats.eligibleWithoutApp > 3 && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">API 제한으로 적합도 상위 3건씩 생성됩니다</p>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       적합도 70%+ 공고가 없습니다. 설정 &gt; 공고 데이터에서 동기화를 먼저 실행하세요.
@@ -648,7 +661,7 @@ const Dashboard: React.FC = () => {
                   <span className="material-icons-outlined text-sm" aria-hidden="true">
                     {batchGenerating ? 'hourglass_top' : 'bolt'}
                   </span>
-                  {batchGenerating ? '생성 중...' : `${appStats.eligibleWithoutApp}건 일괄 생성`}
+                  {batchGenerating ? '생성 중...' : `상위 ${Math.min(appStats.eligibleWithoutApp, 3)}건 생성`}
                 </button>
               )}
             </div>

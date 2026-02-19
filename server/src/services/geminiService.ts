@@ -30,16 +30,25 @@ export async function callGeminiDirect(
   const processedConfig: Record<string, unknown> = { ...(config || {}) };
   delete processedConfig.model;
 
+  const timeoutMs = 60_000; // 60초 타임아웃
   const maxRetries = 3;
   let lastError: unknown;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const response = await ai.models.generateContent({
+      const apiCall = ai.models.generateContent({
         model,
         contents: prompt,
         config: processedConfig,
       });
+
+      // 타임아웃 래핑: Gemini API가 무한 대기하는 것을 방지
+      const response = await Promise.race([
+        apiCall,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Gemini API 타임아웃 (${timeoutMs / 1000}초)`)), timeoutMs)
+        ),
+      ]);
 
       // response.text getter는 safety block / 빈 응답 시 throw할 수 있음
       let text = '';
@@ -60,10 +69,10 @@ export async function callGeminiDirect(
       lastError = error;
       const errStr = String(error);
 
-      // 429 에러 시 exponential backoff
-      if (errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED')) {
-        const waitMs = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
-        console.warn(`[geminiService] 429 에러, ${waitMs}ms 후 재시도 (attempt ${attempt + 1}/${maxRetries})`);
+      // 429 에러 또는 타임아웃 시 exponential backoff
+      if (errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED') || errStr.includes('타임아웃')) {
+        const waitMs = Math.pow(2, attempt + 2) * 1000; // 4s, 8s, 16s (더 넉넉하게)
+        console.warn(`[geminiService] ${errStr.includes('타임아웃') ? '타임아웃' : '429 에러'}, ${waitMs}ms 후 재시도 (attempt ${attempt + 1}/${maxRetries})`);
         await delay(waitMs);
         continue;
       }

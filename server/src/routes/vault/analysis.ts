@@ -18,7 +18,7 @@ import {
   generateStrategyDocument,
 } from '../../services/analysisService.js';
 import type { FitAnalysisResult, FitDimensions } from '../../services/analysisService.js';
-import { initSSE, sendProgress, sendComplete, sendError } from '../../utils/sse.js';
+import { initSSE, sendProgress, sendComplete, sendError, isSSEConnected } from '../../utils/sse.js';
 import { isSupabaseConfigured, upsertApplication } from '../../services/supabaseService.js';
 import {
   loadAttachmentText,
@@ -479,9 +479,10 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
         sectionDescription: sec.description,
       });
       sections[sec.id] = result.text;
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 4000)); // 429 방지: 4초 딜레이
     }
 
+    // 초안 먼저 저장 (리뷰/일관성 실패해도 초안은 보존)
     const appDir = path.join('applications', slug);
     const draftContent = sectionSchema
       .map(sec => `## ${sec.title}\n\n${sections[sec.id] || ''}`)
@@ -510,7 +511,7 @@ router.post('/generate-app/:slug', async (req: Request, res: Response) => {
       reviewSections[sec.title] = sections[sec.id] || '';
     }
 
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 4000));
     const reviewResult = await reviewDraft(reviewSections);
 
     await writeNote(
@@ -537,7 +538,7 @@ ${reviewResult.feedback.map(f => `- ${f}`).join('\n')}
 `
     );
 
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 4000));
     const consistencyResult = await checkConsistency(reviewSections);
 
     await writeNote(
@@ -717,6 +718,7 @@ router.post('/generate-strategy/:slug', async (req: Request, res: Response) => {
 router.post('/generate-apps-batch', async (req: Request, res: Response) => {
   const useSSE = req.headers.accept === 'text/event-stream';
   const minFitScore = Number(req.body?.minFitScore) || 70;
+  const maxCount = Number(req.body?.maxCount) || 3; // API rate limit 보호: 기본 3건
 
   try {
     if (useSSE) initSSE(res);
@@ -743,7 +745,7 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
     // 2. fitScore >= minFitScore인 프로그램 필터링
     const vaultRoot = getVaultRoot();
     const programFiles = await listNotes(path.join(vaultRoot, 'programs'));
-    const targets: { file: string; slug: string; programName: string; fitScore: number }[] = [];
+    const allTargets: { file: string; slug: string; programName: string; fitScore: number }[] = [];
 
     for (const file of programFiles) {
       try {
@@ -756,7 +758,7 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
         const draftPath = path.join('applications', slug, 'draft.md');
         if (await noteExists(draftPath)) continue;
 
-        targets.push({
+        allTargets.push({
           file,
           slug,
           programName: (pf.programName as string) || slug,
@@ -765,16 +767,20 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
       } catch { /* 읽기 실패 무시 */ }
     }
 
-    // fitScore 높은 순으로 정렬
-    targets.sort((a, b) => b.fitScore - a.fitScore);
+    // fitScore 높은 순으로 정렬 후 maxCount로 제한
+    allTargets.sort((a, b) => b.fitScore - a.fitScore);
+    const targets = allTargets.slice(0, maxCount);
+    const skipped = allTargets.length - targets.length;
 
     const total = targets.length;
-    if (useSSE) sendProgress(res, `지원서 일괄 생성 시작 (${total}건)`, 0, total, '', 1);
+    if (useSSE) sendProgress(res, `지원서 생성 시작 (${total}건${skipped > 0 ? `, ${skipped}건 대기` : ''})`, 0, total, '', 1);
+    console.log(`[vault/generate-apps-batch] 대상: ${allTargets.length}건 중 상위 ${total}건 생성 (maxCount=${maxCount})`);
 
     const results: { slug: string; programName: string; success: boolean; error?: string }[] = [];
 
     // 3. 각 프로그램에 대해 지원서 생성
     for (let i = 0; i < targets.length; i++) {
+      if (useSSE && !isSSEConnected(res)) { console.log('[vault/generate-apps-batch] 클라이언트 연결 끊김'); break; }
       const { file, slug, programName } = targets[i];
 
       if (useSSE) sendProgress(res, '지원서 생성 중', i + 1, total, programName, 1);
@@ -834,10 +840,10 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
             sectionDescription: sec.description,
           });
           sections[sec.id] = result.text;
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 4000)); // 429 방지: 4초 딜레이
         }
 
-        // 초안 저장
+        // 초안 저장 (리뷰/일관성 실패해도 초안은 보존)
         const appDir = path.join('applications', slug);
         const draftContent = sectionSchema
           .map(sec => `## ${sec.title}\n\n${sections[sec.id] || ''}`)
@@ -861,13 +867,13 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
           `# 지원서 초안: ${pf.programName}\n\n${draftContent}`
         );
 
-        // 리뷰
+        // 리뷰 (실패해도 초안은 이미 저장됨)
         const reviewSections: Record<string, string> = {};
         for (const sec of sectionSchema) {
           reviewSections[sec.title] = sections[sec.id] || '';
         }
 
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 4000));
         const reviewResult = await reviewDraft(reviewSections);
 
         await writeNote(
@@ -882,7 +888,7 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
         );
 
         // 일관성 검사
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 4000));
         const consistencyResult = await checkConsistency(reviewSections);
 
         await writeNote(
@@ -900,9 +906,15 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
         await writeNote(file, pf, pc);
 
         results.push({ slug, programName, success: true });
+        console.log(`[vault/generate-apps-batch] ${programName} 완료`);
       } catch (e) {
         console.error(`[vault/generate-apps-batch] ${slug} 실패:`, e);
         results.push({ slug, programName, success: false, error: String(e) });
+      }
+
+      // 프로그램 간 쿨다운 (429 방지)
+      if (i < targets.length - 1) {
+        await new Promise(r => setTimeout(r, 5000));
       }
     }
 
@@ -911,9 +923,11 @@ router.post('/generate-apps-batch', async (req: Request, res: Response) => {
 
     const resultData = {
       success: true,
-      total,
+      total: allTargets.length,
+      processed: total,
       generated: successCount,
       failed: failCount,
+      skipped,
       results,
     };
 

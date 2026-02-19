@@ -148,6 +148,8 @@ export interface BatchGenerateResult {
   total: number;
   generated: number;
   failed: number;
+  processed?: number;
+  skipped?: number;
   results: { slug: string; programName: string; success: boolean; error?: string }[];
 }
 
@@ -307,7 +309,8 @@ export const vaultService = {
   /** 일괄 지원서 생성 (SSE 진행률) */
   generateAppsBatchWithProgress(
     onProgress: (event: SSEProgressEvent) => void,
-    minFitScore?: number
+    minFitScore?: number,
+    maxCount?: number
   ): { promise: Promise<BatchGenerateResult>; abort: () => void } {
     let resolvePromise: (value: BatchGenerateResult) => void;
     let rejectPromise: (reason: Error) => void;
@@ -321,7 +324,7 @@ export const vaultService = {
       onProgress,
       onComplete: (data) => resolvePromise!(data as unknown as BatchGenerateResult),
       onError: (error) => rejectPromise!(new Error(error)),
-    }, { minFitScore: minFitScore ?? 70 });
+    }, { minFitScore: minFitScore ?? 70, maxCount: maxCount ?? 3 });
 
     return {
       promise,

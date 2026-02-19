@@ -33,6 +33,7 @@ export function connectSSE(
 ): AbortController {
   const controller = new AbortController();
   const url = `${getBaseUrl()}${path}`;
+  let completed = false;
 
   fetch(url, {
     method: 'POST',
@@ -94,9 +95,11 @@ export function connectSSE(
                 callbacks.onProgress(parsed as SSEProgressEvent);
                 break;
               case 'complete':
+                completed = true;
                 callbacks.onComplete(parsed);
                 break;
               case 'error':
+                completed = true;
                 callbacks.onError(parsed.error || '알 수 없는 오류');
                 break;
             }
@@ -106,6 +109,11 @@ export function connectSSE(
             }
           }
         }
+      }
+
+      // 스트림이 종료됐는데 complete/error 이벤트 없이 끊긴 경우 → 에러 처리
+      if (!completed) {
+        callbacks.onError('서버 연결이 예기치 않게 종료되었습니다.');
       }
     })
     .catch((err) => {
