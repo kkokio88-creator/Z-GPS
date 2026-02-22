@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState } from 'react';
 import Header from './Header';
 import { saveStoredCompany } from '../services/storageService';
@@ -41,7 +42,7 @@ const InternalKnowledge: React.FC = () => { // Renamed conceptually
                     
                     <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-xl p-8 mb-8 text-white shadow-lg">
                         <h2 className="text-2xl font-bold mb-2 flex items-center">
-                            <span className="material-icons-outlined mr-2" aria-hidden="true">lock</span> 
+                            <Icon name="lock" className="h-5 w-5" /> 
                             우리 회사만의 합격 DNA
                         </h2>
                         <p className="opacity-90">
@@ -69,7 +70,7 @@ const InternalKnowledge: React.FC = () => { // Renamed conceptually
                                 {company.preferredKeywords?.map(k => (
                                     <span key={k} className="px-4 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full border border-teal-200 dark:border-teal-700 flex items-center font-medium shadow-sm hover:scale-105 transition-transform">
                                         #{k}
-                                        <button onClick={() => handleDeleteKeyword(k)} className="ml-2 text-teal-400 hover:text-teal-600"><span className="material-icons-outlined text-sm" aria-hidden="true">close</span></button>
+                                        <button onClick={() => handleDeleteKeyword(k)} className="ml-2 text-teal-400 hover:text-teal-600"><Icon name="close" className="h-5 w-5" /></button>
                                     </span>
                                 ))}
                             </div>
@@ -109,7 +110,7 @@ const InternalKnowledge: React.FC = () => { // Renamed conceptually
                                         <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-2">{s.title}</h4>
                                         <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">{s.content}</p>
                                         <button className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <span className="material-icons-outlined text-sm" aria-hidden="true">delete</span>
+                                            <Icon name="delete" className="h-5 w-5" />
                                         </button>
                                     </div>
                                 ))}

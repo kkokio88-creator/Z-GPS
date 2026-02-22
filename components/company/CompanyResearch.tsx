@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { DeepResearchResult } from '../../types';
 import CompanyResearchAnalysis from './CompanyResearchAnalysis';
@@ -52,7 +53,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
               onClick={onSave}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center transition-colors"
             >
-              <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">save</span>
+              <Icon name="save" className="h-5 w-5" />
               기업정보 저장
             </button>
           </div>
@@ -62,7 +63,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {/* 기본 정보 */}
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-blue-600 mr-2" aria-hidden="true">badge</span>
+          <Icon name="badge" className="h-5 w-5" />
           기본 정보
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -92,7 +93,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {/* 재무 현황 */}
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-green-600 mr-2" aria-hidden="true">payments</span>
+          <Icon name="payments" className="h-5 w-5" />
           재무 현황
         </h3>
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -142,7 +143,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {/* 사업 영역 */}
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-purple-600 mr-2" aria-hidden="true">business</span>
+          <Icon name="business" className="h-5 w-5" />
           사업 영역
         </h3>
         <div className="mb-4">
@@ -179,13 +180,13 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {coreCompetencies.length > 0 && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
           <h3 className="font-bold text-lg mb-4 flex items-center">
-            <span className="material-icons-outlined text-yellow-600 mr-2" aria-hidden="true">emoji_events</span>
+            <Icon name="emoji_events" className="h-5 w-5" />
             AI 분석 핵심 역량
           </h3>
           <div className="space-y-2">
             {coreCompetencies.map((comp, i) => (
               <div key={i} className="flex items-start">
-                <span className="material-icons-outlined text-yellow-500 mr-2 mt-0.5 text-sm" aria-hidden="true">star</span>
+                <Icon name="star" className="h-5 w-5" />
                 <span>{comp}</span>
               </div>
             ))}
@@ -198,7 +199,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
         {certifications.length > 0 && (
           <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
             <h3 className="font-bold text-lg mb-4 flex items-center">
-              <span className="material-icons-outlined text-blue-600 mr-2" aria-hidden="true">verified</span>
+              <Icon name="verified" className="h-5 w-5" />
               보유 인증
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -211,7 +212,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
         {ipList.length > 0 && (
           <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
             <h3 className="font-bold text-lg mb-4 flex items-center">
-              <span className="material-icons-outlined text-orange-600 mr-2" aria-hidden="true">lightbulb</span>
+              <Icon name="lightbulb" className="h-5 w-5" />
               지적재산권 ({ipList.length}건)
             </h3>
             <div className="space-y-2">
@@ -233,7 +234,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {employmentInfo && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
           <h3 className="font-bold text-lg mb-4 flex items-center">
-            <span className="material-icons-outlined text-cyan-600 mr-2" aria-hidden="true">groups</span>
+            <Icon name="groups" className="h-5 w-5" />
             고용 & 복지 정보
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -290,7 +291,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {investmentInfo && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
           <h3 className="font-bold text-lg mb-4 flex items-center">
-            <span className="material-icons-outlined text-emerald-600 mr-2" aria-hidden="true">account_balance</span>
+            <Icon name="account_balance" className="h-5 w-5" />
             투자 현황
           </h3>
           {investmentInfo.isBootstrapped ? (
@@ -326,7 +327,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {(marketPosition.competitors.length > 0 || marketPosition.uniqueSellingPoints.length > 0) && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
           <h3 className="font-bold text-lg mb-4 flex items-center">
-            <span className="material-icons-outlined text-indigo-600 mr-2" aria-hidden="true">analytics</span>
+            <Icon name="analytics" className="h-5 w-5" />
             시장 위치
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -346,7 +347,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
                 <ul className="space-y-1">
                   {marketPosition.uniqueSellingPoints.map((point, i) => (
                     <li key={i} className="text-sm flex items-center">
-                      <span className="material-icons-outlined text-green-500 text-sm mr-1" aria-hidden="true">check</span>
+                      <Icon name="check" className="h-5 w-5" />
                       {point}
                     </li>
                   ))}
@@ -366,7 +367,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {history && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
           <h3 className="font-bold text-lg mb-4 flex items-center">
-            <span className="material-icons-outlined text-gray-600 mr-2" aria-hidden="true">history</span>
+            <Icon name="history" className="h-5 w-5" />
             주요 연혁
           </h3>
           <p className="text-gray-600 dark:text-gray-400 whitespace-pre-line">{history}</p>
@@ -377,7 +378,7 @@ const CompanyResearch: React.FC<CompanyResearchProps> = ({ data, onReset, onSave
       {executiveSummary && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-lg shadow text-white">
           <h3 className="font-bold text-lg mb-4 flex items-center">
-            <span className="material-icons-outlined mr-2" aria-hidden="true">summarize</span>
+            <Icon name="summarize" className="h-5 w-5" />
             Executive Summary
           </h3>
           <p className="text-blue-50 leading-relaxed">{executiveSummary}</p>

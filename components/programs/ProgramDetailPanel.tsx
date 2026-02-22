@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CategorizedProgram, formatGrant, summarizeText, stripHtml } from './programUtils';
@@ -145,9 +146,9 @@ const ProgramDetailPanel: React.FC<ProgramDetailPanelProps> = ({
                     className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                   >
                     {isLoadingStrategy ? (
-                      <span className="animate-spin material-icons-outlined text-lg" aria-hidden="true">autorenew</span>
+                      <Icon name="autorenew" className="h-8 w-8 text-primary animate-spin" />
                     ) : (
-                      <span className="material-icons-outlined text-lg" aria-hidden="true">auto_awesome</span>
+                      <Icon name="auto_awesome" className="h-5 w-5" />
                     )}
                     AI 전략 문서 보기
                   </button>
@@ -320,7 +321,7 @@ const ProgramDetailPanel: React.FC<ProgramDetailPanelProps> = ({
                   onClick={() => navigate(`/program/${selectedProgram.id}`)}
                   className="w-full py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-icons-outlined text-sm" aria-hidden="true">analytics</span>
+                  <Icon name="analytics" className="h-5 w-5" />
                   상세 분석 보기
                 </button>
               </div>
@@ -329,7 +330,7 @@ const ProgramDetailPanel: React.FC<ProgramDetailPanelProps> = ({
         })() : (
           <div className="flex-1 flex items-center justify-center text-gray-400">
             <div className="text-center">
-              <span className="material-icons-outlined text-4xl mb-2 text-gray-300" aria-hidden="true">description</span>
+              <Icon name="description" className="h-5 w-5" />
               <p className="text-sm">공고를 선택하세요</p>
             </div>
           </div>
@@ -348,14 +349,14 @@ const ProgramDetailPanel: React.FC<ProgramDetailPanelProps> = ({
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 id="strategy-modal-title" className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                <span className="material-icons-outlined text-amber-500" aria-hidden="true">auto_awesome</span>
+                <Icon name="auto_awesome" className="h-5 w-5" />
                 전략 문서
               </h2>
               <button
                 onClick={onCloseStrategy}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <span className="material-icons-outlined text-gray-500" aria-hidden="true">close</span>
+                <Icon name="close" className="h-5 w-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">

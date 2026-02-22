@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useEffect, useState } from 'react';
 import Header from './Header';
 import { getCalendarEvents } from '../services/calendarService';
@@ -62,7 +63,7 @@ const CalendarView: React.FC = () => {
                 {/* Upcoming List View */}
                 <div className="w-full lg:w-1/3 space-y-4">
                     <h3 className="font-bold text-lg mb-4 flex items-center">
-                        <span className="material-icons-outlined mr-2" aria-hidden="true">event_available</span>
+                        <Icon name="event_available" className="h-5 w-5" />
                         다가오는 마감일정 (전체)
                     </h3>
                     
@@ -95,7 +96,7 @@ const CalendarView: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="mt-2 text-xs text-text-sub-light flex items-center">
-                                        <span className="material-icons-outlined text-xs mr-1" aria-hidden="true">calendar_today</span>
+                                        <Icon name="calendar_today" className="h-5 w-5" />
                                         {evt.date}
                                     </div>
                                 </div>
@@ -111,13 +112,13 @@ const CalendarView: React.FC = () => {
                         </h2>
                         <div className="flex space-x-2">
                              <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-text-main-light dark:text-text-main-dark">
-                                 <span className="material-icons-outlined" aria-hidden="true">chevron_left</span>
+                                 <Icon name="chevron_left" className="h-5 w-5" />
                              </button>
                              <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-text-main-light dark:text-text-main-dark">
                                  오늘
                              </button>
                              <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-text-main-light dark:text-text-main-dark">
-                                 <span className="material-icons-outlined" aria-hidden="true">chevron_right</span>
+                                 <Icon name="chevron_right" className="h-5 w-5" />
                              </button>
                         </div>
                      </div>

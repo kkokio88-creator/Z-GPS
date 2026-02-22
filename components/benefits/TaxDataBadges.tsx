@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TaxScanResult, NpsHistoricalTrend, DartFinancialYear } from '../../types';
@@ -10,7 +11,7 @@ export const NpsDisconnectedBanner: React.FC = () => {
   return (
     <div className="px-3 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-lg space-y-2">
       <div className="flex items-start gap-2">
-        <span className="material-icons-outlined text-amber-500 text-base mt-0.5" aria-hidden="true">warning</span>
+        <Icon name="warning" className="h-5 w-5" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">국민연금 데이터 미연결 — 추정치 기반 분석</p>
           <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 mt-0.5">국민연금 API를 연결하면 직원수·보험료 실데이터로 정확한 세금 분석이 가능합니다.</p>
@@ -20,15 +21,15 @@ export const NpsDisconnectedBanner: React.FC = () => {
         <button onClick={() => navigate('/settings', { state: { tab: 'api' } })}
           className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
         >
-          <span className="material-icons-outlined text-xs" aria-hidden="true">settings</span>API 설정하기
+          <Icon name="settings" className="h-5 w-5" />API 설정하기
         </button>
         <a href="https://www.data.go.kr/data/15083277/openapi.do" target="_blank" rel="noopener noreferrer"
           className="px-3 py-1.5 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex items-center gap-1"
         >
-          신청 페이지<span className="material-icons-outlined text-xs" aria-hidden="true">open_in_new</span>
+          신청 페이지<Icon name="open_in_new" className="h-5 w-5" />
         </a>
         <button onClick={() => setGuideOpen(v => !v)} className="px-2 py-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 flex items-center gap-0.5">
-          <span className="material-icons-outlined text-sm" aria-hidden="true">{guideOpen ? 'expand_less' : 'play_arrow'}</span>연결 방법 안내
+          <Icon name={guideOpen ? 'expand_less' : 'play_arrow'} className="h-4 w-4" />연결 방법 안내
         </button>
       </div>
       {guideOpen && (
@@ -106,7 +107,7 @@ const TaxDataBadges: React.FC<TaxDataBadgesProps> = ({
       {taxScan.npsData?.found ? (
         <div>
           <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-lg">
-            <span className="material-icons-outlined text-blue-500 text-base" aria-hidden="true">verified</span>
+            <Icon name="verified" className="h-5 w-5" />
             <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
               NPS 실데이터 ({taxScan.npsData.allWorkplaces ? `${taxScan.npsData.allWorkplaces.length}개 사업장 · ` : ''}{taxScan.npsData.workplace?.nrOfJnng}명)
               {taxScan.npsData.historical ? ` · ${taxScan.npsData.historical.monthlyData.length}개월` : ''}
@@ -118,7 +119,7 @@ const TaxDataBadges: React.FC<TaxDataBadgesProps> = ({
               )}
               {taxScan.npsData.historical && (
                 <button onClick={onToggleNpsTrend} className="px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded transition-colors flex items-center gap-0.5">
-                  <span className="material-icons-outlined text-xs" aria-hidden="true">{showNpsTrend ? 'expand_less' : 'bar_chart'}</span>추이
+                  <Icon name={showNpsTrend ? 'expand_less' : 'bar_chart'} className="h-3 w-3" />추이
                 </button>
               )}
             </div>
@@ -135,12 +136,12 @@ const TaxDataBadges: React.FC<TaxDataBadgesProps> = ({
       {dartFinancials?.length ? (
         <div>
           <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg">
-            <span className="material-icons-outlined text-emerald-500 text-base" aria-hidden="true">verified</span>
+            <Icon name="verified" className="h-5 w-5" />
             <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
               DART 공시 재무데이터 ({dartFinancials.length}년분)
             </span>
             <button onClick={onToggleDartSummary} className="ml-auto px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded transition-colors flex items-center gap-0.5">
-              <span className="material-icons-outlined text-xs" aria-hidden="true">{showDartSummary ? 'expand_less' : 'table_chart'}</span>재무 요약
+              <Icon name={showDartSummary ? 'expand_less' : 'table_chart'} className="h-3 w-3" />재무 요약
             </button>
           </div>
           {showDartSummary && (

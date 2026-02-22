@@ -103,5 +103,37 @@ Types: `feat` | `fix` | `refactor` | `docs` | `style` | `test` | `chore`
 - `VoiceConsultant.tsx`는 Gemini Live API (WebSocket) 특성상 `@google/genai` SDK 직접 사용 — `callGemini()` HTTP 프록시 예외
 - 거대 컴포넌트는 하위 디렉토리로 분해, barrel export(`index.tsx`)로 기존 import 경로 호환 유지
 
+## Multi-Agent Collaboration System (tmux-based)
+
+이 프로젝트는 tmux 분할 환경 기반 '2인 에이전트 팀' 체제로 운영된다.
+
+### Agent Architecture
+| Pane | ID | Model | Role |
+|------|-----|-------|------|
+| Left | Strategic Leader | Opus 4.6 | 로드맵 설계, 팀 지휘, 품질 검수 |
+| Right | Implementation Specialist | Sonnet 4.6 | 코드 구현, 터미널 작업 수행 |
+
+### Operational Workflow
+1. **Plan**: Opus가 작업 범위 분석 → Sonnet에게 Task 할당
+2. **Execute**: Sonnet이 코딩 작업 수행 (과정 투명 노출)
+3. **Review**: Opus가 코드 검토 → 보완 지시
+4. **Report**: Opus가 사용자에게 최종 보고
+
+### Leader (Opus) Responsibilities
+- Sonnet의 작업 계획을 사전 검토/승인
+- 구현 코드의 보안, 성능, 디자인 일관성(shadcn/ui 준수) 피드백
+- 작업 완료 후 최종 결과 요약 및 인사이트 보고
+
+### Execution Agent (Sonnet) Responsibilities
+- 리더 가이드에 따라 shadcn/ui 설치, 컴포넌트 마이그레이션, 버그 수정 실무 진행
+- 작업 과정을 투명하게 노출하여 실시간 모니터링 가능하게 함
+
+## UI Design System
+- **Component Library**: shadcn/ui (Tailwind CSS v4 기반)
+- **Icons**: Lucide-react (Material Icons 교체)
+- **Theme**: CSS 변수 기반 (light/dark), primary=#0D5611
+- **Utilities**: `cn()` from `lib/utils.ts` (clsx + tailwind-merge)
+- shadcn/ui 컴포넌트는 `components/ui/` 디렉토리에 위치
+
 ---
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-22

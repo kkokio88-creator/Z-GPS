@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { AuditDefenseResult } from '../../types';
 
@@ -13,16 +14,16 @@ const DefenseModal: React.FC<DefenseModalProps> = ({ result, isLoading, onClose 
       <div role="dialog" aria-modal="true" aria-labelledby="defense-modal-title" className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 bg-red-700 text-white flex justify-between items-center">
           <h3 id="defense-modal-title" className="text-lg font-bold flex items-center">
-            <span className="material-icons-outlined mr-2" aria-hidden="true">security</span>현장 실사 방어 솔루션
+            <Icon name="security" className="h-5 w-5" />현장 실사 방어 솔루션
           </h3>
           <button onClick={onClose} aria-label="닫기" className="text-white hover:text-gray-200">
-            <span className="material-icons-outlined" aria-hidden="true">close</span>
+            <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
         <div className="p-8 bg-gray-50 dark:bg-gray-900 flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="text-center py-20">
-              <span className="material-icons-outlined animate-spin text-5xl text-red-600 mb-4" aria-hidden="true">gavel</span>
+              <Icon name="gavel" className="h-5 w-5" />
               <p className="text-gray-600">평가위원 페르소나로 빙의하여 약점을 분석 중입니다...</p>
             </div>
           ) : result ? (

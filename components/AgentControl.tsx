@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useEffect } from 'react';
 import { orchestrator } from '../services/agentOrchestrator';
 import { agentTeam } from '../services/agentTeam';
@@ -86,7 +87,7 @@ const AgentControl: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-bold text-purple-900 dark:text-purple-300 flex items-center">
-              <span className="material-icons-outlined mr-2" aria-hidden="true">psychology</span>
+              <Icon name="psychology" className="h-5 w-5" />
               Multi-Agent System
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -113,7 +114,7 @@ const AgentControl: React.FC = () => {
                 : 'bg-purple-600 text-white hover:bg-purple-700 hover:scale-105'
             }`}
           >
-            <span className="material-icons-outlined text-sm mr-1 align-middle" aria-hidden="true">play_arrow</span>
+            <Icon name="play_arrow" className="h-5 w-5" />
             Start System
           </button>
           <button
@@ -125,14 +126,14 @@ const AgentControl: React.FC = () => {
                 : 'bg-orange-600 text-white hover:bg-orange-700'
             }`}
           >
-            <span className="material-icons-outlined text-sm mr-1 align-middle" aria-hidden="true">stop</span>
+            <Icon name="stop" className="h-5 w-5" />
             Stop System
           </button>
           <button
             onClick={handleReset}
             className="px-6 py-2 rounded-lg font-medium bg-gray-600 text-white hover:bg-gray-700"
           >
-            <span className="material-icons-outlined text-sm mr-1 align-middle" aria-hidden="true">refresh</span>
+            <Icon name="refresh" className="h-5 w-5" />
             Reset
           </button>
         </div>
@@ -161,7 +162,7 @@ const AgentControl: React.FC = () => {
       {/* Agent Status */}
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg border border-border-light dark:border-border-dark">
         <h4 className="font-bold mb-4 flex items-center">
-          <span className="material-icons-outlined mr-2" aria-hidden="true">groups</span>
+          <Icon name="groups" className="h-5 w-5" />
           Agent Status
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -185,7 +186,7 @@ const AgentControl: React.FC = () => {
       {/* Workflow Execution */}
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg border border-border-light dark:border-border-dark">
         <h4 className="font-bold mb-4 flex items-center">
-          <span className="material-icons-outlined mr-2" aria-hidden="true">account_tree</span>
+          <Icon name="account_tree" className="h-5 w-5" />
           Execute Workflow
         </h4>
         <div className="flex gap-3">
@@ -219,7 +220,7 @@ const AgentControl: React.FC = () => {
       {state.currentWorkflow && (
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-lg border border-blue-200 dark:border-blue-800">
           <h4 className="font-bold mb-3 flex items-center text-blue-900 dark:text-blue-300">
-            <span className="material-icons-outlined mr-2 animate-spin" aria-hidden="true">autorenew</span>
+            <Icon name="autorenew" className="h-5 w-5" />
             Current Workflow
           </h4>
           <div className="space-y-2">
@@ -240,7 +241,7 @@ const AgentControl: React.FC = () => {
       {state.taskQueue.length > 0 && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg border border-border-light dark:border-border-dark">
           <h4 className="font-bold mb-4 flex items-center">
-            <span className="material-icons-outlined mr-2" aria-hidden="true">list</span>
+            <Icon name="list" className="h-5 w-5" />
             Task Queue ({state.taskQueue.length})
           </h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -263,7 +264,7 @@ const AgentControl: React.FC = () => {
       {state.sharedMemory.length > 0 && (
         <div className="bg-white dark:bg-surface-dark p-6 rounded-lg border border-border-light dark:border-border-dark">
           <h4 className="font-bold mb-4 flex items-center">
-            <span className="material-icons-outlined mr-2" aria-hidden="true">memory</span>
+            <Icon name="memory" className="h-5 w-5" />
             Shared Memory ({state.sharedMemory.length})
           </h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">

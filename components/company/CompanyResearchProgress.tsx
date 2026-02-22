@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { ResearchProgress } from '../../types';
 
@@ -12,7 +13,7 @@ const CompanyResearchProgress: React.FC<CompanyResearchProgressProps> = ({
 }) => (
   <div className="bg-white dark:bg-surface-dark p-8 rounded-lg shadow border border-border-light dark:border-border-dark">
     <div className="text-center">
-      <span className="material-icons-outlined text-5xl text-primary animate-pulse mb-4" aria-hidden="true">biotech</span>
+      <Icon name="biotech" className="h-5 w-5" />
       <h2 className="text-xl font-bold mb-2">
         {companyName} 딥 리서치 진행 중
       </h2>

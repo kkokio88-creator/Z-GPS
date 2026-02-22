@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useRef } from 'react';
 import Header from './Header';
 import { pitchCoachAgent } from '../services/geminiAgents';
@@ -80,9 +81,7 @@ const PitchTrainer: React.FC = () => {
                                 : 'bg-primary hover:bg-primary-dark hover:scale-105'
                             }`}
                         >
-                            <span className="material-icons-outlined text-5xl text-white" aria-hidden="true">
-                                {isRecording ? 'stop' : 'mic'}
-                            </span>
+                            <Icon name={isRecording ? 'stop' : 'mic'} className="h-12 w-12 text-white" />
                         </button>
                         <p className="mt-4 font-bold text-primary dark:text-green-400">
                             {isRecording ? "녹음 중... (말씀하세요)" : "버튼을 눌러 시작"}
@@ -100,7 +99,7 @@ const PitchTrainer: React.FC = () => {
                     {/* Result Card */}
                     {isAnalyzing && (
                         <div className="py-10">
-                            <span className="material-icons-outlined animate-spin text-4xl text-primary" aria-hidden="true">refresh</span>
+                            <Icon name="refresh" className="h-5 w-5" />
                             <p className="mt-2 text-sm text-gray-500">AI 코치가 발표 내용을 분석 중입니다...</p>
                         </div>
                     )}
@@ -109,7 +108,7 @@ const PitchTrainer: React.FC = () => {
                         <div className="bg-white dark:bg-surface-dark rounded-xl border border-primary/20 dark:border-primary/20 shadow-lg overflow-hidden animate-fade-in-up text-left">
                             <div className="bg-primary p-6 text-white flex justify-between items-center">
                                 <h3 className="font-bold text-lg flex items-center">
-                                    <span className="material-icons-outlined mr-2" aria-hidden="true">assessment</span> 분석 리포트
+                                    <Icon name="assessment" className="h-5 w-5" /> 분석 리포트
                                 </h3>
                                 <div className="text-right">
                                     <span className="block text-xs opacity-70">전달력 점수</span>

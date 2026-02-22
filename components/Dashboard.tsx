@@ -1,4 +1,5 @@
 
+import Icon from './ui/Icon';
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram, VaultApplication } from '../services/vaultService';
@@ -318,7 +319,7 @@ const Dashboard: React.FC = () => {
           {/* ===== 나의 관심 분야 (3개 공고 + 더 보기 토글) ===== */}
           <section>
             <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-              <span className="material-icons-outlined text-primary mr-2" aria-hidden="true">interests</span>
+              <Icon name="interests" className="h-5 w-5" />
               나의 관심 분야
             </h3>
 
@@ -337,7 +338,7 @@ const Dashboard: React.FC = () => {
                       <div className={`bg-gradient-to-r ${area.gradientFrom} ${area.gradientTo} p-4 text-white`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            <span className="material-icons-outlined text-2xl mr-2 opacity-90" aria-hidden="true">{area.icon}</span>
+                            <Icon name={area.icon} className="h-6 w-6 mr-2 opacity-90" />
                             <h4 className="font-bold text-sm">{area.title}</h4>
                           </div>
                           <span className="text-2xl font-bold">{area.matchCount}</span>
@@ -397,7 +398,7 @@ const Dashboard: React.FC = () => {
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-                <span className="material-icons-outlined text-indigo-500 mr-2 text-base" aria-hidden="true">bar_chart</span>
+                <Icon name="bar_chart" className="h-5 w-5" />
                 공고 유형 분포
               </h3>
               {isLoading ? (
@@ -431,7 +432,7 @@ const Dashboard: React.FC = () => {
 
             <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-                <span className="material-icons-outlined text-red-500 mr-2 text-base" aria-hidden="true">schedule</span>
+                <Icon name="schedule" className="h-5 w-5" />
                 마감 임박 타임라인
               </h3>
               {isLoading ? (
@@ -485,7 +486,7 @@ const Dashboard: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                  <span className="material-icons-outlined text-white text-lg" aria-hidden="true">account_balance</span>
+                  <Icon name="account_balance" className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -517,7 +518,7 @@ const Dashboard: React.FC = () => {
                     </p>
                   </div>
                 )}
-                <span className="material-icons-outlined text-gray-400 text-base" aria-hidden="true">chevron_right</span>
+                <Icon name="chevron_right" className="h-5 w-5" />
               </div>
             </div>
 
@@ -548,7 +549,7 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate('/benefits')}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
                 >
-                  <span className="material-icons-outlined text-sm align-middle mr-1" aria-hidden="true">search</span>
+                  <Icon name="search" className="h-5 w-5" />
                   지금 스캔하기
                 </button>
               </div>
@@ -564,7 +565,7 @@ const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                    <span className="material-icons-outlined text-white text-lg" aria-hidden="true">receipt_long</span>
+                    <Icon name="receipt_long" className="h-5 w-5" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">과거 수령 이력</h3>
@@ -584,7 +585,7 @@ const Dashboard: React.FC = () => {
                       )}
                     </div>
                   )}
-                  <span className="material-icons-outlined text-gray-400 text-base" aria-hidden="true">chevron_right</span>
+                  <Icon name="chevron_right" className="h-5 w-5" />
                 </div>
               </div>
             </section>
@@ -594,7 +595,7 @@ const Dashboard: React.FC = () => {
           <section className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark flex items-center">
-                <span className="material-icons-outlined text-primary mr-2 text-base" aria-hidden="true">assignment</span>
+                <Icon name="assignment" className="h-5 w-5" />
                 내 지원 현황
               </h3>
 
@@ -630,7 +631,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                  <span className="material-icons-outlined text-white text-lg" aria-hidden="true">auto_awesome</span>
+                  <Icon name="auto_awesome" className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark">AI 일괄 지원서 생성</h3>
@@ -658,9 +659,7 @@ const Dashboard: React.FC = () => {
                   disabled={batchGenerating}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
                 >
-                  <span className="material-icons-outlined text-sm" aria-hidden="true">
-                    {batchGenerating ? 'hourglass_top' : 'bolt'}
-                  </span>
+                  <Icon name={batchGenerating ? 'hourglass_top' : 'bolt'} className="w-3.5 h-3.5" />
                   {batchGenerating ? '생성 중...' : `상위 ${Math.min(appStats.eligibleWithoutApp, 3)}건 생성`}
                 </button>
               )}

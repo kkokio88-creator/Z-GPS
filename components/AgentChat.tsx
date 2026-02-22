@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useEffect, useRef } from 'react';
 import { Company, SupportProgram } from '../types';
 import { consultantAgent } from '../services/geminiAgents';
@@ -112,14 +113,14 @@ const AgentChat: React.FC<AgentChatProps> = ({ isOpen, onClose, company, program
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-6 border-b border-border-light dark:border-border-dark bg-primary text-white">
         <div className="flex items-center">
-          <span className="material-icons-outlined mr-2" aria-hidden="true">smart_toy</span>
+          <Icon name="smart_toy" className="h-5 w-5" />
           <div>
              <h3 className="font-bold text-sm">Z-MIS AI Consultant</h3>
              <p className="text-[10px] opacity-80">{program.organizer}</p>
           </div>
         </div>
         <button onClick={onClose} aria-label="닫기" className="hover:bg-white/20 rounded-full p-1 transition-colors">
-          <span className="material-icons-outlined" aria-hidden="true">close</span>
+          <Icon name="close" className="h-5 w-5" />
         </button>
       </div>
 
@@ -129,7 +130,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ isOpen, onClose, company, program
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
              {msg.role === 'model' && (
                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2 flex-shrink-0 border border-indigo-200">
-                     <span className="material-icons-outlined text-indigo-600 text-xs" aria-hidden="true">smart_toy</span>
+                     <Icon name="smart_toy" className="h-5 w-5" />
                  </div>
              )}
              <div 
@@ -163,7 +164,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ isOpen, onClose, company, program
                 aria-label="전송"
                 className="absolute right-2 bottom-2 p-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-                <span className="material-icons-outlined text-sm" aria-hidden="true">send</span>
+                <Icon name="send" className="h-5 w-5" />
             </button>
         </div>
         <p className="text-[10px] text-center text-gray-400 mt-2">

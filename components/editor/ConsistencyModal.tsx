@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { ConsistencyCheckResult } from '../../types';
 
@@ -14,16 +15,16 @@ const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ result, isLoading, 
       <div role="dialog" aria-modal="true" aria-labelledby="consistency-modal-title" className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in-up max-h-[80vh] flex flex-col">
         <div className="px-6 py-4 bg-indigo-700 text-white flex justify-between items-center">
           <h3 id="consistency-modal-title" className="text-lg font-bold flex items-center">
-            <span className="material-icons-outlined mr-2" aria-hidden="true">rule</span>AI 문서 정합성 검사
+            <Icon name="rule" className="h-5 w-5" />AI 문서 정합성 검사
           </h3>
           <button onClick={onClose} aria-label="닫기" className="text-white hover:text-gray-200">
-            <span className="material-icons-outlined" aria-hidden="true">close</span>
+            <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
         <div className="p-8 bg-gray-50 dark:bg-gray-900 flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="text-center py-20">
-              <span className="material-icons-outlined animate-spin text-5xl text-indigo-600 mb-4" aria-hidden="true">find_in_page</span>
+              <Icon name="find_in_page" className="h-5 w-5" />
               <p className="text-gray-600">사업비, 일정, 목표 간의 논리적 모순을 찾는 중입니다...</p>
             </div>
           ) : result ? (
@@ -49,7 +50,7 @@ const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ result, isLoading, 
                     <div className="flex justify-between mb-1">
                       <span className="font-bold text-sm text-red-600 flex items-center">
                         [{issue.section}]
-                        <span className="material-icons-outlined text-xs ml-1 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true">open_in_new</span>
+                        <Icon name="open_in_new" className="h-5 w-5" />
                       </span>
                       <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold">{issue.severity}</span>
                     </div>

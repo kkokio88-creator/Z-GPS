@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TaxScanResult, TaxRefundOpportunity } from '../../types';
@@ -98,7 +99,7 @@ const TaxRefund: React.FC<TaxRefundProps> = ({
       {/* Error */}
       {!taxScanning && taxError && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-5 text-center">
-          <span className="material-icons-outlined text-3xl text-red-400 block mb-2" aria-hidden="true">error_outline</span>
+          <Icon name="error_outline" className="h-5 w-5" />
           <p className="text-sm font-medium text-red-700 dark:text-red-400">{taxError}</p>
           {taxErrorCode === 503 && <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">Gemini API 키를 설정해야 AI 스캔을 이용할 수 있습니다.</p>}
           {taxErrorCode === 400 && <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">기업 프로필을 먼저 등록해주세요.</p>}
@@ -106,14 +107,14 @@ const TaxRefund: React.FC<TaxRefundProps> = ({
             <button onClick={() => navigate('/settings')}
               className="mt-3 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors"
             >
-              <span className="material-icons-outlined text-sm align-middle mr-1" aria-hidden="true">settings</span>설정으로 이동
+              <Icon name="settings" className="h-5 w-5" />설정으로 이동
             </button>
           )}
           {(!taxErrorCode || taxErrorCode >= 500) && taxErrorCode !== 503 && (
             <button onClick={onRunScan}
               className="mt-3 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors"
             >
-              <span className="material-icons-outlined text-sm align-middle mr-1" aria-hidden="true">refresh</span>다시 시도
+              <Icon name="refresh" className="h-5 w-5" />다시 시도
             </button>
           )}
         </div>
@@ -148,7 +149,7 @@ const TaxRefund: React.FC<TaxRefundProps> = ({
           {taxScan.summary && (
             <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800/30">
               <div className="flex items-center gap-2 mb-2">
-                <span className="material-icons-outlined text-indigo-500 text-base" aria-hidden="true">auto_awesome</span>
+                <Icon name="auto_awesome" className="h-5 w-5" />
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white">AI 분석 요약</h3>
               </div>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{taxScan.summary}</p>
@@ -199,7 +200,7 @@ const TaxRefund: React.FC<TaxRefundProps> = ({
             </div>
           ) : (
             <div className="text-center py-12">
-              <span className="material-icons-outlined text-4xl text-gray-300 dark:text-gray-600 block mb-2" aria-hidden="true">check_circle</span>
+              <Icon name="check_circle" className="h-5 w-5" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {taxFilterStatus !== 'all' || taxFilterSource !== 'all'
                   ? '필터 조건에 맞는 항목이 없습니다.'
@@ -211,7 +212,7 @@ const TaxRefund: React.FC<TaxRefundProps> = ({
           {taxScan.disclaimer && (
             <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
               <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">
-                <span className="material-icons-outlined text-[10px] align-middle mr-1" aria-hidden="true">info</span>
+                <Icon name="info" className="h-5 w-5" />
                 {taxScan.disclaimer}
               </p>
             </div>
@@ -222,7 +223,7 @@ const TaxRefund: React.FC<TaxRefundProps> = ({
       {/* Empty state */}
       {!taxScanning && !taxScan && !taxError && (
         <div className="text-center py-16">
-          <span className="material-icons-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3 block" aria-hidden="true">account_balance</span>
+          <Icon name="account_balance" className="h-5 w-5" />
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">자동으로 스캔을 시작합니다...</p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">기업 프로필을 기반으로 놓치고 있는 세금 혜택을 찾아보세요</p>
         </div>

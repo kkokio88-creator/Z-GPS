@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { completeOnboarding } from '../services/storageService';
@@ -73,7 +74,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         {/* Content */}
         <div className="p-8 text-center">
           <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-lg`}>
-            <span className="material-icons-outlined text-white text-4xl" aria-hidden="true">{step.icon}</span>
+            <Icon name={step.icon} className="h-10 w-10 text-white" />
           </div>
 
           <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
@@ -103,7 +104,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               onClick={() => setCurrentStep(currentStep - 1)}
               className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1"
             >
-              <span className="material-icons-outlined text-sm" aria-hidden="true">arrow_back</span>
+              <Icon name="arrow_back" className="h-5 w-5" />
               이전
             </button>
           ) : (

@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { getStoredApiKey } from '../services/storageService';
@@ -229,9 +230,7 @@ const VoiceConsultant: React.FC = () => {
                 }`}
                 title="AI 음성 컨설턴트 연결"
             >
-                <span className="material-icons-outlined text-white text-2xl" aria-hidden="true">
-                    {isActive ? 'mic_off' : 'support_agent'}
-                </span>
+                <Icon name={isActive ? 'mic_off' : 'support_agent'} className="w-6 h-6 text-white" />
             </button>
         </div>
     );

@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import type { BenefitCategory, BenefitStatus } from '../../types';
 import { CATEGORIES, STATUS_LABELS } from './constants';
@@ -34,7 +35,7 @@ const BenefitForm: React.FC<BenefitFormProps> = ({ form, editingId, onFormChange
             {editingId ? '수령 이력 수정' : '새 수령 이력 등록'}
           </h3>
           <button onClick={onCancel} aria-label="닫기" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            <span className="material-icons-outlined" aria-hidden="true">close</span>
+            <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">

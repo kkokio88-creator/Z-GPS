@@ -9,6 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { isAuthenticated } from './services/storageService';
 import QAController from './components/qa/QAController';
+import { Skeleton } from './components/ui/skeleton';
 
 // --- Lazy-loaded route components ---
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -30,9 +31,12 @@ const AgentControl = React.lazy(() => import('./components/AgentControl'));
 // --- Page loading skeleton fallback ---
 const PageSkeleton = () => (
   <div className="flex items-center justify-center h-full w-full">
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-4">
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm text-gray-400">로딩 중...</p>
+      <div className="flex flex-col items-center gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3 w-16" />
+      </div>
     </div>
   </div>
 );
@@ -55,7 +59,6 @@ const ProtectedRoute = () => {
         {/* System Overlays */}
         <QAController />
         <GlobalSearch />
-        {/* VoiceConsultant removed per user request */}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import type { BenefitRecord } from '../../types';
 import { formatKRW } from '../../services/utils/formatters';
@@ -63,7 +64,7 @@ const BenefitList: React.FC<BenefitListProps> = ({
           onClick={onAdd}
           className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
         >
-          <span className="material-icons-outlined text-base" aria-hidden="true">add</span>
+          <Icon name="add" className="h-5 w-5" />
           등록
         </button>
       </div>
@@ -77,7 +78,7 @@ const BenefitList: React.FC<BenefitListProps> = ({
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <span className="material-icons-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3 block" aria-hidden="true">receipt_long</span>
+          <Icon name="receipt_long" className="h-5 w-5" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">등록된 수령 이력이 없습니다</p>
           <button
             onClick={onAdd}
@@ -124,7 +125,7 @@ const BenefitList: React.FC<BenefitListProps> = ({
                   <p className="text-lg font-bold text-primary dark:text-green-400">{formatKRW(b.receivedAmount)}</p>
                   <div className="flex gap-1 mt-2">
                     <button onClick={() => onEdit(b)} className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="수정">
-                      <span className="material-icons-outlined text-sm" aria-hidden="true">edit</span>
+                      <Icon name="edit" className="h-5 w-5" />
                     </button>
                     <button onClick={() => onAnalyze(b.id)} disabled={analyzing === b.id} className="p-1.5 text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors disabled:opacity-50" title="환급 분석">
                       <span className={`material-icons-outlined text-sm ${analyzing === b.id ? 'animate-spin' : ''}`} aria-hidden="true">
@@ -132,7 +133,7 @@ const BenefitList: React.FC<BenefitListProps> = ({
                       </span>
                     </button>
                     <button onClick={() => onDelete(b.id)} className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="삭제">
-                      <span className="material-icons-outlined text-sm" aria-hidden="true">delete</span>
+                      <Icon name="delete" className="h-5 w-5" />
                     </button>
                   </div>
                 </div>

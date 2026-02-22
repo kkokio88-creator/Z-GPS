@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useEffect } from 'react';
 
 const TOUR_STEPS = [
@@ -74,7 +75,7 @@ const OnboardingTour: React.FC = () => {
                         {currentStep.title}
                     </h3>
                     <button onClick={handleComplete} className="text-gray-400 hover:text-gray-600">
-                        <span className="material-icons-outlined text-sm" aria-hidden="true">close</span>
+                        <Icon name="close" className="h-5 w-5" />
                     </button>
                 </div>
                 
@@ -91,7 +92,7 @@ const OnboardingTour: React.FC = () => {
                         className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark transition-all shadow-md flex items-center"
                     >
                         {stepIndex === TOUR_STEPS.length - 1 ? '시작하기' : '다음'}
-                        {stepIndex < TOUR_STEPS.length - 1 && <span className="material-icons-outlined text-sm ml-1" aria-hidden="true">arrow_forward</span>}
+                        {stepIndex < TOUR_STEPS.length - 1 && <Icon name="arrow_forward" className="h-5 w-5" />}
                     </button>
                 </div>
             </div>

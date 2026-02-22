@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { DeepResearchResult } from '../../types';
 
@@ -13,24 +14,24 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
     {strategicAnalysis?.swot && (
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-purple-600 mr-2" aria-hidden="true">grid_view</span>
+          <Icon name="grid_view" className="h-5 w-5" />
           SWOT 분석
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border-l-4 border-green-500">
-            <h4 className="font-bold text-green-700 dark:text-green-400 mb-2 flex items-center"><span className="material-icons-outlined text-sm mr-1" aria-hidden="true">thumb_up</span>강점 (Strengths)</h4>
+            <h4 className="font-bold text-green-700 dark:text-green-400 mb-2 flex items-center"><Icon name="thumb_up" className="h-5 w-5" />강점 (Strengths)</h4>
             <ul className="space-y-1 text-sm">{strategicAnalysis.swot.strengths?.map((item, i) => <li key={i} className="flex items-start"><span className="text-green-500 mr-2">•</span><span>{item}</span></li>)}</ul>
           </div>
           <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border-l-4 border-red-500">
-            <h4 className="font-bold text-red-700 dark:text-red-400 mb-2 flex items-center"><span className="material-icons-outlined text-sm mr-1" aria-hidden="true">thumb_down</span>약점 (Weaknesses)</h4>
+            <h4 className="font-bold text-red-700 dark:text-red-400 mb-2 flex items-center"><Icon name="thumb_down" className="h-5 w-5" />약점 (Weaknesses)</h4>
             <ul className="space-y-1 text-sm">{strategicAnalysis.swot.weaknesses?.map((item, i) => <li key={i} className="flex items-start"><span className="text-red-500 mr-2">•</span><span>{item}</span></li>)}</ul>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-l-4 border-blue-500">
-            <h4 className="font-bold text-blue-700 dark:text-blue-400 mb-2 flex items-center"><span className="material-icons-outlined text-sm mr-1" aria-hidden="true">trending_up</span>기회 (Opportunities)</h4>
+            <h4 className="font-bold text-blue-700 dark:text-blue-400 mb-2 flex items-center"><Icon name="trending_up" className="h-5 w-5" />기회 (Opportunities)</h4>
             <ul className="space-y-1 text-sm">{strategicAnalysis.swot.opportunities?.map((item, i) => <li key={i} className="flex items-start"><span className="text-blue-500 mr-2">•</span><span>{item}</span></li>)}</ul>
           </div>
           <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border-l-4 border-orange-500">
-            <h4 className="font-bold text-orange-700 dark:text-orange-400 mb-2 flex items-center"><span className="material-icons-outlined text-sm mr-1" aria-hidden="true">warning</span>위협 (Threats)</h4>
+            <h4 className="font-bold text-orange-700 dark:text-orange-400 mb-2 flex items-center"><Icon name="warning" className="h-5 w-5" />위협 (Threats)</h4>
             <ul className="space-y-1 text-sm">{strategicAnalysis.swot.threats?.map((item, i) => <li key={i} className="flex items-start"><span className="text-orange-500 mr-2">•</span><span>{item}</span></li>)}</ul>
           </div>
         </div>
@@ -41,7 +42,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
     {strategicAnalysis && (strategicAnalysis.competitiveAdvantage || strategicAnalysis.growthPotential) && (
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-indigo-600 mr-2" aria-hidden="true">insights</span>전략적 분석
+          <Icon name="insights" className="h-5 w-5" />전략적 분석
         </h3>
         <div className="space-y-4">
           {strategicAnalysis.competitiveAdvantage && (
@@ -74,7 +75,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
     {industryInsights && (
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-teal-600 mr-2" aria-hidden="true">trending_up</span>산업 인사이트
+          <Icon name="trending_up" className="h-5 w-5" />산업 인사이트
         </h3>
         <div className="space-y-4">
           {industryInsights.marketTrends && industryInsights.marketTrends.length > 0 && (
@@ -83,7 +84,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {industryInsights.marketTrends.map((trend, i) => (
                   <div key={i} className="flex items-center bg-teal-50 dark:bg-teal-900/20 p-2 rounded">
-                    <span className="material-icons-outlined text-teal-500 text-sm mr-2" aria-hidden="true">arrow_forward</span>
+                    <Icon name="arrow_forward" className="h-5 w-5" />
                     <span className="text-sm">{trend}</span>
                   </div>
                 ))}
@@ -114,7 +115,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
     {governmentFundingFit && (
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 rounded-lg shadow border border-amber-200 dark:border-amber-800">
         <h3 className="font-bold text-lg mb-4 flex items-center text-amber-800 dark:text-amber-300">
-          <span className="material-icons-outlined mr-2" aria-hidden="true">policy</span>정부지원사업 적합성 분석
+          <Icon name="policy" className="h-5 w-5" />정부지원사업 적합성 분석
         </h3>
         <div className="space-y-4">
           {governmentFundingFit.recommendedPrograms && governmentFundingFit.recommendedPrograms.length > 0 && (
@@ -133,7 +134,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
                 <h4 className="font-semibold text-sm text-green-700 dark:text-green-400 mb-2">어필 포인트</h4>
                 <ul className="space-y-1 text-sm">
                   {governmentFundingFit.eligibilityStrengths.map((str, i) => (
-                    <li key={i} className="flex items-start"><span className="material-icons-outlined text-green-500 text-sm mr-1" aria-hidden="true">check_circle</span><span>{str}</span></li>
+                    <li key={i} className="flex items-start"><Icon name="check_circle" className="h-5 w-5" /><span>{str}</span></li>
                   ))}
                 </ul>
               </div>
@@ -143,7 +144,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
                 <h4 className="font-semibold text-sm text-red-700 dark:text-red-400 mb-2">보완 필요 사항</h4>
                 <ul className="space-y-1 text-sm">
                   {governmentFundingFit.potentialChallenges.map((ch, i) => (
-                    <li key={i} className="flex items-start"><span className="material-icons-outlined text-red-500 text-sm mr-1" aria-hidden="true">error_outline</span><span>{ch}</span></li>
+                    <li key={i} className="flex items-start"><Icon name="error_outline" className="h-5 w-5" /><span>{ch}</span></li>
                   ))}
                 </ul>
               </div>
@@ -152,7 +153,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
           {governmentFundingFit.applicationTips && (
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-amber-300 dark:border-amber-700">
               <h4 className="font-semibold text-sm text-amber-700 dark:text-amber-400 mb-2 flex items-center">
-                <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">lightbulb</span>지원서 작성 전략
+                <Icon name="lightbulb" className="h-5 w-5" />지원서 작성 전략
               </h4>
               <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{governmentFundingFit.applicationTips}</p>
             </div>
@@ -165,7 +166,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
     {dataSources && dataSources.length > 0 && (
       <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
         <h3 className="font-bold text-lg mb-4 flex items-center">
-          <span className="material-icons-outlined text-gray-600 mr-2" aria-hidden="true">source</span>데이터 출처 ({dataSources.length}개)
+          <Icon name="source" className="h-5 w-5" />데이터 출처 ({dataSources.length}개)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {dataSources.map((ds, i) => (
@@ -189,7 +190,7 @@ const CompanyResearchAnalysis: React.FC<AnalysisProps> = ({
     {sources && sources.length > 0 && (
       <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
         <h4 className="font-medium text-sm mb-2 flex items-center text-gray-600 dark:text-gray-400">
-          <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">link</span>출처 ({sources.length}건)
+          <Icon name="link" className="h-5 w-5" />출처 ({sources.length}건)
         </h4>
         <div className="flex flex-wrap gap-2">
           {sources.filter(s => s.uri && s.uri !== 'demo://local').slice(0, 10).map((source, i) => (

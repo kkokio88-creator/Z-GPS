@@ -2,6 +2,11 @@ import React from 'react';
 import type { VaultStats, VaultFolder } from '../../services/vaultService';
 import type { SSEProgressEvent } from '../../services/sseClient';
 import type { CrawlingConfig } from './CrawlingTab';
+import Icon from '../ui/Icon';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { CheckCircle2, Save } from 'lucide-react';
 
 const FOLDER_ICONS: Record<string, string> = {
   programs: 'description',
@@ -20,7 +25,7 @@ const StatusDot: React.FC<{ connected: boolean }> = ({ connected }) => (
 
 const StatCard: React.FC<{ label: string; value: number | string; icon: string }> = ({ label, value, icon }) => (
   <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 text-center">
-    <span className="material-icons-outlined text-2xl text-indigo-500 mb-1 block" aria-hidden="true">{icon}</span>
+    <Icon name={icon} className="h-6 w-6 text-indigo-500 mb-1 mx-auto" />
     <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
     <div className="text-xs text-gray-500 mt-1">{label}</div>
   </div>
@@ -58,7 +63,7 @@ const ProgressBar: React.FC<{
       )}
       <div className="flex items-center justify-between text-sm text-indigo-600 dark:text-indigo-400 mb-1">
         <div className="flex items-center gap-2">
-          <span className="material-icons-outlined text-sm animate-spin" aria-hidden="true">refresh</span>
+          <Icon name="refresh" className="h-4 w-4 animate-spin" />
           {hasProgress ? progress.stage : label}
         </div>
         {hasProgress && (
@@ -110,7 +115,7 @@ const InlineSaveMessage: React.FC<{ show: boolean }> = ({ show }) => {
   if (!show) return null;
   return (
     <span className="inline-flex items-center text-sm text-green-600 dark:text-green-400 ml-3 animate-pulse">
-      <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">check_circle</span>
+      <CheckCircle2 className="h-4 w-4 mr-1" />
       저장되었습니다
     </span>
   );
@@ -147,7 +152,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-lg flex items-center gap-2">
-          <span className="material-icons-outlined" aria-hidden="true">cloud_done</span>
+          <Icon name="cloud_done" className="h-5 w-5" />
           데이터 저장소 연결
         </h3>
         <div className="flex items-center gap-2 text-sm">
@@ -167,12 +172,12 @@ const VaultTab: React.FC<VaultTabProps> = ({
             className="shrink-0 p-1.5 text-gray-400 hover:text-indigo-500 transition-colors"
             title="경로 복사"
           >
-            <span className="material-icons-outlined text-sm" aria-hidden="true">content_copy</span>
+            <Icon name="content_copy" className="h-5 w-5" />
           </button>
         )}
       </div>
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">
-        <span className="material-icons-outlined text-sm align-text-bottom mr-1" aria-hidden="true">info</span>
+        <Icon name="info" className="h-5 w-5" />
         공고 데이터는 Obsidian(무료 문서 편집기)과 호환되는 형식으로 저장됩니다.
       </div>
     </div>
@@ -181,16 +186,14 @@ const VaultTab: React.FC<VaultTabProps> = ({
     {vaultStats?.folders && vaultStats.folders.length > 0 && (
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <h3 className="font-bold mb-4 flex items-center gap-2">
-          <span className="material-icons-outlined" aria-hidden="true">folder_open</span>
+          <Icon name="folder_open" className="h-5 w-5" />
           데이터 구조
         </h3>
         <div className="space-y-2">
           {vaultStats.folders.map((folder: VaultFolder) => (
             <div key={folder.name} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
               <div className="flex items-center gap-3">
-                <span className="material-icons-outlined text-indigo-500" aria-hidden="true">
-                  {FOLDER_ICONS[folder.name] || 'folder'}
-                </span>
+                <Icon name={FOLDER_ICONS[folder.name] || 'folder'} className="w-5 h-5 text-indigo-500" />
                 <span className="text-sm font-medium">{folder.label}</span>
               </div>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300">
@@ -213,7 +216,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
     {/* 섹션 4: 동기화 파이프라인 */}
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
       <h3 className="font-bold mb-3 flex items-center gap-2">
-        <span className="material-icons-outlined" aria-hidden="true">sync</span>
+        <Icon name="sync" className="h-5 w-5" />
         공고 동기화
       </h3>
 
@@ -221,7 +224,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
         {PIPELINE_STEPS.map(({ step, label, desc, icon, color }) => (
           <div key={step} className={`p-3 rounded-xl border border-${color}-200 dark:border-${color}-800 bg-${color}-50 dark:bg-${color}-900/20 text-center`}>
-            <span className={`material-icons-outlined text-${color}-500 text-lg`} aria-hidden="true">{icon}</span>
+            <Icon name={icon} className="h-5 w-5" />
             <div className="font-bold text-xs mt-1">{step}. {label}</div>
             <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
           </div>
@@ -234,7 +237,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
           disabled={syncing}
           className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
         >
-          <span className="material-icons-outlined text-sm" aria-hidden="true">cloud_download</span>
+          <Icon name="cloud_download" className="h-5 w-5" />
           공고 동기화
         </button>
         <button
@@ -242,7 +245,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
           disabled={syncing}
           className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
         >
-          <span className="material-icons-outlined text-sm" aria-hidden="true">refresh</span>
+          <Icon name="refresh" className="h-5 w-5" />
           전체 재분석
         </button>
       </div>
@@ -264,7 +267,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold flex items-center gap-2">
-          <span className="material-icons-outlined" aria-hidden="true">travel_explore</span>
+          <Icon name="travel_explore" className="h-5 w-5" />
           수집 설정
         </h3>
         <InlineSaveMessage show={crawlingSaved} />
@@ -311,7 +314,7 @@ const VaultTab: React.FC<VaultTabProps> = ({
           onClick={onSaveCrawling}
           className="w-full bg-gray-800 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-sm"
         >
-          <span className="material-icons-outlined text-sm" aria-hidden="true">save</span>
+          <Icon name="save" className="h-5 w-5" />
           수집 설정 저장
         </button>
       </div>

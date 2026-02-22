@@ -212,6 +212,20 @@
 - 담당: Leader(Opus 4.6) + Member-A~F(Sonnet)
 - 비고: Sidebar NavLink + HashRouter→BrowserRouter 전환은 vercel.json rewrites 설정과 함께 별도 작업
 
+### Phase 5: shadcn/ui 마이그레이션 진행률: 100%
+- 시작일: 2026-02-22
+- 완료일: 2026-02-22
+- 담당: Opus 4.6
+- 내용:
+  - shadcn/ui 컴포넌트 라이브러리 설치 및 설정 (Tailwind CSS v3 + Radix UI)
+  - `components/ui/` 디렉토리에 22개 shadcn 컴포넌트 생성
+  - `lib/utils.ts` (cn 유틸리티), `lib/icons.ts` (Material → Lucide 매핑)
+  - `components/ui/Icon.tsx` 브릿지 컴포넌트 (점진적 마이그레이션용)
+  - 전체 컴포넌트 Material Icons → Icon 브릿지/Lucide React 전환 완료
+  - Sidebar, Header, LoginPage, Settings 탭들 shadcn/ui 컴포넌트 적용
+  - root-level 컴포넌트 17개 import 경로 오류 수정 (`../ui/` → `./ui/`)
+  - 빌드 검증 통과
+
 ---
 
 ## 변경 이력
@@ -223,6 +237,7 @@
 | 2026-02-17 | Phase 2 안정성 강화 완료 (6개 서브태스크) | Team (Opus Leader + Sonnet Members A/B/C) |
 | 2026-02-17 | Phase 3 아키텍처 개선 완료 (5/6 서브태스크, 3.3 이관) | Team (Opus Leader + Sonnet Members A/B/C) |
 | 2026-02-18 | Phase 4 품질 향상 완료 (6개 서브태스크, NavLink/BrowserRouter 보류) | Team (Opus Leader + Sonnet Members A~F) |
+| 2026-02-22 | Phase 5 shadcn/ui 마이그레이션 완료 (22컴포넌트 + 아이콘 전환 + import 수정) | Opus 4.6 |
 
 ---
 

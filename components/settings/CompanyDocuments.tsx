@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { vaultService, type VaultDocumentMeta } from '../../services/vaultService';
+import Icon from '../ui/Icon';
 
 const ACCEPTED_FILE_TYPES = '.pdf,.hwp,.doc,.docx,.jpg,.jpeg,.png,.zip,.xlsx,.xls';
 
@@ -70,18 +71,18 @@ const CompanyDocuments: React.FC<CompanyDocumentsProps> = ({ documents, docsLoad
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
       <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-        <span className="material-icons-outlined" aria-hidden="true">folder_shared</span>
+        <Icon name="folder_shared" className="h-5 w-5" />
         기업 서류함
       </h3>
       <p className="text-xs text-gray-400 mb-4">여기에 등록한 서류는 지원서 작성 시 자동으로 활용됩니다.</p>
 
       {docsLoading ? (
         <div className="flex items-center justify-center py-6 text-gray-400">
-          <span className="material-icons-outlined animate-spin mr-2" aria-hidden="true">refresh</span>로딩 중...
+          <Icon name="refresh" className="h-5 w-5" />로딩 중...
         </div>
       ) : documents.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
-          <span className="material-icons-outlined text-4xl block mb-2" aria-hidden="true">upload_file</span>
+          <Icon name="upload_file" className="h-5 w-5" />
           <p className="text-sm">등록된 서류가 없습니다.</p>
         </div>
       ) : (
@@ -91,7 +92,7 @@ const CompanyDocuments: React.FC<CompanyDocumentsProps> = ({ documents, docsLoad
             return (
               <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 group">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className={`material-icons-outlined text-xl ${style.color}`} aria-hidden="true">{style.icon}</span>
+                  <Icon name={style.icon} className="h-5 w-5" />
                   <div className="min-w-0">
                     <div className="text-sm font-bold truncate">{doc.name}</div>
                     <div className="text-xs text-gray-400 truncate">{doc.fileName} &middot; {formatDate(doc.uploadDate)}</div>
@@ -102,7 +103,7 @@ const CompanyDocuments: React.FC<CompanyDocumentsProps> = ({ documents, docsLoad
                   className="shrink-0 p-1.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                   title="삭제"
                 >
-                  <span className="material-icons-outlined text-lg" aria-hidden="true">delete</span>
+                  <Icon name="delete" className="h-5 w-5" />
                 </button>
               </div>
             );
@@ -140,9 +141,9 @@ const CompanyDocuments: React.FC<CompanyDocumentsProps> = ({ documents, docsLoad
             className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-sm"
           >
             {uploading ? (
-              <><span className="material-icons-outlined text-sm animate-spin" aria-hidden="true">refresh</span>업로드 중...</>
+              <><Icon name="refresh" className="h-5 w-5" />업로드 중...</>
             ) : (
-              <><span className="material-icons-outlined text-sm" aria-hidden="true">upload</span>서류 등록</>
+              <><Icon name="upload" className="h-5 w-5" />서류 등록</>
             )}
           </button>
         </div>

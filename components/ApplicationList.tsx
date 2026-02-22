@@ -1,4 +1,5 @@
 
+import Icon from './ui/Icon';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
@@ -170,24 +171,24 @@ const SortableCard: React.FC<{
             onPointerDown={(e) => e.stopPropagation()}
             className="w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all"
           >
-            <span className="material-icons-outlined text-sm" aria-hidden="true">more_vert</span>
+            <Icon name="more_vert" className="h-5 w-5" />
           </button>
           {showMenu && (
             <div className="absolute right-0 top-7 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50"
               onPointerDown={(e) => e.stopPropagation()}>
               <button onClick={(e) => { e.stopPropagation(); onAction(app.id, 'edit'); setShowMenu(false); }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                <span className="material-icons-outlined text-sm" aria-hidden="true">edit</span>지원서 편집
+                <Icon name="edit" className="h-5 w-5" />지원서 편집
               </button>
               {canAbandon && (
                 <button onClick={(e) => { e.stopPropagation(); onAction(app.id, 'abandon'); setShowMenu(false); }}
                   className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-red-600">
-                  <span className="material-icons-outlined text-sm" aria-hidden="true">block</span>포기 처리
+                  <Icon name="block" className="h-5 w-5" />포기 처리
                 </button>
               )}
               <button onClick={(e) => { e.stopPropagation(); onAction(app.id, 'delete'); setShowMenu(false); }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-red-500">
-                <span className="material-icons-outlined text-sm" aria-hidden="true">delete_outline</span>삭제
+                <Icon name="delete_outline" className="h-5 w-5" />삭제
               </button>
             </div>
           )}
@@ -243,7 +244,7 @@ const DroppableColumn: React.FC<{
       {/* Column Header */}
       <div className={`flex items-center justify-between p-3 rounded-t-xl border-b-2 ${column.borderColor} bg-gray-50 dark:bg-gray-800/80`}>
         <div className="flex items-center gap-2">
-          <span className={`material-icons-outlined text-base ${column.color}`} aria-hidden="true">{column.icon}</span>
+          <Icon name={column.icon} className="h-5 w-5" />
           <h3 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">{column.title}</h3>
         </div>
         <span className={`${column.bgColor} w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold`}>
@@ -552,7 +553,7 @@ const ApplicationList: React.FC = () => {
                   className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
                     mainTab === tab.id ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}>
-                  <span className="material-icons-outlined text-lg" aria-hidden="true">{tab.icon}</span>{tab.label}
+                  <Icon name={tab.icon} className="h-5 w-5" />{tab.label}
                 </button>
               ))}
             </div>
@@ -578,7 +579,7 @@ const ApplicationList: React.FC = () => {
                   </div>
                   <button onClick={() => navigate('/explore')}
                     className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-dark transition-colors flex items-center gap-2 shadow-sm">
-                    <span className="material-icons-outlined text-base" aria-hidden="true">add</span>새 공고 찾기
+                    <Icon name="add" className="h-5 w-5" />새 공고 찾기
                   </button>
                 </div>
 
@@ -597,7 +598,7 @@ const ApplicationList: React.FC = () => {
               {/* Kanban Board */}
               {applications.length === 0 ? (
                 <div className="text-center py-20 bg-white dark:bg-surface-dark rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700">
-                  <span className="material-icons-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4" aria-hidden="true">folder_open</span>
+                  <Icon name="folder_open" className="h-5 w-5" />
                   <h3 className="text-lg font-bold text-gray-500 dark:text-gray-400">작성 중인 지원서가 없습니다</h3>
                   <p className="text-sm text-gray-400 mt-2">공고 탐색에서 적합한 사업을 찾아 시작해보세요.</p>
                   <button onClick={() => navigate('/explore')} className="mt-6 px-6 py-2.5 bg-primary text-white rounded-xl shadow-md hover:bg-primary-dark transition-colors font-bold text-sm">
@@ -624,7 +625,7 @@ const ApplicationList: React.FC = () => {
               <div className="col-span-1 space-y-4">
                 <div className="bg-white dark:bg-surface-dark p-4 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
                   <h3 className="font-bold text-sm mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <span className="material-icons-outlined text-lg text-green-500" aria-hidden="true">verified</span>선정 과제
+                    <Icon name="verified" className="h-5 w-5" />선정 과제
                   </h3>
                   {wonApps.length === 0 ? (
                     <div className="text-center py-6 text-gray-400 text-xs">선정된 과제가 없습니다.</div>
@@ -675,7 +676,7 @@ const ApplicationList: React.FC = () => {
                           className={`px-4 py-3 text-xs font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
                             subTab === tab.id ? 'border-primary text-primary bg-white dark:bg-surface-dark' : 'border-transparent text-gray-500 hover:text-gray-700'
                           }`}>
-                          <span className="material-icons-outlined text-base" aria-hidden="true">{tab.icon}</span>{tab.label}
+                          <Icon name={tab.icon} className="h-4 w-4" />{tab.label}
                         </button>
                       ))}
                     </div>
@@ -711,7 +712,7 @@ const ApplicationList: React.FC = () => {
                           </div>
                           <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
                             <h3 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span className="material-icons-outlined text-amber-500" aria-hidden="true">priority_high</span>할 일 목록
+                              <Icon name="priority_high" className="h-5 w-5" />할 일 목록
                             </h3>
                             <div className="space-y-2">
                               {meetings.flatMap(m => m.actionItems).filter(a => !a.done).slice(0, 3).map((item, i) => (
@@ -834,7 +835,7 @@ const ApplicationList: React.FC = () => {
                           <h3 className="font-bold text-gray-700 dark:text-gray-300">회의록 관리</h3>
                           {meetings.length === 0 ? (
                             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                              <span className="material-icons-outlined text-4xl text-gray-300 mb-2" aria-hidden="true">groups_2</span>
+                              <Icon name="groups" className="h-10 w-10 text-muted-foreground mb-2" />
                               <p className="text-sm text-gray-400">등록된 회의가 없습니다.</p>
                             </div>
                           ) : (
@@ -844,8 +845,8 @@ const ApplicationList: React.FC = () => {
                                   <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                                     <h4 className="font-bold text-gray-800 dark:text-white">{meeting.title}</h4>
                                     <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                                      <span className="flex items-center gap-1"><span className="material-icons-outlined text-sm" aria-hidden="true">event</span>{meeting.date}</span>
-                                      <span className="flex items-center gap-1"><span className="material-icons-outlined text-sm" aria-hidden="true">location_on</span>{meeting.location}</span>
+                                      <span className="flex items-center gap-1"><Icon name="event" className="h-5 w-5" />{meeting.date}</span>
+                                      <span className="flex items-center gap-1"><Icon name="location_on" className="h-5 w-5" />{meeting.location}</span>
                                     </div>
                                   </div>
                                   <div className="p-4">
@@ -875,7 +876,7 @@ const ApplicationList: React.FC = () => {
                         <div className="space-y-6">
                           <div className="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-xl border border-purple-100 dark:border-purple-800">
                             <h3 className="font-bold text-sm text-purple-700 mb-3 flex items-center gap-2">
-                              <span className="material-icons-outlined" aria-hidden="true">edit_note</span>새 연구 노트 작성
+                              <Icon name="edit_note" className="h-5 w-5" />새 연구 노트 작성
                             </h3>
                             <textarea value={newLog} onChange={e => setNewLog(e.target.value)}
                               className="w-full text-sm border border-purple-200 dark:border-purple-700 rounded-lg p-4 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[100px]"
@@ -883,13 +884,13 @@ const ApplicationList: React.FC = () => {
                             <div className="flex justify-end mt-3">
                               <button onClick={handleAddLabLog} disabled={isRefiningLog || !newLog}
                                 className="bg-purple-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">
-                                {isRefiningLog ? <><span className="material-icons-outlined animate-spin text-base" aria-hidden="true">autorenew</span>변환 중...</> : <><span className="material-icons-outlined text-base" aria-hidden="true">auto_awesome</span>AI 등록</>}
+                                {isRefiningLog ? <><Icon name="autorenew" className="h-5 w-5" />변환 중...</> : <><Icon name="auto_awesome" className="h-5 w-5" />AI 등록</>}
                               </button>
                             </div>
                           </div>
                           {labLogs.length === 0 ? (
                             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                              <span className="material-icons-outlined text-4xl text-gray-300 mb-2" aria-hidden="true">note_alt</span>
+                              <Icon name="note_alt" className="h-5 w-5" />
                               <p className="text-sm text-gray-400">등록된 연구 노트가 없습니다.</p>
                             </div>
                           ) : (
@@ -923,7 +924,7 @@ const ApplicationList: React.FC = () => {
                               </select>
                               <button onClick={handleGenerateReport} disabled={isGeneratingReport}
                                 className="bg-primary text-white text-sm px-5 py-2.5 rounded-lg hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2">
-                                {isGeneratingReport ? <><span className="material-icons-outlined animate-spin text-base" aria-hidden="true">autorenew</span>생성 중...</> : <><span className="material-icons-outlined text-base" aria-hidden="true">auto_awesome</span>AI 작성</>}
+                                {isGeneratingReport ? <><Icon name="autorenew" className="h-5 w-5" />생성 중...</> : <><Icon name="auto_awesome" className="h-5 w-5" />AI 작성</>}
                               </button>
                             </div>
                           </div>
@@ -936,7 +937,7 @@ const ApplicationList: React.FC = () => {
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-xl min-h-[500px]">
-                    <span className="material-icons-outlined text-5xl mb-3" aria-hidden="true">assignment</span>
+                    <Icon name="assignment" className="h-5 w-5" />
                     <p>좌측에서 과제를 선택하세요.</p>
                   </div>
                 )}
@@ -950,13 +951,13 @@ const ApplicationList: React.FC = () => {
               <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
-                    <span className="material-icons-outlined text-primary" aria-hidden="true">calendar_today</span>
+                    <Icon name="calendar_today" className="h-5 w-5" />
                     {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
                   </h2>
                   <div className="flex gap-2">
-                    <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><span className="material-icons-outlined" aria-hidden="true">chevron_left</span></button>
+                    <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Icon name="chevron_left" className="h-5 w-5" /></button>
                     <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-sm text-primary hover:bg-primary/10 rounded-lg font-medium">오늘</button>
-                    <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><span className="material-icons-outlined" aria-hidden="true">chevron_right</span></button>
+                    <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Icon name="chevron_right" className="h-5 w-5" /></button>
                   </div>
                 </div>
                 <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">

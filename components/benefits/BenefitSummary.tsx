@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React, { useState } from 'react';
 import type { BenefitRecord, BenefitSummary as BenefitSummaryType } from '../../types';
 import { formatKRW } from '../../services/utils/formatters';
@@ -45,7 +46,7 @@ const BenefitSummaryPanel: React.FC<BenefitSummaryProps> = ({ summary, benefits,
           {summary.byCategory.length > 0 && (
             <div className="bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <span className="material-icons-outlined text-indigo-500 mr-2 text-base" aria-hidden="true">donut_large</span>
+                <Icon name="donut_large" className="h-5 w-5" />
                 카테고리별 분포
               </h3>
               <div className="space-y-3">
@@ -76,7 +77,7 @@ const BenefitSummaryPanel: React.FC<BenefitSummaryProps> = ({ summary, benefits,
           {summary.byYear.length > 0 && (
             <div className="bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <span className="material-icons-outlined text-emerald-500 mr-2 text-base" aria-hidden="true">bar_chart</span>
+                <Icon name="bar_chart" className="h-5 w-5" />
                 연도별 추이
               </h3>
               <div className="flex items-end gap-3 h-40">
@@ -107,7 +108,7 @@ const BenefitSummaryPanel: React.FC<BenefitSummaryProps> = ({ summary, benefits,
           <div className="bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center">
-                <span className="material-icons-outlined text-amber-500 mr-2 text-base" aria-hidden="true">auto_awesome</span>
+                <Icon name="auto_awesome" className="h-5 w-5" />
                 AI 포트폴리오 인사이트
               </h3>
               {!insight && (

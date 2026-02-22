@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import type {
   TaxRefundOpportunity,
@@ -47,7 +48,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
       <div className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" onClick={onToggle}>
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
-            <span className="material-icons-outlined text-indigo-600 dark:text-indigo-400 text-xl" aria-hidden="true">{icon}</span>
+            <Icon name={icon} className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -87,19 +88,19 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {hasNpsVerify && taxScan.npsData?.historical && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400">
-                  <span className="material-icons-outlined text-[11px]" aria-hidden="true">check_circle</span>
+                  <Icon name="check_circle" className="h-5 w-5" />
                   NPS {taxScan.npsData.historical.monthlyData.length}개월 검증
                 </span>
               )}
               {hasDartVerify && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
-                  <span className="material-icons-outlined text-[11px]" aria-hidden="true">check_circle</span>
+                  <Icon name="check_circle" className="h-5 w-5" />
                   DART 재무 검증
                 </span>
               )}
               {!hasNpsVerify && !hasDartVerify && opp.dataSource === 'ESTIMATED' && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500">
-                  <span className="material-icons-outlined text-[11px]" aria-hidden="true">change_history</span>
+                  <Icon name="change_history" className="h-5 w-5" />
                   추정치 (실데이터 연결 시 정확도 향상)
                 </span>
               )}
@@ -197,7 +198,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
               <ul className="space-y-1">
                 {opp.requiredDocuments.map((d, i) => (
                   <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
-                    <span className="material-icons-outlined text-[10px] text-amber-500 mt-0.5" aria-hidden="true">description</span> {d}
+                    <Icon name="description" className="h-5 w-5" /> {d}
                   </li>
                 ))}
               </ul>
@@ -223,7 +224,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
               <ul className="space-y-1">
                 {opp.risks.map((r, i) => (
                   <li key={i} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5">
-                    <span className="material-icons-outlined text-[10px] mt-0.5" aria-hidden="true">warning</span> {r}
+                    <Icon name="warning" className="h-5 w-5" /> {r}
                   </li>
                 ))}
               </ul>
@@ -234,7 +235,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
           {opp.worksheet && (opp.status === 'reviewing' || opp.status === 'in_progress') && (
             <div className="border border-purple-200 dark:border-purple-800/40 rounded-lg overflow-hidden">
               <div className="px-3 py-2 bg-purple-50 dark:bg-purple-900/20 flex items-center gap-2">
-                <span className="material-icons-outlined text-purple-600 dark:text-purple-400 text-base" aria-hidden="true">calculate</span>
+                <Icon name="calculate" className="h-5 w-5" />
                 <h5 className="text-xs font-bold text-purple-700 dark:text-purple-400">{opp.worksheet.title}</h5>
               </div>
               <div className="overflow-x-auto">
@@ -309,7 +310,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
               )}
               <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-200 dark:border-amber-800/30">
                 <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                  <span className="material-icons-outlined text-[10px] align-middle mr-0.5" aria-hidden="true">warning</span>
+                  <Icon name="warning" className="h-5 w-5" />
                   본인 책임하에 검토 및 신고하시기 바랍니다.
                 </p>
               </div>
@@ -336,7 +337,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
                   onClick={(e) => { e.stopPropagation(); onUpdateOppStatus(opp.id, 'filed'); }}
                   className="flex items-center gap-1 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg text-xs font-medium hover:bg-indigo-200 transition-colors"
                 >
-                  <span className="material-icons-outlined text-sm" aria-hidden="true">send</span>
+                  <Icon name="send" className="h-5 w-5" />
                   신고 완료
                 </button>
               )}
@@ -345,7 +346,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
                   onClick={(e) => { e.stopPropagation(); onUpdateOppStatus(opp.id, 'received'); }}
                   className="flex items-center gap-1 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-xs font-medium hover:bg-green-200 transition-colors"
                 >
-                  <span className="material-icons-outlined text-sm" aria-hidden="true">check_circle</span>
+                  <Icon name="check_circle" className="h-5 w-5" />
                   환급 확인
                 </button>
               )}
@@ -353,7 +354,7 @@ const TaxOpportunityCard: React.FC<TaxOpportunityCardProps> = ({
                 onClick={(e) => { e.stopPropagation(); onUpdateOppStatus(opp.id, 'dismissed'); }}
                 className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors ml-auto"
               >
-                <span className="material-icons-outlined text-sm" aria-hidden="true">block</span>
+                <Icon name="block" className="h-5 w-5" />
                 해당 없음
               </button>
             </div>

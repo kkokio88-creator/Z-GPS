@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useRef, useEffect } from 'react';
 import Header from './Header';
 import { marketAgent, vocAgent, productVisionAgent, positioningAgent, pitchCoachAgent, reviewAgent, ReviewPersona } from '../services/geminiAgents';
@@ -197,7 +198,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
                             <div className="space-y-2">
                                 {AI_PERSONAS.map(p => (
                                     <div key={p.id} onClick={()=>setSelectedPersona(p)} className={`p-3 rounded border cursor-pointer flex items-center ${selectedPersona?.id === p.id ? 'border-primary bg-green-50' : 'hover:bg-gray-50'}`}>
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${p.color}`}><span className="material-icons-outlined text-sm" aria-hidden="true">{p.icon}</span></div>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${p.color}`}><Icon name={p.icon} className="h-4 w-4" /></div>
                                         <div><div className="font-bold text-sm">{p.name}</div><div className="text-[10px] text-gray-500">{p.role}</div></div>
                                     </div>
                                 ))}
@@ -231,14 +232,14 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
                                         </div>
                                         <div className="flex gap-2">
                                             <input className="flex-1 border rounded p-2 text-sm" value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleExpertChat()} placeholder="심사 결과에 대해 질문..."/>
-                                            <button onClick={handleExpertChat} disabled={isChatThinking} className="bg-primary text-white px-3 rounded"><span className="material-icons-outlined" aria-hidden="true">send</span></button>
+                                            <button onClick={handleExpertChat} disabled={isChatThinking} className="bg-primary text-white px-3 rounded"><Icon name="send" className="h-5 w-5" /></button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50 border rounded-xl">
-                                <div><span className="material-icons-outlined text-4xl block text-center mb-2" aria-hidden="true">rate_review</span>좌측에서 심사 대상을 선택하세요.</div>
+                                <div><Icon name="rate_review" className="h-5 w-5" />좌측에서 심사 대상을 선택하세요.</div>
                             </div>
                         )}
                     </div>
@@ -251,7 +252,7 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
                     <h2 className="text-2xl font-bold mb-2">실전 발표 연습</h2>
                     <p className="text-gray-500 mb-8">마이크를 켜고 1분간 사업계획을 발표하세요. AI가 전달력과 내용을 분석합니다.</p>
                     <button onClick={isRecording ? stopRecording : startRecording} className={`w-24 h-24 rounded-full shadow-lg mb-6 flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-primary hover:bg-primary-dark'}`}>
-                        <span className="material-icons-outlined text-4xl text-white" aria-hidden="true">{isRecording ? 'stop' : 'mic'}</span>
+                        <Icon name={isRecording ? 'stop' : 'mic'} className="w-10 h-10 text-white" />
                     </button>
                     {transcription && (
                         <div className="bg-gray-100 p-4 rounded text-left text-sm text-gray-700 mb-6 min-h-[100px]">{transcription}</div>

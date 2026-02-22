@@ -1,10 +1,11 @@
 import React from 'react';
+import Icon from '../ui/Icon';
 
 const InlineSaveMessage: React.FC<{ show: boolean }> = ({ show }) => {
   if (!show) return null;
   return (
     <span className="inline-flex items-center text-sm text-green-600 dark:text-green-400 ml-3 animate-pulse">
-      <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">check_circle</span>
+      <Icon name="check_circle" className="h-5 w-5" />
       저장되었습니다
     </span>
   );
@@ -32,7 +33,7 @@ const CrawlingTab: React.FC<CrawlingTabProps> = ({
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-5">
         <h3 className="font-bold text-lg flex items-center gap-2">
-          <span className="material-icons-outlined" aria-hidden="true">travel_explore</span>
+          <Icon name="travel_explore" className="h-5 w-5" />
           공고 수집 설정
         </h3>
         <InlineSaveMessage show={crawlingSaved} />
@@ -49,7 +50,7 @@ const CrawlingTab: React.FC<CrawlingTabProps> = ({
               { step: 4, label: '적합도 분석', desc: '5차원 평가', icon: 'psychology', color: 'emerald' },
             ].map(({ step, label, desc, icon, color }) => (
               <div key={step} className={`p-3 rounded-xl border border-${color}-200 dark:border-${color}-800 bg-${color}-50 dark:bg-${color}-900/20 text-center`}>
-                <span className={`material-icons-outlined text-${color}-500 text-lg`} aria-hidden="true">{icon}</span>
+                <Icon name={icon} className="h-5 w-5" />
                 <div className="font-bold text-xs mt-1">{step}. {label}</div>
                 <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
               </div>
@@ -102,7 +103,7 @@ const CrawlingTab: React.FC<CrawlingTabProps> = ({
           onClick={onSave}
           className="w-full bg-gray-800 hover:bg-black dark:bg-gray-700 dark:hover:bg-gray-600 text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
         >
-          <span className="material-icons-outlined text-sm" aria-hidden="true">save</span>
+          <Icon name="save" className="h-5 w-5" />
           수집 설정 저장
         </button>
       </div>

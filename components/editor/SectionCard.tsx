@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React, { forwardRef } from 'react';
 
 interface MagicToolbarState {
@@ -45,7 +46,7 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
             autoFocus
           />
           <button onClick={magicToolbar.onRewrite} aria-label="Magic Edit 적용" className="bg-indigo-600 text-white rounded p-1">
-            <span className="material-icons-outlined text-sm" aria-hidden="true">auto_fix_high</span>
+            <Icon name="auto_fix_high" className="h-5 w-5" />
           </button>
         </div>
       )}
@@ -105,7 +106,7 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
         />
         {isGenerating && (
           <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-            <span className="animate-spin material-icons-outlined text-3xl text-primary" aria-hidden="true">autorenew</span>
+            <Icon name="autorenew" className="h-8 w-8 text-primary animate-spin" />
           </div>
         )}
       </div>

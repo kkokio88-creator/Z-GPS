@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vaultService, VaultProgram } from '../services/vaultService';
@@ -320,9 +321,7 @@ const ProgramExplorer: React.FC = () => {
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
               title={viewMode === 'swipe' ? '리스트 뷰' : '스와이프 뷰'}
             >
-              <span className="material-icons-outlined text-gray-500 text-lg" aria-hidden="true">
-                {viewMode === 'swipe' ? 'view_list' : 'swipe'}
-              </span>
+              <Icon name={viewMode === 'swipe' ? 'view_list' : 'swipe'} className="w-5 h-5 text-gray-500" />
             </button>
           </div>
         </div>

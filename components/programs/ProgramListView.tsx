@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CategorizedProgram, formatGrant } from './programUtils';
@@ -34,7 +35,7 @@ const ProgramListView: React.FC<ProgramListViewProps> = ({
   if (programs.length === 0) {
     return (
       <div className="text-center py-20 text-gray-400">
-        <span className="material-icons-outlined text-5xl mb-2" aria-hidden="true">search_off</span>
+        <Icon name="search_off" className="h-5 w-5" />
         <p className="font-medium">검색 결과가 없습니다</p>
       </div>
     );
@@ -118,7 +119,7 @@ const ProgramListView: React.FC<ProgramListViewProps> = ({
                         className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                         title="부적합"
                       >
-                        <span className="material-icons-outlined text-gray-400 text-lg" aria-hidden="true">close</span>
+                        <Icon name="close" className="h-5 w-5" />
                       </button>
                       {activeTab === 'recommended' && (
                         <button
@@ -127,7 +128,7 @@ const ProgramListView: React.FC<ProgramListViewProps> = ({
                           className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
                           title="전략 보기"
                         >
-                          <span className="material-icons-outlined text-amber-500 text-lg" aria-hidden="true">auto_awesome</span>
+                          <Icon name="auto_awesome" className="h-5 w-5" />
                         </button>
                       )}
                       <button
@@ -135,7 +136,7 @@ const ProgramListView: React.FC<ProgramListViewProps> = ({
                         className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20"
                         title="관심 등록"
                       >
-                        <span className="material-icons-outlined text-primary text-lg" aria-hidden="true">favorite</span>
+                        <Icon name="favorite" className="h-5 w-5" />
                       </button>
                     </>
                   )}

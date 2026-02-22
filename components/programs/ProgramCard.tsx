@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React, { useRef } from 'react';
 import { CategorizedProgram, formatGrant } from './programUtils';
 import { VaultProgram } from '../../services/vaultService';
@@ -52,7 +53,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
       {dragOverlay === 'right' && (
         <div className="absolute inset-0 bg-primary/10 rounded-2xl flex items-center justify-center z-10 pointer-events-none border-2 border-primary">
           <div className="text-center">
-            <span className="material-icons-outlined text-4xl text-primary mb-1" aria-hidden="true">favorite</span>
+            <Icon name="favorite" className="h-5 w-5" />
             <p className="text-primary font-bold">관심 등록</p>
           </div>
         </div>
@@ -60,7 +61,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
       {dragOverlay === 'left' && (
         <div className="absolute inset-0 bg-gray-500/10 rounded-2xl flex items-center justify-center z-10 pointer-events-none border-2 border-gray-400">
           <div className="text-center">
-            <span className="material-icons-outlined text-4xl text-gray-500 mb-1" aria-hidden="true">delete</span>
+            <Icon name="delete" className="h-5 w-5" />
             <p className="text-gray-500 font-bold">부적합</p>
           </div>
         </div>

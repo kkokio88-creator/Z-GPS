@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { SupportProgram } from '../../types';
 
@@ -48,12 +49,12 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         </div>
 
         <button onClick={onCalendarSync} className="w-full py-2 border rounded text-sm flex items-center justify-center hover:bg-gray-50 mb-2">
-          <span className="material-icons-outlined text-sm mr-2" aria-hidden="true">event</span>캘린더 등록
+          <Icon name="event" className="h-5 w-5" />캘린더 등록
         </button>
 
         {program.detailUrl && (
           <a href={program.detailUrl} target="_blank" rel="noreferrer" className="w-full py-2 bg-gray-50 border border-gray-300 rounded text-sm flex items-center justify-center hover:bg-gray-100 text-gray-700 font-medium">
-            <span className="material-icons-outlined text-sm mr-2" aria-hidden="true">open_in_new</span>공고 원문 보기
+            <Icon name="open_in_new" className="h-5 w-5" />공고 원문 보기
           </a>
         )}
 
@@ -74,9 +75,9 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
           <div className="flex justify-between items-center mb-2 cursor-pointer" onClick={onToggleContextPanel}>
             <h3 className="text-sm font-bold flex items-center text-indigo-700 dark:text-indigo-300">
-              <span className="material-icons-outlined mr-2 text-sm" aria-hidden="true">strategy</span> 전략 가이드
+              <Icon name="strategy" className="h-5 w-5" /> 전략 가이드
             </h3>
-            <span className="material-icons-outlined text-sm" aria-hidden="true">{showContextPanel ? 'expand_less' : 'expand_more'}</span>
+            <Icon name={showContextPanel ? 'expand_less' : 'expand_more'} className="h-4 w-4" />
           </div>
           {showContextPanel && (
             <div className="text-xs space-y-2 animate-fade-in">
@@ -103,19 +104,19 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
       {/* Action Cards */}
       <div className="grid grid-cols-2 gap-3">
         <button onClick={onBudgetPlan} className="p-3 bg-teal-50 text-teal-700 border border-teal-200 rounded text-xs font-bold hover:bg-teal-100 flex flex-col items-center">
-          <span className="material-icons-outlined mb-1" aria-hidden="true">attach_money</span>예산 설계
+          <Icon name="attach_money" className="h-5 w-5" />예산 설계
         </button>
         <button onClick={onGenerateGantt} className="p-3 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded text-xs font-bold hover:bg-cyan-100 flex flex-col items-center">
-          <span className="material-icons-outlined mb-1" aria-hidden="true">calendar_view_week</span>일정 차트
+          <Icon name="calendar_view_week" className="h-5 w-5" />일정 차트
         </button>
         <button onClick={onConsistencyCheck} className="p-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-bold hover:bg-indigo-100 flex flex-col items-center">
-          <span className="material-icons-outlined mb-1" aria-hidden="true">rule</span>정합성 검사
+          <Icon name="rule" className="h-5 w-5" />정합성 검사
         </button>
         <button onClick={onDefensePrep} className="p-3 bg-red-50 text-red-700 border border-red-200 rounded text-xs font-bold hover:bg-red-100 flex flex-col items-center">
-          <span className="material-icons-outlined mb-1" aria-hidden="true">security</span>실사 방어
+          <Icon name="security" className="h-5 w-5" />실사 방어
         </button>
         <button onClick={onStartInterview} className="col-span-2 p-2 bg-purple-50 text-purple-700 border border-purple-200 rounded text-xs font-bold hover:bg-purple-100 flex items-center justify-center">
-          <span className="material-icons-outlined mr-1" aria-hidden="true">record_voice_over</span>모의 면접
+          <Icon name="record_voice_over" className="h-5 w-5" />모의 면접
         </button>
       </div>
     </div>

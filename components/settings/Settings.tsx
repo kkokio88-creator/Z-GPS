@@ -23,14 +23,18 @@ import ApiTab from './ApiTab';
 import { type CrawlingConfig } from './CrawlingTab';
 import SystemTab from './SystemTab';
 import { useResearchCompany } from './useResearchCompany';
+import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
+import { FolderOpen, Building2, KeyRound, Settings as SettingsIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 type TabId = 'vault' | 'company' | 'api' | 'system';
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: 'vault', label: '공고 데이터', icon: 'folder_open' },
-  { id: 'company', label: '우리 기업', icon: 'business' },
-  { id: 'api', label: 'API 연동', icon: 'vpn_key' },
-  { id: 'system', label: '시스템', icon: 'settings' },
+const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
+  { id: 'vault', label: '공고 데이터', icon: FolderOpen },
+  { id: 'company', label: '우리 기업', icon: Building2 },
+  { id: 'api', label: 'API 연동', icon: KeyRound },
+  { id: 'system', label: '시스템', icon: SettingsIcon },
 ];
 
 const DEFAULT_CRAWLING_CONFIG: CrawlingConfig = {
@@ -161,7 +165,7 @@ const Settings: React.FC = () => {
     try {
       const { promise, abort } = vaultService.syncProgramsWithProgress(e => setSyncProgress(e), options);
       syncAbortRef.current = abort;
-      const SYNC_TIMEOUT = 10 * 60 * 1000; // 10분 타임아웃
+      const SYNC_TIMEOUT = 10 * 60 * 1000;
       const r = await Promise.race([
         promise,
         new Promise<never>((_, reject) =>
@@ -296,41 +300,50 @@ const Settings: React.FC = () => {
       <main className="flex-1 overflow-hidden">
         <div className="flex flex-col md:flex-row h-full">
           {/* 모바일: 가로 스크롤 */}
-          <div className="md:hidden overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="md:hidden overflow-x-auto border-b border-border bg-card">
             <div className="flex min-w-max">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <span className="material-icons-outlined text-lg" aria-hidden="true">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
+              {TABS.map(tab => {
+                const IconComp = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors cursor-pointer",
+                      activeTab === tab.id
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <IconComp className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* 데스크톱: 좌측 세로 탭 */}
-          <div className="hidden md:flex flex-col w-56 shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-3 gap-1">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
-                  activeTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800'
-                }`}
-              >
-                <span className="material-icons-outlined text-xl" aria-hidden="true">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
+          <div className="hidden md:flex flex-col w-56 shrink-0 border-r border-border bg-muted/50 p-3 gap-1">
+            {TABS.map(tab => {
+              const IconComp = tab.icon;
+              return (
+                <Button
+                  key={tab.id}
+                  variant={activeTab === tab.id ? "default" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-3 px-4 py-3 h-auto text-sm font-medium",
+                    activeTab === tab.id
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:bg-accent"
+                  )}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <IconComp className="h-5 w-5" />
+                  {tab.label}
+                </Button>
+              );
+            })}
           </div>
 
           {/* 콘텐츠 패널 */}

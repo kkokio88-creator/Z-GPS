@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './Header';
 import { getStoredApplications, getStoredCalendarEvents } from '../services/storageService';
@@ -163,8 +164,8 @@ const ExecutionManager: React.FC = () => {
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-xl font-bold">{currentDate.getFullYear()}년 {currentDate.getMonth()+1}월</h2>
                                 <div className="flex gap-2">
-                                    <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded"><span className="material-icons-outlined" aria-hidden="true">chevron_left</span></button>
-                                    <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded"><span className="material-icons-outlined" aria-hidden="true">chevron_right</span></button>
+                                    <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded"><Icon name="chevron_left" className="h-5 w-5" /></button>
+                                    <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded"><Icon name="chevron_right" className="h-5 w-5" /></button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded overflow-hidden">

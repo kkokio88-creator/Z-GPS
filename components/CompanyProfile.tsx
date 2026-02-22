@@ -1,3 +1,4 @@
+import Icon from './ui/Icon';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
@@ -241,7 +242,7 @@ const CompanyProfile: React.FC = () => {
         {isQaActive && (
           <div className="mb-4 bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded shadow-sm">
             <p className="font-bold text-indigo-700 flex items-center">
-              <span className="material-icons-outlined animate-spin mr-2" aria-hidden="true">sync</span>
+              <Icon name="sync" className="h-5 w-5" />
               QA Testing In Progress: Data Verification...
             </p>
           </div>
@@ -252,7 +253,7 @@ const CompanyProfile: React.FC = () => {
           {errorMessage && (
             <div className="bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 p-4 rounded-r mb-4">
               <div className="flex items-center">
-                <span className="material-icons-outlined text-red-600 mr-2" aria-hidden="true">error</span>
+                <Icon name="error" className="h-5 w-5" />
                 <p className="font-bold text-red-800 dark:text-red-200">오류 발생</p>
               </div>
               <p className="text-sm text-red-700 dark:text-red-300 mt-1">{errorMessage}</p>

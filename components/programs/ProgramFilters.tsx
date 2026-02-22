@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 
 interface ProgramFiltersProps {
@@ -22,7 +23,7 @@ const ProgramFilters: React.FC<ProgramFiltersProps> = ({
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4 bg-white dark:bg-gray-800 rounded-xl p-2.5 shadow-sm border border-gray-100 dark:border-gray-700">
       <div className="flex-1 min-w-[200px] relative">
-        <span className="material-icons-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" aria-hidden="true">search</span>
+        <Icon name="search" className="h-5 w-5" />
         <input
           type="text"
           placeholder="사업명, 기관명으로 검색..."

@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import type { BenefitRecord, BenefitAnalysisResult } from '../../types';
 import { formatKRW } from '../../services/utils/formatters';
@@ -40,7 +41,7 @@ const BenefitAnalysis: React.FC<BenefitAnalysisProps> = ({
 
       {benefits.length === 0 ? (
         <div className="text-center py-16">
-          <span className="material-icons-outlined text-5xl text-gray-300 dark:text-gray-600 mb-3 block" aria-hidden="true">analytics</span>
+          <Icon name="analytics" className="h-5 w-5" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">수령 이력을 먼저 등록해주세요</p>
         </div>
       ) : (
@@ -108,7 +109,7 @@ const BenefitAnalysis: React.FC<BenefitAnalysisProps> = ({
                         <ul className="space-y-1">
                           {analysis.requiredDocuments.map((d, i) => (
                             <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
-                              <span className="material-icons-outlined text-[10px] text-amber-500 mt-0.5" aria-hidden="true">description</span> {d}
+                              <Icon name="description" className="h-5 w-5" /> {d}
                             </li>
                           ))}
                         </ul>
@@ -126,7 +127,7 @@ const BenefitAnalysis: React.FC<BenefitAnalysisProps> = ({
                         <ul className="space-y-1">
                           {analysis.risks.map((r, i) => (
                             <li key={i} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5">
-                              <span className="material-icons-outlined text-[10px] mt-0.5" aria-hidden="true">warning</span> {r}
+                              <Icon name="warning" className="h-5 w-5" /> {r}
                             </li>
                           ))}
                         </ul>

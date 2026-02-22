@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CategorizedProgram } from './programUtils';
@@ -94,9 +95,7 @@ const ProgramSwipeView: React.FC<ProgramSwipeViewProps> = ({
 
       {filteredPrograms.length === 0 ? (
         <div className="text-center">
-          <span className="material-icons-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4" aria-hidden="true">
-            {activeTab === 'all' ? 'check_circle' : activeTab === 'recommended' ? 'star_border' : activeTab === 'interested' ? 'favorite_border' : 'delete_outline'}
-          </span>
+          <Icon name={activeTab === 'all' ? 'check_circle' : activeTab === 'recommended' ? 'star_border' : activeTab === 'interested' ? 'favorite_border' : 'delete_outline'} className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
           <p className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-1">
             {activeTab === 'all' ? '모든 공고를 분류했습니다' :
              activeTab === 'recommended' ? '추천 공고가 없습니다' :
@@ -113,12 +112,12 @@ const ProgramSwipeView: React.FC<ProgramSwipeViewProps> = ({
           {/* 스와이프 가이드 */}
           <div className="absolute top-0 left-0 right-0 flex justify-between px-8 text-xs text-gray-400">
             <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
-              <span className="material-icons-outlined text-sm" aria-hidden="true">arrow_back</span>
+              <Icon name="arrow_back" className="h-5 w-5" />
               <span>부적합</span>
             </div>
             <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
               <span>관심 등록</span>
-              <span className="material-icons-outlined text-sm" aria-hidden="true">arrow_forward</span>
+              <Icon name="arrow_forward" className="h-5 w-5" />
             </div>
           </div>
 
@@ -153,7 +152,7 @@ const ProgramSwipeView: React.FC<ProgramSwipeViewProps> = ({
                   className="group w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-600 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
                   title="전략 보기"
                 >
-                  <span className="material-icons-outlined text-white text-xl" aria-hidden="true">auto_awesome</span>
+                  <Icon name="auto_awesome" className="h-5 w-5" />
                 </button>
               )}
               <button
@@ -161,7 +160,7 @@ const ProgramSwipeView: React.FC<ProgramSwipeViewProps> = ({
                 className="group w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
                 title="상세 분석"
               >
-                <span className="material-icons-outlined text-white text-xl" aria-hidden="true">analytics</span>
+                <Icon name="analytics" className="h-5 w-5" />
               </button>
               <button
                 onClick={() => onSwipe('right')}
@@ -186,7 +185,7 @@ const ProgramSwipeView: React.FC<ProgramSwipeViewProps> = ({
                 onClick={() => currentProgram && navigate(`/program/${currentProgram.id}`)}
                 className="px-5 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-md flex items-center gap-2"
               >
-                <span className="material-icons-outlined text-sm" aria-hidden="true">analytics</span>
+                <Icon name="analytics" className="h-5 w-5" />
                 상세 분석
               </button>
             </div>

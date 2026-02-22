@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { stopQA, generateFixPrompt, executeTestLogic, updateTestResult } from '../../services/qaService';
@@ -69,7 +70,7 @@ const QAController: React.FC = () => {
                 <div className="fixed bottom-6 right-6 z-[9999] w-80 bg-white dark:bg-gray-800 shadow-2xl border-2 border-indigo-600 rounded-xl overflow-hidden animate-bounce-subtle">
                     <div className="bg-indigo-600 text-white p-3 font-bold flex justify-between items-center">
                         <span className="flex items-center text-sm">
-                            <span className="material-icons-outlined animate-spin mr-2 text-xs" aria-hidden="true">autorenew</span>
+                            <Icon name="autorenew" className="h-5 w-5" />
                             Auto-Fix Mode
                         </span>
                         <span className="text-xs bg-indigo-700 px-2 py-0.5 rounded">
@@ -101,11 +102,11 @@ const QAController: React.FC = () => {
                     <div role="dialog" aria-modal="true" aria-labelledby="qa-report-title" className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-3xl h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in-up">
                         <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
                             <h2 id="qa-report-title" className="text-xl font-bold flex items-center text-gray-900 dark:text-white">
-                                <span className="material-icons-outlined mr-2 text-green-600" aria-hidden="true">assignment_turned_in</span>
+                                <Icon name="assignment_turned_in" className="h-5 w-5" />
                                 QA Diagnostic Report
                             </h2>
                             <button onClick={() => setShowReport(false)} aria-label="닫기" className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                                <span className="material-icons-outlined" aria-hidden="true">close</span>
+                                <Icon name="close" className="h-5 w-5" />
                             </button>
                         </div>
 

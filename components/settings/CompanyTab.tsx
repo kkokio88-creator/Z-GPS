@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import type { Company } from '../../types';
 import type { VaultDocumentMeta } from '../../services/vaultService';
 import CompanyDocuments from './CompanyDocuments';
+import Icon from '../ui/Icon';
 
 const InlineSaveMessage: React.FC<{ show: boolean }> = ({ show }) => {
   if (!show) return null;
   return (
     <span className="inline-flex items-center text-sm text-green-600 dark:text-green-400 ml-3 animate-pulse">
-      <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">check_circle</span>
+      <Icon name="check_circle" className="h-5 w-5" />
       저장되었습니다
     </span>
   );
@@ -101,7 +102,7 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
         className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
         <span className="flex items-center gap-2 font-medium text-sm">
-          <span className="material-icons-outlined text-base" aria-hidden="true">{icon}</span>{title}
+          <Icon name={icon} className="h-4 w-4" />{title}
         </span>
         <span className={`material-icons-outlined text-sm transition-transform ${expandedSections.has(id) ? 'rotate-180' : ''}`} aria-hidden="true">expand_more</span>
       </button>
@@ -114,7 +115,7 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
       {/* AI 기업 검색 */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800 p-5">
         <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-          <span className="material-icons-outlined text-indigo-600" aria-hidden="true">travel_explore</span>
+          <Icon name="travel_explore" className="h-5 w-5" />
           AI 기업 리서치
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
@@ -136,16 +137,16 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
           >
             {researching ? (
-              <><span className="material-icons-outlined text-sm animate-spin" aria-hidden="true">refresh</span>리서치 중...</>
+              <><Icon name="refresh" className="h-5 w-5" />리서치 중...</>
             ) : (
-              <><span className="material-icons-outlined text-sm" aria-hidden="true">search</span>검색</>
+              <><Icon name="search" className="h-5 w-5" />검색</>
             )}
           </button>
         </div>
         {researchError && <p className="mt-2 text-sm text-red-500">{researchError}</p>}
         {researching && (
           <div className="mt-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg p-3 text-sm text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-            <span className="material-icons-outlined animate-spin text-sm" aria-hidden="true">autorenew</span>
+            <Icon name="autorenew" className="h-5 w-5" />
             AI가 기업 정보를 수집하고 있습니다. 약 10~15초 소요됩니다...
           </div>
         )}
@@ -164,7 +165,7 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-indigo-200 dark:border-indigo-800 p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg flex items-center gap-2">
-                <span className="material-icons-outlined text-indigo-600" aria-hidden="true">insights</span>
+                <Icon name="insights" className="h-5 w-5" />
                 AI 딥리서치 결과
               </h3>
               <button onClick={onCloseDeepResearch} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
@@ -178,7 +179,7 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
             )}
             {!hasAnySections && (
               <div className="text-center py-6 text-gray-400">
-                <span className="material-icons-outlined text-3xl mb-2 block" aria-hidden="true">info</span>
+                <Icon name="info" className="h-5 w-5" />
                 <p className="text-sm">기본 정보만 수집되었습니다. 아래 기업 정보 폼을 확인하세요.</p>
               </div>
             )}
@@ -251,13 +252,13 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-bold text-lg flex items-center gap-2">
-            <span className="material-icons-outlined" aria-hidden="true">business</span>기업 정보
+            <Icon name="business" className="h-5 w-5" />기업 정보
           </h3>
           <InlineSaveMessage show={companySaved} />
         </div>
         {companyLoading ? (
           <div className="flex items-center justify-center py-10 text-gray-400">
-            <span className="material-icons-outlined animate-spin mr-2" aria-hidden="true">refresh</span>로딩 중...
+            <Icon name="refresh" className="h-5 w-5" />로딩 중...
           </div>
         ) : (
           <div className="space-y-4">
@@ -314,7 +315,7 @@ const CompanyTab: React.FC<CompanyTabProps> = ({
               onClick={onSaveCompany}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-icons-outlined text-sm" aria-hidden="true">save</span>기업 정보 저장
+              <Icon name="save" className="h-5 w-5" />기업 정보 저장
             </button>
           </div>
         )}

@@ -4,62 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Z-GPS</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
-    <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              primary: "#0D5611",
-              "primary-dark": "#0a450e",
-              "background-light": "#F8F9FA",
-              "background-dark": "#1a1a1a",
-              "surface-light": "#FFFFFF",
-              "surface-dark": "#2d2d2d",
-              "border-light": "#E5E7EB",
-              "border-dark": "#404040",
-              "text-main-light": "#111827",
-              "text-main-dark": "#E5E7EB",
-              "text-sub-light": "#6B7280",
-              "text-sub-dark": "#9CA3AF",
-            },
-            fontFamily: {
-              display: ["'Noto Sans KR'", "sans-serif"],
-              sans: ["'Noto Sans KR'", "sans-serif"],
-            },
-          },
-        },
-      };
-    </script>
-    <style>
-      .bg-grid-pattern {
-        background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-        background-size: 24px 24px;
-      }
-      .dark .bg-grid-pattern {
-        background-image: radial-gradient(#4b5563 1px, transparent 1px);
-      }
-      /* Custom Scrollbar for consistent look */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    </style>
 </head>
-  <body class="bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-display h-screen overflow-hidden">
+  <body class="h-full">
     <div id="root" class="h-full"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

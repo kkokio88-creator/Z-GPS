@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React from 'react';
 import { CompanySearchResult } from '../../types';
 
@@ -16,7 +17,7 @@ export const CompanySearchInput: React.FC<CompanySearchInputProps> = ({
 }) => (
   <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
     <h2 className="text-lg font-bold mb-4 flex items-center">
-      <span className="material-icons-outlined text-primary mr-2" aria-hidden="true">search</span>
+      <Icon name="search" className="h-5 w-5" />
       기업명으로 검색
     </h2>
     <div className="flex gap-2">
@@ -35,12 +36,12 @@ export const CompanySearchInput: React.FC<CompanySearchInputProps> = ({
       >
         {isSearching ? (
           <>
-            <span className="material-icons-outlined animate-spin mr-2" aria-hidden="true">sync</span>
+            <Icon name="sync" className="h-5 w-5" />
             검색 중...
           </>
         ) : (
           <>
-            <span className="material-icons-outlined mr-2" aria-hidden="true">travel_explore</span>
+            <Icon name="travel_explore" className="h-5 w-5" />
             AI 검색
           </>
         )}
@@ -66,21 +67,21 @@ export const CompanySearchResults: React.FC<CompanySearchResultsProps> = ({
   <div className="bg-white dark:bg-surface-dark p-6 rounded-lg shadow border border-border-light dark:border-border-dark">
     <div className="flex justify-between items-center mb-4">
       <h2 className="text-lg font-bold flex items-center">
-        <span className="material-icons-outlined text-green-600 mr-2" aria-hidden="true">checklist</span>
+        <Icon name="checklist" className="h-5 w-5" />
         검색 결과 ({results.length}건)
       </h2>
       <button
         onClick={onReset}
         className="text-sm text-gray-500 hover:text-gray-700 flex items-center"
       >
-        <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">arrow_back</span>
+        <Icon name="arrow_back" className="h-5 w-5" />
         다시 검색
       </button>
     </div>
 
     {results.length === 0 ? (
       <div className="text-center py-8 text-gray-500">
-        <span className="material-icons-outlined text-4xl mb-2" aria-hidden="true">search_off</span>
+        <Icon name="search_off" className="h-5 w-5" />
         <p>검색 결과가 없습니다.</p>
       </div>
     ) : (
@@ -106,19 +107,19 @@ export const CompanySearchResults: React.FC<CompanySearchResultsProps> = ({
                 <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
                   {result.address && (
                     <span className="flex items-center">
-                      <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">location_on</span>
+                      <Icon name="location_on" className="h-5 w-5" />
                       {result.address}
                     </span>
                   )}
                   {result.establishedYear && (
                     <span className="flex items-center">
-                      <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">calendar_today</span>
+                      <Icon name="calendar_today" className="h-5 w-5" />
                       {result.establishedYear}년 설립
                     </span>
                   )}
                   {result.estimatedRevenue && (
                     <span className="flex items-center">
-                      <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">payments</span>
+                      <Icon name="payments" className="h-5 w-5" />
                       {result.estimatedRevenue}
                     </span>
                   )}
@@ -128,7 +129,7 @@ export const CompanySearchResults: React.FC<CompanySearchResultsProps> = ({
                 onClick={() => onSelect(result)}
                 className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm flex items-center ml-4 transition-colors"
               >
-                <span className="material-icons-outlined text-sm mr-1" aria-hidden="true">science</span>
+                <Icon name="science" className="h-5 w-5" />
                 이 기업 선택
               </button>
             </div>

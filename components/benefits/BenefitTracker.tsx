@@ -158,7 +158,7 @@ const BenefitTracker: React.FC = () => {
                   activeTab === tab.id ? 'bg-white dark:bg-gray-700 text-primary dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
-                <span className="material-icons-outlined text-base" aria-hidden="true">{tab.icon}</span>{tab.label}
+                <Icon name={tab.icon} className="h-4 w-4" />{tab.label}
               </button>
             ))}
           </div>

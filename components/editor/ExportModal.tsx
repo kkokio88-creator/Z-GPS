@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React, { useState, useEffect } from 'react';
 import { DEFAULT_SECTION_SCHEMA } from '../../constants';
 import { Company, SupportProgram, SectionSchema } from '../../types';
@@ -101,11 +102,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
         <div className="px-6 py-3 bg-gray-800 text-white">
           <div className="flex justify-between items-center mb-3">
             <h3 id="export-modal-title" className="text-lg font-bold flex items-center">
-              <span className="material-icons-outlined mr-2" aria-hidden="true">description</span>
+              <Icon name="description" className="h-5 w-5" />
               서식 및 첨부파일
             </h3>
             <button onClick={onClose} aria-label="닫기" className="text-white hover:text-gray-300">
-              <span className="material-icons-outlined" aria-hidden="true">close</span>
+              <Icon name="close" className="h-5 w-5" />
             </button>
           </div>
           <div className="flex gap-1">
@@ -117,7 +118,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                   : 'text-gray-300 hover:text-white hover:bg-gray-700'
               }`}
             >
-              <span className="material-icons-outlined text-sm mr-1 align-middle" aria-hidden="true">attach_file</span>
+              <Icon name="attach_file" className="h-5 w-5" />
               공고 첨부파일 ({attachments.length})
             </button>
             <button
@@ -128,7 +129,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                   : 'text-gray-300 hover:text-white hover:bg-gray-700'
               }`}
             >
-              <span className="material-icons-outlined text-sm mr-1 align-middle" aria-hidden="true">print</span>
+              <Icon name="print" className="h-5 w-5" />
               지원서 미리보기
             </button>
           </div>
@@ -141,11 +142,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
             <div className={`${selectedPdf ? 'w-72' : 'w-full'} border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4`}>
               {isLoadingAttachments ? (
                 <div className="flex items-center justify-center py-16">
-                  <span className="animate-spin material-icons-outlined text-3xl text-primary" aria-hidden="true">autorenew</span>
+                  <Icon name="autorenew" className="h-8 w-8 text-primary animate-spin" />
                 </div>
               ) : attachments.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
-                  <span className="material-icons-outlined text-5xl mb-3 block" aria-hidden="true">folder_off</span>
+                  <Icon name="folder_off" className="h-5 w-5" />
                   <p className="font-medium mb-1">첨부파일이 없습니다</p>
                   <p className="text-xs">공고 동기화 시 첨부파일이 자동으로 다운로드됩니다.</p>
                   {program.detailUrl && (
@@ -155,7 +156,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                     >
-                      <span className="material-icons-outlined text-sm" aria-hidden="true">open_in_new</span>
+                      <Icon name="open_in_new" className="h-5 w-5" />
                       공고문 원문에서 다운로드
                     </a>
                   )}
@@ -206,7 +207,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
                             title="새 탭에서 열기"
                           >
-                            <span className="material-icons-outlined text-gray-500 text-lg" aria-hidden="true">open_in_new</span>
+                            <Icon name="open_in_new" className="h-5 w-5" />
                           </a>
                         </div>
                       </div>
@@ -282,7 +283,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                 disabled={isExporting !== null}
                 className="px-4 py-2 border rounded flex items-center hover:bg-gray-50 disabled:opacity-50"
               >
-                <span className="material-icons-outlined mr-2" aria-hidden="true">picture_as_pdf</span>
+                <Icon name="picture_as_pdf" className="h-5 w-5" />
                 {isExporting === 'pdf' ? '준비 중...' : 'PDF 저장'}
               </button>
               <button
@@ -290,7 +291,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                 disabled={isExporting !== null}
                 className="px-4 py-2 border border-blue-300 text-blue-700 rounded flex items-center hover:bg-blue-50 disabled:opacity-50"
               >
-                <span className="material-icons-outlined mr-2" aria-hidden="true">description</span>
+                <Icon name="description" className="h-5 w-5" />
                 {isExporting === 'docx' ? '생성 중...' : 'DOCX 다운로드'}
               </button>
               <button
@@ -298,7 +299,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                 disabled={isExporting !== null}
                 className="px-4 py-2 bg-blue-600 text-white rounded flex items-center hover:bg-blue-700 disabled:opacity-50"
               >
-                <span className="material-icons-outlined mr-2" aria-hidden="true">file_download</span>
+                <Icon name="file_download" className="h-5 w-5" />
                 HWP 다운로드
               </button>
             </div>
