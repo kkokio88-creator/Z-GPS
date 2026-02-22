@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 0.5rem;
+  --color-background: hsl(210 20% 98%);
+  --color-foreground: hsl(222 84% 5%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222 84% 5%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222 84% 5%);
+  --color-primary: #0D5611;
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(210 40% 96%);
+  --color-secondary-foreground: hsl(222 47% 11%);
+  --color-muted: hsl(210 40% 96%);
+  --color-muted-foreground: hsl(215 16% 47%);
+  --color-accent: hsl(210 40% 96%);
+  --color-accent-foreground: hsl(222 47% 11%);
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(214 32% 91%);
+  --color-input: hsl(214 32% 91%);
+  --color-ring: #0D5611;
+  --color-chart-1: #0D5611;
+  --color-chart-2: hsl(173 58% 39%);
+  --color-chart-3: hsl(197 37% 24%);
+  --color-chart-4: hsl(43 74% 66%);
+  --color-chart-5: hsl(27 87% 67%);
+  --color-sidebar: hsl(0 0% 98%);
+  --color-sidebar-foreground: hsl(240 5% 26%);
+  --color-sidebar-primary: #0D5611;
+  --color-sidebar-primary-foreground: hsl(0 0% 100%);
+  --color-sidebar-accent: hsl(240 5% 96%);
+  --color-sidebar-accent-foreground: hsl(240 6% 10%);
+  --color-sidebar-border: hsl(220 13% 91%);
+  --color-sidebar-ring: #0D5611;
+}
+
+.dark {
+  --color-background: hsl(0 0% 10%);
+  --color-foreground: hsl(214 32% 91%);
+  --color-card: hsl(0 0% 18%);
+  --color-card-foreground: hsl(214 32% 91%);
+  --color-popover: hsl(0 0% 18%);
+  --color-popover-foreground: hsl(214 32% 91%);
+  --color-primary: #0D5611;
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(0 0% 22%);
+  --color-secondary-foreground: hsl(214 32% 91%);
+  --color-muted: hsl(0 0% 22%);
+  --color-muted-foreground: hsl(215 20% 65%);
+  --color-accent: hsl(0 0% 22%);
+  --color-accent-foreground: hsl(214 32% 91%);
+  --color-destructive: hsl(0 62% 30%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(0 0% 25%);
+  --color-input: hsl(0 0% 25%);
+  --color-ring: hsl(128 60% 30%);
+  --color-sidebar: hsl(0 0% 12%);
+  --color-sidebar-foreground: hsl(240 5% 65%);
+  --color-sidebar-primary: #0D5611;
+  --color-sidebar-primary-foreground: hsl(0 0% 100%);
+  --color-sidebar-accent: hsl(0 0% 18%);
+  --color-sidebar-accent-foreground: hsl(240 5% 90%);
+  --color-sidebar-border: hsl(0 0% 20%);
+  --color-sidebar-ring: hsl(128 60% 30%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans h-screen overflow-hidden;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(215 25% 80%);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(215 16% 60%);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 35%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 45%);
+}
+
+/* Grid pattern utility */
+.bg-grid-pattern {
+  background-image: radial-gradient(hsl(215 25% 80%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.dark .bg-grid-pattern {
+  background-image: radial-gradient(hsl(215 16% 35%) 1px, transparent 1px);
+}
