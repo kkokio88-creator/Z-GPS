@@ -54,6 +54,11 @@ import {
 
 const router = Router();
 
+// Per-phase item caps: 1회 동기화에서 처리할 최대 항목 수 (나머지는 다음 sync에서 처리)
+const MAX_PHASE2 = 20; // URL 크롤링
+const MAX_PHASE3 = 8;  // AI 강화
+const MAX_PHASE4 = 8;  // AI 분석
+
 // 초기화: 볼트 구조 보장
 ensureVaultStructure().catch(e => console.error('[vault] Failed to ensure vault structure:', e));
 
@@ -736,8 +741,10 @@ router.post('/sync', async (req: Request, res: Response) => {
       } catch { /* 읽기 실패 무시 */ }
     }
 
+    const phase2Skipped = Math.max(0, phase2Targets.length - MAX_PHASE2);
+    if (phase2Skipped > 0) phase2Targets.splice(MAX_PHASE2);
     const phase2Total = phase2Targets.length;
-    if (useSSE && phase2Total > 0) sendProgress(res, 'URL 크롤링 시작', 0, phase2Total, '', 3);
+    if (useSSE && phase2Total > 0) sendProgress(res, `URL 크롤링 시작${phase2Skipped ? ` (${phase2Skipped}건 다음 동기화)` : ''}`, 0, phase2Total, '', 3);
 
     for (let i = 0; i < phase2Targets.length; i++) {
       if (useSSE && !isSSEConnected(res)) { console.log('[vault/sync] 클라이언트 연결 끊김 (Phase 2)'); break; }
@@ -756,7 +763,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         ef.enrichmentPhase = 2;
         ef.status = 'crawled';
         await writeNote(file, ef, ec);
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 500));
       } catch (e) {
         console.warn(`[vault/sync] Phase 2 실패 (${pName}):`, e);
         ef.enrichmentPhase = 2;
@@ -780,8 +787,10 @@ router.post('/sync', async (req: Request, res: Response) => {
       } catch { /* 읽기 실패 무시 */ }
     }
 
+    const phase3Skipped = Math.max(0, phase3Targets.length - MAX_PHASE3);
+    if (phase3Skipped > 0) phase3Targets.splice(MAX_PHASE3);
     const phase3Total = phase3Targets.length;
-    if (useSSE && phase3Total > 0) sendProgress(res, 'AI 강화 시작', 0, phase3Total, '', 4);
+    if (useSSE && phase3Total > 0) sendProgress(res, `AI 강화 시작${phase3Skipped ? ` (${phase3Skipped}건 다음 동기화)` : ''}`, 0, phase3Total, '', 4);
 
     for (let i = 0; i < phase3Targets.length; i++) {
       if (useSSE && !isSSEConnected(res)) { console.log('[vault/sync] 클라이언트 연결 끊김 (Phase 3)'); break; }
@@ -889,7 +898,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         await writeNote(file, updatedFm, updatedContent);
         phase3Count++;
 
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 1500));
       } catch (e) {
         console.warn(`[vault/sync] Phase 3 실패 (${pName}):`, e);
       }
@@ -943,8 +952,10 @@ router.post('/sync', async (req: Request, res: Response) => {
       } catch { /* 읽기 실패 무시 */ }
     }
 
+    const phase4Skipped = Math.max(0, phase4Targets.length - MAX_PHASE4);
+    if (phase4Skipped > 0) phase4Targets.splice(MAX_PHASE4);
     const phase4Total = phase4Targets.length;
-    if (useSSE && phase4Total > 0) sendProgress(res, 'AI 분석 시작', 0, phase4Total, '', 5);
+    if (useSSE && phase4Total > 0) sendProgress(res, `AI 분석 시작${phase4Skipped ? ` (${phase4Skipped}건 다음 동기화)` : ''}`, 0, phase4Total, '', 5);
 
     for (let i = 0; i < phase4Targets.length; i++) {
       if (useSSE && !isSSEConnected(res)) { console.log('[vault/sync] 클라이언트 연결 끊김 (Phase 4)'); break; }
@@ -1018,14 +1029,14 @@ router.post('/sync', async (req: Request, res: Response) => {
             const { frontmatter: sFm, content: sContent } = strategyToMarkdown(pName, slug, fitResult.fitScore, fitResult.dimensions, strategy);
             await writeNote(path.join('strategies', `전략-${slug}.md`), sFm, sContent);
             phase4Strategies++;
-            await new Promise(r => setTimeout(r, 2000));
+            await new Promise(r => setTimeout(r, 1000));
           } catch (e) {
             console.warn(`[vault/sync] Phase 4 전략 생성 실패 (${slug}):`, e);
           }
         }
 
         if (fitResult.fitScore > 5) {
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 1000));
         }
       } catch (e) {
         console.warn(`[vault/sync] Phase 4 분석 실패:`, e);

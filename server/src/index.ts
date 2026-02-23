@@ -67,7 +67,7 @@ app.use('/api/dart', dartRouter);
 app.use('/api/vault', vaultRouter);
 
 // Start
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log(`Z-GPS API Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 
@@ -114,3 +114,6 @@ app.listen(PORT, async () => {
     console.error('Vault structure init failed:', err);
   }
 });
+
+// SSE 장시간 연결을 위해 소켓 타임아웃 20분으로 설정 (Express 기본 2분 → 20분)
+server.setTimeout(20 * 60 * 1000);

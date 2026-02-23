@@ -163,14 +163,25 @@ const Settings: React.FC = () => {
   const handleSync = async (options?: { forceReanalyze?: boolean }) => {
     setSyncing(true); setSyncResult(''); setSyncProgress(null);
     try {
-      const { promise, abort } = vaultService.syncProgramsWithProgress(e => setSyncProgress(e), options);
+      const SYNC_TIMEOUT = 20 * 60 * 1000;
+      let timeoutReject: (reason: Error) => void;
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const resetTimeout = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          syncAbortRef.current?.();
+          timeoutReject(new Error('동기화 시간 초과 (20분)'));
+        }, SYNC_TIMEOUT);
+      };
+      const { promise, abort } = vaultService.syncProgramsWithProgress(e => {
+        setSyncProgress(e);
+        resetTimeout(); // 진행 이벤트마다 타임아웃 리셋
+      }, options);
       syncAbortRef.current = abort;
-      const SYNC_TIMEOUT = 10 * 60 * 1000;
+      resetTimeout();
       const r = await Promise.race([
-        promise,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => { abort(); reject(new Error('동기화 시간 초과 (10분)')); }, SYNC_TIMEOUT)
-        ),
+        promise.finally(() => clearTimeout(timeoutId)),
+        new Promise<never>((_, reject) => { timeoutReject = reject; }),
       ]);
       const parts = [`완료: ${r.totalFetched}건 수집, ${r.created}건 생성, ${r.updated}건 갱신`];
       if (r.preScreenPassed || r.preScreenRejected) parts.push(`사전심사 ${r.preScreenPassed||0}건 통과/${r.preScreenRejected||0}건 탈락`);

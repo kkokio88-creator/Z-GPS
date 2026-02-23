@@ -5,7 +5,32 @@
 
 import { Response } from 'express';
 
-/** SSE 응답 헤더 설정 + 연결 끊김 감지 */
+/** 20초마다 SSE keepalive 코멘트를 전송하여 프록시 연결 유지 */
+export function startHeartbeat(res: Response): void {
+  const interval = setInterval(() => {
+    if ((res as any).__sseDisconnected) {
+      clearInterval(interval);
+      return;
+    }
+    try {
+      res.write(': keepalive\n\n');
+    } catch {
+      clearInterval(interval);
+    }
+  }, 20_000);
+  (res as any).__sseHeartbeat = interval;
+}
+
+/** heartbeat 인터벌 정리 */
+export function stopHeartbeat(res: Response): void {
+  const interval = (res as any).__sseHeartbeat;
+  if (interval) {
+    clearInterval(interval);
+    (res as any).__sseHeartbeat = null;
+  }
+}
+
+/** SSE 응답 헤더 설정 + 연결 끊김 감지 + heartbeat 시작 */
 export function initSSE(res: Response): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -19,7 +44,10 @@ export function initSSE(res: Response): void {
   (res as any).__sseDisconnected = false;
   res.on('close', () => {
     (res as any).__sseDisconnected = true;
+    stopHeartbeat(res);
   });
+
+  startHeartbeat(res);
 }
 
 /** 클라이언트가 아직 연결되어 있는지 확인 */
@@ -65,6 +93,7 @@ export function sendComplete(
   res: Response,
   data: Record<string, unknown>
 ): void {
+  stopHeartbeat(res);
   sendSSE(res, 'complete', data);
   if (!((res as any).__sseDisconnected)) {
     res.end();
@@ -73,6 +102,7 @@ export function sendComplete(
 
 /** SSE 에러 이벤트 전송 후 연결 종료 */
 export function sendError(res: Response, message: string): void {
+  stopHeartbeat(res);
   sendSSE(res, 'error', { error: message });
   if (!((res as any).__sseDisconnected)) {
     res.end();
