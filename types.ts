@@ -327,6 +327,25 @@ export interface WorkflowTemplate {
   }[];
 }
 
+// ===== Kanban Board Types =====
+
+export type KanbanStatus = 'backlog' | 'writing' | 'review' | 'done';
+export type KanbanCardType = 'section' | 'document';
+
+export interface KanbanCardData {
+  id: string;
+  type: KanbanCardType;
+  status: KanbanStatus;
+  // Section cards
+  section?: SectionSchema;
+  content?: string;
+  aiRecommendation?: string;
+  isAiGenerating?: boolean;
+  // Document cards
+  documentName?: string;
+  isUploaded?: boolean;
+}
+
 // ===== Section Schema Types (Dynamic Sections) =====
 
 export interface SectionSchema {

@@ -1,5 +1,5 @@
 import Icon from './ui/Icon';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     draftAgent, refinementAgent, budgetAgent,
@@ -14,10 +14,15 @@ import ConsistencyModal from './editor/ConsistencyModal';
 import DefenseModal from './editor/DefenseModal';
 import ExportModal from './editor/ExportModal';
 import GanttModal from './editor/GanttModal';
+import { KanbanBoard } from './kanban/KanbanBoard';
+import KanbanCardDetail from './kanban/KanbanCardDetail';
+import { KanbanProgress } from './kanban/KanbanProgress';
 import { useEditorState } from '../hooks/useEditorState';
 import { useModalState } from '../hooks/useModalState';
 import { useAITools } from '../hooks/useAITools';
+import { useKanbanState } from '../hooks/useKanbanState';
 import { getGoogleCalendarUrlForProgram } from '../services/calendarService';
+import type { KanbanStatus } from '../types';
 
 const ApplicationEditor: React.FC = () => {
   const { programId, slug } = useParams();
@@ -28,9 +33,59 @@ const ApplicationEditor: React.FC = () => {
   const modals = useModalState();
   const ai = useAITools();
 
+  const kanban = useKanbanState(
+    editorKey,
+    editor.sectionSchema,
+    editor.draftSections,
+    editor.documentStatus,
+    editor.program?.requiredDocuments || [],
+  );
+
   if (!editor.program || !editor.company) return <div>Loading...</div>;
 
   const { company, program } = editor;
+
+  // === Kanban Handlers ===
+
+  const handleKanbanCardClick = (cardId: string) => {
+    kanban.setActiveCard(cardId);
+  };
+
+  const handleKanbanTextChange = (cardId: string, text: string) => {
+    editor.setDraftSections(prev => ({ ...prev, [cardId]: text }));
+  };
+
+  const handleKanbanGenerateAI = async (cardId: string, sectionTitle: string) => {
+    kanban.setAiGenerating(cardId);
+    let extendedContext = editor.referenceContext;
+    if (editor.gapAnalysisData) {
+      extendedContext += `\n\n[STRATEGY GUIDE]\nStrengths to emphasize: ${editor.gapAnalysisData.strengths.join(', ')}\nAdvice: ${editor.gapAnalysisData.advice}`;
+    }
+    try {
+      const res = await draftAgent.writeSection(company, program, sectionTitle, ai.useSearchGrounding, extendedContext);
+      kanban.setAiRecommendation(cardId, res.text);
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('AI Generation Error', error);
+      kanban.setAiRecommendation(cardId, 'AI 작성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      kanban.setAiGenerating(null);
+    }
+  };
+
+  const handleKanbanApplyAI = (cardId: string) => {
+    const card = kanban.cards.find(c => c.id === cardId);
+    if (card?.aiRecommendation) {
+      editor.setDraftSections(prev => ({ ...prev, [cardId]: card.aiRecommendation! }));
+    }
+  };
+
+  const handleKanbanStatusChange = (cardId: string, status: KanbanStatus) => {
+    kanban.moveCard(cardId, status);
+  };
+
+  const handleGenerateIntegration = () => {
+    modals.setShowExportModal(true);
+  };
 
   // === Handlers ===
 
@@ -200,73 +255,136 @@ const ApplicationEditor: React.FC = () => {
 
   // === Render ===
 
+  const activeKanbanCard = kanban.activeCardId
+    ? kanban.cards.find(c => c.id === kanban.activeCardId) ?? null
+    : null;
+
   return (
     <div className="flex flex-col h-full relative">
       <Header title="AI 신청 프로세스" actionLabel="지원서 저장" icon="save" onAction={handleSaveApplication} secondaryLabel="목록으로" secondaryAction={() => navigate('/applications')} />
 
       <main className="flex-1 overflow-y-auto p-8 z-10 relative">
         <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0 opacity-40"></div>
-        <div className="relative z-10 grid grid-cols-12 gap-6 max-w-7xl mx-auto">
+        <div className="relative z-10 max-w-7xl mx-auto">
 
-          <LeftPanel
-            program={program}
-            documentStatus={editor.documentStatus}
-            onDocumentToggle={handleDocumentToggle}
-            gapAnalysisData={editor.gapAnalysisData}
-            showContextPanel={editor.showContextPanel}
-            onToggleContextPanel={() => editor.setShowContextPanel(!editor.showContextPanel)}
-            onBudgetPlan={handleBudgetPlan}
-            onGenerateGantt={handleGenerateGantt}
-            onConsistencyCheck={handleConsistencyCheck}
-            onDefensePrep={handleDefensePrep}
-            onStartInterview={startInterview}
-            onCalendarSync={handleCalendarSync}
-          />
-
-          {/* Right Panel (Editor) */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-bold">지원서 작성</h2>
+          {/* 뷰 모드 토글 + 제목 */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">지원서 작성</h2>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-lg border bg-muted p-0.5">
+                <button
+                  onClick={() => kanban.setViewMode('list')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${kanban.viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon name="view_list" className="h-4 w-4" />
+                  리스트
+                </button>
+                <button
+                  onClick={() => kanban.setViewMode('kanban')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${kanban.viewMode === 'kanban' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon name="view_kanban" className="h-4 w-4" />
+                  칸반
+                </button>
+              </div>
               <button onClick={() => modals.setShowExportModal(true)} className="flex items-center px-3 py-1.5 bg-gray-800 text-white rounded text-sm hover:bg-black">
-                <Icon name="print" className="h-5 w-5" /> 표준 서식 미리보기
+                <Icon name="print" className="h-5 w-5 mr-1" /> 표준 서식 미리보기
               </button>
             </div>
-
-            {editor.isLoadingSchema ? (
-              <div className="flex flex-col items-center justify-center py-16 space-y-3">
-                <Icon name="autorenew" className="h-8 w-8 text-primary animate-spin" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">공고 맞춤 섹션 분석 중...</p>
-              </div>
-            ) : (
-              <>
-                {editor.sectionSchemaSource === 'ai_analyzed' && (
-                  <div className="flex items-center px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-xs text-indigo-700 dark:text-indigo-400 mb-2">
-                    <Icon name="auto_awesome" className="h-5 w-5" />
-                    공고 요구사항 기반 AI 맞춤 섹션 ({editor.sectionSchema.length}개)
-                  </div>
-                )}
-                {editor.sectionSchema.map((section) => (
-                  <SectionCard
-                    key={section.id}
-                    ref={(el) => { ai.sectionRefs.current[section.id] = el; }}
-                    section={section}
-                    content={editor.draftSections[section.id] || ''}
-                    isGenerating={ai.isGenerating === section.id}
-                    isAnyGenerating={!!ai.isGenerating}
-                    onGenerateAI={() => handleGenerateAI(section.id, section.title)}
-                    onTextChange={(text) => editor.setDraftSections(prev => ({ ...prev, [section.id]: text }))}
-                    onTextSelect={(e) => handleTextSelect(e, section.id)}
-                    magicToolbar={ai.showMagicToolbar && ai.activeSectionForToolbar === section.id ? {
-                      show: true,
-                      instruction: ai.magicInstruction,
-                      onInstructionChange: ai.setMagicInstruction,
-                      onRewrite: handleMagicRewrite,
-                    } : undefined}
-                  />
-                ))}
-              </>
-            )}
           </div>
+
+          {/* ===== 칸반 뷰 ===== */}
+          {kanban.viewMode === 'kanban' ? (
+            <div className="space-y-4">
+              <KanbanProgress
+                progress={kanban.progress}
+                onGenerateIntegration={handleGenerateIntegration}
+              />
+
+              {editor.isLoadingSchema ? (
+                <div className="flex flex-col items-center justify-center py-16 space-y-3">
+                  <Icon name="autorenew" className="h-8 w-8 text-primary animate-spin" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">공고 맞춤 섹션 분석 중...</p>
+                </div>
+              ) : (
+                <KanbanBoard
+                  columns={kanban.columns}
+                  onMoveCard={kanban.moveCard}
+                  onCardClick={handleKanbanCardClick}
+                  aiGeneratingCardId={kanban.aiGeneratingCardId}
+                />
+              )}
+
+              {/* 칸반 카드 상세 다이얼로그 */}
+              <KanbanCardDetail
+                card={activeKanbanCard}
+                isOpen={!!kanban.activeCardId}
+                onClose={() => kanban.setActiveCard(null)}
+                onTextChange={handleKanbanTextChange}
+                onGenerateAI={handleKanbanGenerateAI}
+                onApplyAI={handleKanbanApplyAI}
+                onStatusChange={handleKanbanStatusChange}
+                onDocumentToggle={handleDocumentToggle}
+              />
+            </div>
+          ) : (
+            /* ===== 리스트 뷰 (기존) ===== */
+            <div className="grid grid-cols-12 gap-6">
+              <LeftPanel
+                program={program}
+                documentStatus={editor.documentStatus}
+                onDocumentToggle={handleDocumentToggle}
+                gapAnalysisData={editor.gapAnalysisData}
+                showContextPanel={editor.showContextPanel}
+                onToggleContextPanel={() => editor.setShowContextPanel(!editor.showContextPanel)}
+                onBudgetPlan={handleBudgetPlan}
+                onGenerateGantt={handleGenerateGantt}
+                onConsistencyCheck={handleConsistencyCheck}
+                onDefensePrep={handleDefensePrep}
+                onStartInterview={startInterview}
+                onCalendarSync={handleCalendarSync}
+              />
+
+              {/* Right Panel (Editor) */}
+              <div className="col-span-12 lg:col-span-8 space-y-6">
+                {editor.isLoadingSchema ? (
+                  <div className="flex flex-col items-center justify-center py-16 space-y-3">
+                    <Icon name="autorenew" className="h-8 w-8 text-primary animate-spin" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">공고 맞춤 섹션 분석 중...</p>
+                  </div>
+                ) : (
+                  <>
+                    {editor.sectionSchemaSource === 'ai_analyzed' && (
+                      <div className="flex items-center px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-xs text-indigo-700 dark:text-indigo-400 mb-2">
+                        <Icon name="auto_awesome" className="h-5 w-5" />
+                        공고 요구사항 기반 AI 맞춤 섹션 ({editor.sectionSchema.length}개)
+                      </div>
+                    )}
+                    {editor.sectionSchema.map((section) => (
+                      <SectionCard
+                        key={section.id}
+                        ref={(el) => { ai.sectionRefs.current[section.id] = el; }}
+                        section={section}
+                        content={editor.draftSections[section.id] || ''}
+                        isGenerating={ai.isGenerating === section.id}
+                        isAnyGenerating={!!ai.isGenerating}
+                        onGenerateAI={() => handleGenerateAI(section.id, section.title)}
+                        onTextChange={(text) => editor.setDraftSections(prev => ({ ...prev, [section.id]: text }))}
+                        onTextSelect={(e) => handleTextSelect(e, section.id)}
+                        magicToolbar={ai.showMagicToolbar && ai.activeSectionForToolbar === section.id ? {
+                          show: true,
+                          instruction: ai.magicInstruction,
+                          onInstructionChange: ai.setMagicInstruction,
+                          onRewrite: handleMagicRewrite,
+                        } : undefined}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
 
