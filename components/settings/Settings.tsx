@@ -295,10 +295,10 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <Header title="설정" />
-      <main className="flex-1 overflow-hidden">
-        <div className="flex flex-col md:flex-row h-full">
+      <main className="flex-1">
+        <div className="flex flex-col md:flex-row min-h-full">
           {/* 모바일: 가로 스크롤 */}
           <div className="md:hidden overflow-x-auto border-b border-border bg-card">
             <div className="flex min-w-max">
@@ -347,7 +347,7 @@ const Settings: React.FC = () => {
           </div>
 
           {/* 콘텐츠 패널 */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="flex-1 p-4 md:p-8">
             <div className="max-w-2xl mx-auto">
               {renderTabContent()}
             </div>

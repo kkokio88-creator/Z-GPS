@@ -261,10 +261,10 @@ const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full bg-background-light dark:bg-background-dark">
+    <div className="flex flex-col min-h-full bg-background-light dark:bg-background-dark">
       <Header title="대시보드" />
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1">
         <div className="max-w-7xl mx-auto space-y-6 p-6 md:p-8">
 
           {/* ===== Hero Summary Bar ===== */}

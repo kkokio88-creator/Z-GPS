@@ -146,9 +146,9 @@ const BenefitTracker: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-background-light dark:bg-background-dark">
+    <div className="flex flex-col min-h-full bg-background-light dark:bg-background-dark">
       <Header title="놓친 세금 환급" />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1">
         <div className="max-w-6xl mx-auto p-6 md:p-8">
           {/* Tabs */}
           <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">

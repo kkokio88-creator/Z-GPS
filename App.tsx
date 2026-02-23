@@ -48,9 +48,9 @@ const ProtectedRoute = () => {
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="min-h-screen">
       <Sidebar />
-      <div className="flex-1 flex flex-col h-full min-w-0 relative">
+      <div className="ml-64 flex flex-col min-w-0 relative">
         <React.Suspense fallback={<PageSkeleton />}>
           <ErrorBoundary>
             <Outlet />

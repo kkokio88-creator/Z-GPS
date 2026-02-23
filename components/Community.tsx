@@ -33,10 +33,10 @@ const InternalKnowledge: React.FC = () => { // Renamed conceptually
     };
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col min-h-full">
             <Header title="사내 지식 자산 (Private Knowledge Base)" icon="folder_special" />
-            
-            <main className="flex-1 overflow-y-auto p-8 z-10 relative">
+
+            <main className="flex-1 p-8 z-10 relative">
                 <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0 opacity-40"></div>
                 <div className="relative z-10 max-w-5xl mx-auto">
                     

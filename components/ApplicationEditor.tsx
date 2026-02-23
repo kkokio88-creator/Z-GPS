@@ -260,7 +260,7 @@ const ApplicationEditor: React.FC = () => {
     : null;
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col min-h-full relative">
       <Header title="AI 신청 프로세스" actionLabel="지원서 저장" icon="save" onAction={handleSaveApplication} secondaryLabel="목록으로" secondaryAction={() => navigate('/applications')} />
 
       <main className="flex-1 overflow-y-auto p-8 z-10 relative">

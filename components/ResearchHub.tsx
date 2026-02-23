@@ -111,10 +111,10 @@ const ResearchHub: React.FC = () => { // Conceptually "AI Strategy Lab"
   useEffect(() => { messagesEndRef.current?.scrollIntoView({behavior:'smooth'}); }, [chatMessages]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <Header title="AI 전략 연구소 (AI Strategy Lab)" icon="psychology" />
-      
-      <main className="flex-1 overflow-y-auto p-8 z-10 relative">
+
+      <main className="flex-1 p-8 z-10 relative">
         <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0 opacity-40"></div>
         <div className="relative z-10 max-w-6xl mx-auto">
             

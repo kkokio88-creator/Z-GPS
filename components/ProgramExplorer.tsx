@@ -252,7 +252,7 @@ const ProgramExplorer: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full bg-background-light dark:bg-background-dark">
+      <div className="flex flex-col min-h-full bg-background-light dark:bg-background-dark">
         <Header title="공고 탐색" icon="explore" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -265,10 +265,10 @@ const ProgramExplorer: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col min-h-full bg-gray-50 dark:bg-gray-900">
       <Header title="공고 탐색" icon="explore" />
 
-      <main className="flex-1 overflow-hidden p-4 lg:p-6">
+      <main className="flex-1 p-4 lg:p-6">
         {/* 에러 알림 */}
         {loadError && (
           <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 flex items-center gap-3">

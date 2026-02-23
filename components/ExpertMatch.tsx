@@ -118,10 +118,10 @@ const ExpertMatch: React.FC = () => {
     }, [chatMessages]);
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col min-h-full">
             <Header title="AI 전문가 위원회 (AI Expert Board)" icon="smart_toy" />
-            
-            <main className="flex-1 overflow-y-auto p-8 z-10 relative">
+
+            <main className="flex-1 p-8 z-10 relative">
                 <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0 opacity-40"></div>
                 <div className="relative z-10 max-w-6xl mx-auto">
                     

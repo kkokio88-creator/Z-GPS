@@ -230,7 +230,7 @@ const CompanyProfile: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-full">
       <Header
         title="기업 자산 허브"
         actionLabel="대시보드"
@@ -238,7 +238,7 @@ const CompanyProfile: React.FC = () => {
         onAction={() => navigate('/')}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 z-10 relative">
+      <main className="flex-1 p-8 z-10 relative">
         {isQaActive && (
           <div className="mb-4 bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded shadow-sm">
             <p className="font-bold text-indigo-700 flex items-center">

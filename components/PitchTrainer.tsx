@@ -59,10 +59,10 @@ const PitchTrainer: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col min-h-full">
             <Header title="AI 피칭 트레이너 (Pitch Trainer)" icon="record_voice_over" />
-            
-            <main className="flex-1 overflow-y-auto p-8 z-10 relative">
+
+            <main className="flex-1 p-8 z-10 relative">
                 <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0 opacity-40"></div>
                 <div className="relative z-10 max-w-4xl mx-auto text-center">
                     
