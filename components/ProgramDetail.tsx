@@ -10,6 +10,10 @@ import { useCompanyStore } from '../services/stores/companyStore';
 import { Application } from '../types';
 import Header from './Header';
 import { FIT_SCORE_THRESHOLD } from '../constants';
+import { Card, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 
 /** HTML 태그 제거 */
 const stripHtml = (html: string): string => {
@@ -178,6 +182,62 @@ const applyInlineStyles = (text: string): React.ReactNode => {
   });
 };
 
+/** 크롤링 원문 collapsible 섹션 */
+const CrawledContentSection: React.FC<{
+  crawledContent: string;
+  crawledSections: string;
+  attachmentLinks?: { url: string; filename: string }[];
+}> = ({ crawledContent, crawledSections, attachmentLinks }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const displayContent = crawledSections || crawledContent;
+  if (!displayContent) return null;
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      >
+        <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
+          <Icon name="article" className="w-3.5 h-3.5" />
+          크롤링 원문
+        </span>
+        <Icon name={isExpanded ? 'expand_less' : 'expand_more'} className="w-4 h-4 text-gray-400" />
+      </button>
+      {isExpanded && (
+        <div className="p-3 space-y-3">
+          {attachmentLinks && attachmentLinks.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase mb-1">첨부파일</p>
+              <ul className="space-y-1">
+                {attachmentLinks.map((link, i) => (
+                  <li key={i}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      <Icon name="attach_file" className="w-3 h-3" />
+                      {link.filename || '첨부파일'}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line max-h-[400px] overflow-y-auto">
+            {displayContent.slice(0, 5000)}
+            {displayContent.length > 5000 && (
+              <p className="text-xs text-gray-400 mt-2">... ({displayContent.length}자 중 5000자 표시)</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ProgramDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -299,7 +359,7 @@ const ProgramDetail: React.FC = () => {
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
         <Icon name="error_outline" className="h-5 w-5" />
         <p className="text-gray-500">{error || '데이터 없음'}</p>
-        <button onClick={() => navigate(-1)} className="px-4 py-2 bg-gray-100 rounded-lg text-sm">뒤로가기</button>
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>뒤로가기</Button>
       </div>
     );
   }
@@ -312,31 +372,32 @@ const ProgramDetail: React.FC = () => {
         <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4">
 
           {/* 뒤로가기 */}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
           >
-            <Icon name="arrow_back" className="h-5 w-5" />
+            <Icon name="arrow_back" className="h-4 w-4" />
             목록으로
-          </button>
+          </Button>
 
           {/* ─── Executive Summary Card ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <Card className="p-5">
             {/* 태그 행 */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-lg font-medium">
+              <Badge variant="secondary">
                 {String(fm.supportType || '정부지원')}
-              </span>
+              </Badge>
               {fitScore > 0 && (
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${grade.bg} ${grade.color} border flex items-center gap-1`}>
-                  <Icon name={grade.icon} className="w-3 h-3" />
+                <Badge variant="outline" className={`${grade.bg} ${grade.color} border`}>
+                  <Icon name={grade.icon} className="w-3 h-3 mr-1" />
                   {grade.label}
-                </span>
+                </Badge>
               )}
               {enrichmentPhase === 99 && (
-                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-600 border border-red-200">
+                <Badge variant="destructive">
                   사전심사 탈락
-                </span>
+                </Badge>
               )}
             </div>
 
@@ -384,7 +445,7 @@ const ProgramDetail: React.FC = () => {
                 </p>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* ─── 사전심사 탈락 사유 ─── */}
           {enrichmentPhase === 99 && preScreenReason && (
@@ -397,29 +458,23 @@ const ProgramDetail: React.FC = () => {
             </div>
           )}
 
-          {/* ─── Tab Bar ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-1 flex">
+          {/* ─── Tab Bar + Content ─── */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
+          <TabsList className="w-full">
             {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <Icon name={tab.icon} className="w-4 h-4" />
+              <TabsTrigger key={tab.id} value={tab.id} className="flex-1">
+                <Icon name={tab.icon} className="w-4 h-4 mr-1" />
                 <span className="hidden sm:inline">{tab.label}</span>
-              </button>
+              </TabsTrigger>
             ))}
-          </div>
+          </TabsList>
 
           {/* ─── Tab Content ─── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <Card className="mt-2">
+          <CardContent className="p-5">
 
             {/* ── 개요 탭 ── */}
-            {activeTab === 'overview' && (
+            <TabsContent value="overview" className="mt-0">
               <div className="space-y-5">
                 {/* 적합도 미니 바 (축약) */}
                 {fitScore > 0 && dims && (
@@ -528,10 +583,10 @@ const ProgramDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
+            </TabsContent>
 
             {/* ── AI 분석 탭 ── */}
-            {activeTab === 'analysis' && (
+            <TabsContent value="analysis" className="mt-0">
               <div className="space-y-5">
                 {fitScore > 0 && dims ? (
                   <>
@@ -677,10 +732,10 @@ const ProgramDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
+            </TabsContent>
 
             {/* ── 전략 탭 ── */}
-            {activeTab === 'strategy' && (
+            <TabsContent value="strategy" className="mt-0">
               <div>
                 {loadingStrategy ? (
                   <div className="text-center py-12">
@@ -714,11 +769,24 @@ const ProgramDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
+            </TabsContent>
 
             {/* ── 상세정보 탭 ── */}
-            {activeTab === 'details' && (
+            <TabsContent value="details" className="mt-0">
               <div className="space-y-4">
+                {/* 공고 원문 링크 */}
+                {fm.detailUrl && (
+                  <a
+                    href={String(fm.detailUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors border border-blue-200 dark:border-blue-800"
+                  >
+                    <Icon name="open_in_new" className="w-4 h-4" />
+                    공고 원문 보기
+                  </a>
+                )}
+
                 {/* 지원 대상 */}
                 {fm.targetAudience && (
                   <div>
@@ -799,8 +867,17 @@ const ProgramDetail: React.FC = () => {
                   </div>
                 )}
 
+                {/* 크롤링 원문 */}
+                {(fm.crawledContent || fm.crawledSections) && (
+                  <CrawledContentSection
+                    crawledContent={String(fm.crawledContent || '')}
+                    crawledSections={String(fm.crawledSections || '')}
+                    attachmentLinks={fm.attachmentLinks as { url: string; filename: string }[] | undefined}
+                  />
+                )}
+
                 {/* 상세 데이터 없음 */}
-                {!fm.targetAudience && !(fm.eligibilityCriteria as string[])?.length && !fm.fullDescription && (
+                {!fm.targetAudience && !(fm.eligibilityCriteria as string[])?.length && !fm.fullDescription && !fm.crawledContent && (
                   <div className="text-center py-8">
                     <Icon name="description" className="h-5 w-5" />
                     <p className="text-sm text-gray-500">상세 정보가 아직 수집되지 않았습니다.</p>
@@ -808,8 +885,10 @@ const ProgramDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+          </CardContent>
+          </Card>
+          </Tabs>
         </div>
       </div>
 
@@ -827,13 +906,13 @@ const ProgramDetail: React.FC = () => {
               공고문 원문
             </a>
           )}
-          <button
+          <Button
             onClick={handleCreateApplication}
-            className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-3 h-auto font-bold"
           >
             <Icon name="edit_note" className="h-5 w-5" />
             지원서 작성하기
-          </button>
+          </Button>
         </div>
       </div>
     </div>

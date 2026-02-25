@@ -120,8 +120,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "Wave 3 - 파일: components/ProgramDetail.tsx, components/programs/ProgramDetailPanel.tsx"
+      "passes": true,
+      "notes": "완료: Card(Executive Summary/탭콘텐츠), Badge(지원유형/적합도/탈락), Tabs(4개 탭), Button(뒤로가기/지원서 작성). 빌드 통과."
     },
     {
       "id": "US-009",
