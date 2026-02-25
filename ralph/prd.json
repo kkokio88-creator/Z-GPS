@@ -75,8 +75,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "Wave 3 - 파일: components/Dashboard.tsx"
+      "passes": true,
+      "notes": "완료: Hero grid-cols-2 sm:3 md:5, Card(유형분포/마감임박/지원현황), Button(동기화/스캔/일괄생성/전체보기), 빌드 통과."
     },
     {
       "id": "US-006",

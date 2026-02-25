@@ -10,6 +10,8 @@ import { Company } from '../types';
 import Header from './Header';
 import { formatKRW, getDday } from '../services/utils/formatters';
 import { FIT_SCORE_THRESHOLD } from '../constants';
+import { Card, CardContent, CardHeader } from './ui/card';
+import { Button } from './ui/button';
 
 interface FocusArea {
   id: string;
@@ -280,11 +282,11 @@ const Dashboard: React.FC = () => {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {[1, 2, 3, 4, 5].map(i => <SkeletonBlock key={i} className="h-20 bg-gray-700/50" />)}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <p className="text-gray-400 text-xs font-medium mb-1">볼트 내 공고</p>
                   <p className="text-white text-3xl font-bold">{heroStats.totalPrograms}<span className="text-sm text-gray-400 ml-1">건</span></p>
@@ -314,6 +316,76 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             )}
+          </section>
+
+          {/* ===== AI 추천 공고 ===== */}
+          <section>
+            <h3 className="text-lg font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
+              <Icon name="auto_awesome" className="h-5 w-5" />
+              AI 추천 공고
+            </h3>
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map(i => <SkeletonBlock key={i} className="h-32" />)}
+              </div>
+            ) : (() => {
+              const recommended = activePrograms
+                .filter(p => p.fitScore >= FIT_SCORE_THRESHOLD)
+                .sort((a, b) => b.fitScore - a.fitScore)
+                .slice(0, 6);
+
+              if (recommended.length === 0) {
+                return (
+                  <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-8 text-center">
+                    <Icon name="search" className="h-5 w-5" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      동기화 후 AI 분석이 완료되면 추천 공고가 표시됩니다
+                    </p>
+                    <Button
+                      onClick={() => navigate('/settings', { state: { tab: 'vault' } })}
+                      size="sm"
+                      className="mt-3"
+                    >
+                      동기화 실행하기
+                    </Button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {recommended.map(prog => {
+                    const dd = getDday(prog.officialEndDate);
+                    return (
+                      <div
+                        key={prog.slug}
+                        onClick={() => navigate(`/program/${prog.slug}`)}
+                        className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-4 cursor-pointer hover:shadow-md transition-all hover:border-primary/30"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 line-clamp-2 flex-1">{prog.programName}</h4>
+                          <span className={`flex-shrink-0 text-lg font-bold ${
+                            prog.fitScore >= 90 ? 'text-amber-500' : 'text-primary dark:text-green-400'
+                          }`}>
+                            {prog.fitScore}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{prog.organizer}</p>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-primary dark:text-green-400">
+                            {prog.expectedGrant > 0 ? formatKRW(prog.expectedGrant) : '금액 미확정'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded ${dd.bgColor} text-xs font-medium`}>
+                            {dd.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </section>
 
           {/* ===== 나의 관심 분야 (3개 공고 + 더 보기 토글) ===== */}
@@ -396,11 +468,14 @@ const Dashboard: React.FC = () => {
 
           {/* ===== 2-Column: 유형 분포 + 마감 임박 ===== */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
-              <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-                <Icon name="bar_chart" className="h-5 w-5" />
-                공고 유형 분포
-              </h3>
+            <Card>
+              <CardHeader className="pb-2">
+                <h3 className="text-sm font-bold flex items-center">
+                  <Icon name="bar_chart" className="h-5 w-5" />
+                  공고 유형 분포
+                </h3>
+              </CardHeader>
+              <CardContent>
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4].map(i => <SkeletonBlock key={i} className="h-6" />)}
@@ -428,13 +503,17 @@ const Dashboard: React.FC = () => {
                   })}
                 </div>
               )}
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-5">
-              <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark mb-4 flex items-center">
-                <Icon name="schedule" className="h-5 w-5" />
-                마감 임박 타임라인
-              </h3>
+            <Card>
+              <CardHeader className="pb-2">
+                <h3 className="text-sm font-bold flex items-center">
+                  <Icon name="schedule" className="h-5 w-5" />
+                  마감 임박 타임라인
+                </h3>
+              </CardHeader>
+              <CardContent>
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map(i => <SkeletonBlock key={i} className="h-14" />)}
@@ -475,7 +554,8 @@ const Dashboard: React.FC = () => {
                   })}
                 </div>
               )}
-            </div>
+              </CardContent>
+            </Card>
           </section>
 
           {/* ===== 놓친 세금 환급 ===== */}
@@ -545,13 +625,14 @@ const Dashboard: React.FC = () => {
             {/* 스캔 결과 없을 때: 지금 스캔 버튼 */}
             {!taxScan && (
               <div className="mt-3 pt-3 border-t border-indigo-200/50 dark:border-indigo-800/30 text-center">
-                <button
+                <Button
                   onClick={() => navigate('/benefits')}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
+                  size="sm"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   <Icon name="search" className="h-5 w-5" />
                   지금 스캔하기
-                </button>
+                </Button>
               </div>
             )}
           </section>
@@ -592,9 +673,10 @@ const Dashboard: React.FC = () => {
           )}
 
           {/* ===== 내 지원 현황 (Compact Bar) ===== */}
-          <section className="bg-white dark:bg-surface-dark rounded-xl border border-border-light dark:border-border-dark shadow-sm p-4">
+          <Card>
+            <CardContent className="p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-text-main-light dark:text-text-main-dark flex items-center">
+              <h3 className="text-sm font-bold flex items-center">
                 <Icon name="assignment" className="h-5 w-5" />
                 내 지원 현황
               </h3>
@@ -617,14 +699,17 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              <button
+              <Button
+                variant="link"
+                size="sm"
                 onClick={() => navigate('/applications')}
-                className="text-xs text-primary hover:underline font-medium"
+                className="text-xs text-primary h-auto p-0"
               >
                 전체 보기
-              </button>
+              </Button>
             </div>
-          </section>
+            </CardContent>
+          </Card>
 
           {/* ===== 일괄 지원서 생성 ===== */}
           <section className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800/30 shadow-sm p-5">
@@ -654,14 +739,15 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
               {appStats.eligibleWithoutApp > 0 && (
-                <button
+                <Button
                   onClick={handleBatchGenerate}
                   disabled={batchGenerating}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   <Icon name={batchGenerating ? 'hourglass_top' : 'bolt'} className="w-3.5 h-3.5" />
                   {batchGenerating ? '생성 중...' : `상위 ${Math.min(appStats.eligibleWithoutApp, 3)}건 생성`}
-                </button>
+                </Button>
               )}
             </div>
 
