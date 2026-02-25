@@ -523,6 +523,15 @@ export const vaultService = {
     }
   },
 
+  /** URL로 프로그램 추가 */
+  async addProgramByUrl(url: string): Promise<{ success: boolean; slug?: string; programName?: string }> {
+    const { data } = await apiClient.post<{ success: boolean; slug?: string; programName?: string }>(
+      '/api/vault/programs/add-by-url',
+      { url }
+    );
+    return data;
+  },
+
   /** 기업명 AI 딥리서치 */
   async researchCompany(companyName: string): Promise<{ success: boolean; company: Record<string, unknown> }> {
     const { data } = await apiClient.post<{ success: boolean; company: Record<string, unknown> }>(

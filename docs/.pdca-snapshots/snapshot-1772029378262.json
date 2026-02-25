@@ -1,0 +1,3839 @@
+{
+  "timestamp": "2026-02-25T14:22:58.248Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-25T14:22:56.689Z",
+    "activeFeatures": [
+      "phase4-quality",
+      "stores",
+      "qaService.ts",
+      "Z-GPS",
+      "analysisService.ts",
+      "vault",
+      "programs",
+      "benefits",
+      "company",
+      "settings",
+      "qa",
+      "editor",
+      "vaultService.ts",
+      "documentExport.ts",
+      "e2e",
+      "storageService.ts",
+      "apiClient.ts",
+      "geminiService.ts",
+      "routes",
+      "sseClient.ts",
+      "supabaseClient.ts",
+      "supabaseService.ts",
+      "server",
+      "deepCrawler.ts",
+      "formExtractorService.ts",
+      "z-gps",
+      "ui",
+      "kanban",
+      "tmp"
+    ],
+    "primaryFeature": "phase6",
+    "features": {
+      "middleware": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T12:56:11.263Z",
+          "lastUpdated": "2026-02-17T12:56:11.263Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/middleware/auth.ts"
+      },
+      "routes": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T12:56:20.971Z",
+          "lastUpdated": "2026-02-18T06:22:41.598Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/routes/gemini.ts"
+      },
+      "server": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T12:56:32.030Z",
+          "lastUpdated": "2026-02-23T05:58:05.429Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/server/src/index.ts"
+      },
+      "Z-GPS": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:02:55.279Z",
+          "lastUpdated": "2026-02-19T05:26:41.500Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/Dashboard.tsx"
+      },
+      "storageService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:03:21.809Z",
+          "lastUpdated": "2026-02-18T10:52:04.480Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/storageService.ts"
+      },
+      "apiClient.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:11:01.784Z",
+          "lastUpdated": "2026-02-18T08:35:13.002Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/apiClient.ts"
+      },
+      "geminiAgents.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:11:17.280Z",
+          "lastUpdated": "2026-02-17T13:12:54.481Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/geminiAgents.ts"
+      },
+      "agentOrchestrator.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:11:53.227Z",
+          "lastUpdated": "2026-02-17T13:11:53.227Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/agentOrchestrator.ts"
+      },
+      "apiService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:13:19.210Z",
+          "lastUpdated": "2026-02-17T13:13:39.747Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/apiService.ts"
+      },
+      "vault": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T13:15:24.676Z",
+          "lastUpdated": "2026-02-23T07:13:25.557Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/server/src/routes/vault/programs.ts"
+      },
+      "phase4-quality": {
+        "phase": "check",
+        "phaseNumber": 4,
+        "matchRate": 95,
+        "iterationCount": 1,
+        "requirements": [
+          "컴포넌트 분해",
+          "접근성 개선",
+          "상태 관리 Zustand",
+          "라우팅 정리",
+          "문서 동기화",
+          "타입 정리"
+        ],
+        "documents": {
+          "plan": "docs/01-plan/features/phase4-quality.plan.md",
+          "analysis": "docs/03-analysis/phase4-quality.analysis.md"
+        },
+        "timestamps": {
+          "started": "2026-02-18T00:00:00.000Z",
+          "lastUpdated": "2026-02-18T12:00:00.000Z"
+        }
+      },
+      "stores": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:06:56.522Z",
+          "lastUpdated": "2026-02-17T17:18:02.264Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/stores/companyStore.ts"
+      },
+      "qaService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:07:13.607Z",
+          "lastUpdated": "2026-02-17T16:08:20.099Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/qaService.ts"
+      },
+      "analysisService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:08:44.387Z",
+          "lastUpdated": "2026-02-19T06:35:39.030Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/services/analysisService.ts"
+      },
+      "programs": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:15:49.414Z",
+          "lastUpdated": "2026-02-25T14:16:39.764Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/programs/ProgramFilters.tsx"
+      },
+      "benefits": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:15:53.515Z",
+          "lastUpdated": "2026-02-25T14:22:56.689Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/benefits/BenefitTracker.tsx"
+      },
+      "company": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:20:16.798Z",
+          "lastUpdated": "2026-02-17T16:28:29.325Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/company/CompanyResearch.tsx"
+      },
+      "settings": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:22:24.742Z",
+          "lastUpdated": "2026-02-23T07:08:38.882Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/settings/useResearchCompany.ts"
+      },
+      "qa": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:24:44.888Z",
+          "lastUpdated": "2026-02-17T16:48:04.704Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/components/qa/QAController.tsx"
+      },
+      "editor": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T16:45:34.052Z",
+          "lastUpdated": "2026-02-25T14:12:06.282Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/editor/ExportModal.tsx"
+      },
+      "phase5-obsidian-workflow": {
+        "phase": "archived",
+        "matchRate": 92,
+        "iterationCount": 1,
+        "startedAt": "2026-02-18T12:00:00.000Z",
+        "archivedAt": "2026-02-25T00:00:00.000Z",
+        "archivedTo": "docs/archive/2026-02/phase5-obsidian-workflow/"
+      },
+      "phase6": {
+        "phase": "plan",
+        "phaseNumber": 1,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [
+          "BrowserRouter Migration + NavLink",
+          "Mobile Responsive Layout",
+          "shadcn/ui Deep Adoption",
+          "Document I/O Enhancement",
+          "Feedback Loop Completion",
+          "Testing Infrastructure"
+        ],
+        "documents": {
+          "plan": "docs/01-plan/features/phase6.plan.md"
+        },
+        "timestamps": {
+          "started": "2026-02-25T00:00:00.000Z",
+          "lastUpdated": "2026-02-25T00:00:00.000Z"
+        }
+      },
+      "vaultService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T17:39:43.124Z",
+          "lastUpdated": "2026-02-23T07:10:06.018Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/services/vaultService.ts"
+      },
+      "documentExport.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T17:45:14.659Z",
+          "lastUpdated": "2026-02-17T17:46:34.158Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/documentExport.ts"
+      },
+      "e2e": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-17T17:49:05.243Z",
+          "lastUpdated": "2026-02-18T02:20:55.560Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/tests/e2e/vault-sync.spec.ts"
+      },
+      "geminiService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-18T06:21:39.600Z",
+          "lastUpdated": "2026-02-19T06:32:49.688Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/services/geminiService.ts"
+      },
+      "sseClient.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-18T10:47:30.229Z",
+          "lastUpdated": "2026-02-18T15:29:47.540Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/sseClient.ts"
+      },
+      "supabaseClient.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-18T10:51:18.914Z",
+          "lastUpdated": "2026-02-18T10:51:18.914Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/services/supabaseClient.ts"
+      },
+      "supabaseService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-18T10:51:35.818Z",
+          "lastUpdated": "2026-02-19T07:02:27.338Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/services/supabaseService.ts"
+      },
+      "deepCrawler.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-19T06:33:01.785Z",
+          "lastUpdated": "2026-02-19T06:33:01.785Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/services/deepCrawler.ts"
+      },
+      "formExtractorService.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-19T06:33:59.460Z",
+          "lastUpdated": "2026-02-19T06:33:59.460Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/Z-GPS/server/src/services/formExtractorService.ts"
+      },
+      "z-gps": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-22T01:15:28.026Z",
+          "lastUpdated": "2026-02-25T14:20:38.606Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/ProgramDetail.tsx"
+      },
+      "ui": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-22T01:16:15.374Z",
+          "lastUpdated": "2026-02-25T14:04:18.354Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/ui/sheet.tsx"
+      },
+      "kanban": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-22T23:02:34.305Z",
+          "lastUpdated": "2026-02-22T23:04:00.293Z"
+        },
+        "lastFile": "/mnt/c/Users/kkoki/GitHub/z-gps/components/kanban/KanbanBoard.tsx"
+      },
+      "tmp": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-23T01:57:42.506Z",
+          "lastUpdated": "2026-02-23T01:57:42.506Z"
+        },
+        "lastFile": "/tmp/scroll-diag.js"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-02-17T12:36:09.585Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-02-25T14:22:56.689Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-02-17T12:56:11.263Z",
+        "feature": "middleware",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T12:56:20.971Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T12:56:32.030Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T12:56:33.584Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T12:57:00.996Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T12:58:10.192Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T12:58:33.957Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:02:55.279Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:10.587Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:14.035Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:17.827Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:20.691Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:21.809Z",
+        "feature": "storageService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:24.001Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:25.394Z",
+        "feature": "storageService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:26.647Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:29.876Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:34.431Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:34.557Z",
+        "feature": "storageService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:39.539Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:43.673Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:47.874Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:03:54.419Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:01.784Z",
+        "feature": "apiClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:14.812Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:17.280Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:20.640Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:25.394Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:31.188Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:35.280Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:35.663Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:40.023Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:43.043Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:46.609Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:49.891Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:53.227Z",
+        "feature": "agentOrchestrator.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:11:56.739Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:22.625Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:27.406Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:39.839Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:47.075Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:49.184Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:50.610Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:12:54.481Z",
+        "feature": "geminiAgents.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:03.033Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:06.178Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:12.003Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:19.210Z",
+        "feature": "apiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:25.512Z",
+        "feature": "apiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:33.643Z",
+        "feature": "apiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:13:39.747Z",
+        "feature": "apiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:15:24.676Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:16:53.512Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:17:10.674Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:19:05.512Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:21:08.906Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:21:24.690Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:21:31.210Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:21:35.859Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T13:32:57.421Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:06:56.522Z",
+        "feature": "stores",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:03.674Z",
+        "feature": "stores",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:13.607Z",
+        "feature": "qaService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:17.684Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:18.159Z",
+        "feature": "qaService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:20.861Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:21.291Z",
+        "feature": "qaService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:25.622Z",
+        "feature": "qaService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:26.820Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:30.278Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:32.897Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:38.918Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:38.984Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:42.989Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:46.788Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:51.977Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:52.002Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:07:58.832Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:08:02.246Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:08:12.439Z",
+        "feature": "qaService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:08:20.099Z",
+        "feature": "qaService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:08:44.387Z",
+        "feature": "analysisService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:08:48.955Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:09:01.418Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:09:04.890Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:09:08.200Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:15:49.414Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:15:53.515Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:16:11.002Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:16:21.350Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:16:22.363Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:16:46.773Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:16:50.758Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:17:14.475Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:17:24.934Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:17:44.581Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:18:42.965Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:19:52.816Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:20:16.798Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:20:26.282Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:20:39.594Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:21:34.288Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:21:40.065Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:21:44.145Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:22:04.162Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:22:24.742Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:22:52.168Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:23:15.587Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:23:23.964Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:23:37.462Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:24:03.149Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:24:44.888Z",
+        "feature": "qa",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:24:51.765Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:25:05.305Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:25:26.244Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:25:59.091Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:26.362Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:32.230Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:33.853Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:36.069Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:39.955Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:43.637Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:46.789Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:51.101Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:26:53.915Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:27:42.947Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:27:50.147Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:28:29.325Z",
+        "feature": "company",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:28:42.359Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:28:55.250Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:29:01.556Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:29:10.440Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:29:16.772Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:29:41.667Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:30:30.451Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:31:13.986Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:31:28.110Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:32:26.733Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:34:48.809Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:34:58.468Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:35:03.315Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:35:08.601Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:35:35.158Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:35:59.668Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:36:03.669Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:36:14.324Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:36:23.308Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:36:36.693Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:36:48.756Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:37:00.557Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:37:32.244Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:38:08.519Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:39:04.605Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:39:58.008Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:40:41.218Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:40:49.763Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:41:04.584Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:42:53.433Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:44:49.127Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:44:58.493Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:45:34.052Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:45:39.407Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:45:44.937Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:45:51.609Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:24.234Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:29.727Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:34.519Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:38.386Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:42.275Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:50.144Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:46:53.017Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:00.106Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:07.086Z",
+        "feature": "qa",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:19.571Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:25.207Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:44.054Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:47.724Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:50.846Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:53.876Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:47:57.061Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:48:01.112Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:48:04.704Z",
+        "feature": "qa",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T16:48:13.221Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:18:02.264Z",
+        "feature": "stores",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:18:51.438Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:18:54.456Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:18:58.155Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:00.901Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:05.866Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:08.685Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:12.390Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:15.258Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:19.832Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:22.901Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:26.682Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:30.500Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:41.049Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:44.286Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:48.734Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:54.639Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:19:59.136Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:02.321Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:07.310Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:21.491Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:24.647Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:31.053Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:33.972Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:43.931Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:46.925Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:49.941Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:20:57.159Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:21:00.506Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:21:03.338Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:21:30.687Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:21:42.544Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:21:43.772Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:21:45.077Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:22:02.017Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:22:46.503Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:29.227Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:30.102Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:33.880Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:36.866Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:38.228Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:40.555Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:43.663Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:45.665Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:46.766Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:52.532Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:52.969Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:55.465Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:36:58.467Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:37:03.886Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:37:04.437Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:37:13.446Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:37:30.022Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:39:35.517Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:39:43.124Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:39:49.649Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:40:03.519Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:40:15.339Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:42:56.898Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:42:58.884Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:44:57.235Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:45:02.703Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:45:11.647Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:45:14.659Z",
+        "feature": "documentExport.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:45:16.403Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:45:25.023Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:46:29.653Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:46:34.158Z",
+        "feature": "documentExport.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:48:11.674Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:48:16.659Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:48:26.418Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:48:50.490Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:49:05.243Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:49:12.602Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:49:19.280Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:49:27.916Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-17T17:49:35.111Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:19:56.002Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:20:01.971Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:20:03.331Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:20:16.249Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:20:28.531Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:20:43.336Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T02:20:55.560Z",
+        "feature": "e2e",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T03:26:01.537Z",
+        "feature": "storageService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T03:26:38.857Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T03:26:39.920Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T03:26:51.689Z",
+        "feature": "storageService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:21:28.143Z",
+        "feature": "apiClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:21:33.446Z",
+        "feature": "apiClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:21:39.600Z",
+        "feature": "geminiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:21:46.001Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:21:53.803Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:22:12.063Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:22:20.170Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:22:29.383Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:22:41.598Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:30:20.476Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:31:03.605Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T06:31:33.493Z",
+        "feature": "geminiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:18:10.857Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:18:43.241Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:35:06.201Z",
+        "feature": "apiClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:35:13.002Z",
+        "feature": "apiClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:35:25.013Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:35:30.164Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:35:53.387Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:40:12.346Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:40:26.598Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:40:37.795Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:40:43.281Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:40:49.888Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:40:58.336Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:41:16.554Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:41:23.984Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:41:37.435Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T08:41:48.679Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:46:52.282Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:00.926Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:06.210Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:11.527Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:18.603Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:30.229Z",
+        "feature": "sseClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:40.576Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:47:55.387Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:48:06.439Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:48:31.463Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:48:36.108Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:49:00.368Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:49:37.881Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:49:46.944Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:49:58.139Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:50:19.522Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:50:32.962Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:51:18.914Z",
+        "feature": "supabaseClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:51:35.818Z",
+        "feature": "supabaseService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:52:04.480Z",
+        "feature": "storageService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:52:24.616Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:52:34.869Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:52:45.404Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:53:06.931Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:53:49.424Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:53:58.773Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:54:11.331Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:54:18.821Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:54:49.860Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:55:11.199Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:55:20.713Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:55:43.244Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:55:49.696Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T10:55:56.028Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:20:02.910Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:20:14.859Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:23:12.208Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:23:20.135Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:23:31.985Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:24:01.971Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:24:07.667Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:24:14.272Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:24:21.248Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:24:27.744Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T11:24:52.970Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:29:47.541Z",
+        "feature": "sseClient.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:30:02.378Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:39:09.944Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:39:27.429Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:39:37.985Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:39:46.560Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T15:40:08.858Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-18T16:37:29.955Z",
+        "feature": "geminiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:11:47.775Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:11:56.555Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:12:09.849Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:12:35.491Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:13:00.753Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:13:13.331Z",
+        "feature": "geminiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:24:04.133Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:24:14.831Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:24:28.228Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:26:19.458Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:26:21.121Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:26:23.131Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:26:29.878Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T05:26:41.500Z",
+        "feature": "Z-GPS",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:32:49.688Z",
+        "feature": "geminiService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:33:01.785Z",
+        "feature": "deepCrawler.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:33:59.460Z",
+        "feature": "formExtractorService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:34:16.286Z",
+        "feature": "analysisService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:34:23.080Z",
+        "feature": "analysisService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:35:09.743Z",
+        "feature": "analysisService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:35:39.030Z",
+        "feature": "analysisService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:35:54.974Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:36:19.727Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:36:46.924Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T06:37:08.763Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:02:07.035Z",
+        "feature": "supabaseService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:02:16.599Z",
+        "feature": "supabaseService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:02:27.338Z",
+        "feature": "supabaseService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:06:25.551Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:06:43.177Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:06:51.464Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:07:03.928Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:07:10.054Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:07:35.576Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-19T07:08:12.745Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:15:28.026Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:15:55.454Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:00.872Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:15.374Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:20.453Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:23.064Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:24.997Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:30.153Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:32.942Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:35.069Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:36.382Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:41.825Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:47.268Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:51.481Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:16:53.110Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:17:06.985Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:17:20.789Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:17:41.864Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:17:51.001Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:18:03.658Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:18:11.075Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:18:14.605Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:18:22.624Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:19:01.614Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:19:12.633Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:19:36.795Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:20:46.914Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:20:52.296Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:21:50.642Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:22:08.479Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:22:25.799Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:23:49.457Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:24:04.724Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:26:17.684Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:26:44.761Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:27:06.645Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:27:43.392Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:27:49.711Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:27:54.964Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:28:01.079Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:28:32.884Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:28:37.272Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:28:41.942Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T01:32:19.589Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:00:29.255Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:00:56.973Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:02:34.305Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:02:43.788Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:02:52.013Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:02:54.151Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:03:11.603Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:03:49.335Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:04:00.293Z",
+        "feature": "kanban",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:04:23.435Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:04:36.969Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-22T23:05:06.469Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T01:57:42.506Z",
+        "feature": "tmp",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:02:56.147Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:03:03.544Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:03:20.252Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:03:21.199Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:03:58.802Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:30.228Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:30.520Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:30.736Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:30.956Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:31.171Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:31.387Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:38.469Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:41.280Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:42.505Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:57.060Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:05:59.202Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:06:20.318Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:06:25.745Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:06:30.778Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:06:39.505Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:09:06.132Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:09:45.145Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:09:51.987Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:10:19.924Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:12:30.503Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T02:14:01.128Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:57:53.399Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:57:57.200Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:57:58.506Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:58:05.429Z",
+        "feature": "server",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:58:14.693Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:58:34.676Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:58:44.370Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:58:51.930Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:58:57.122Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:59:03.382Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:59:07.926Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:59:13.353Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:59:20.108Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T05:59:25.129Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:07:55.742Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:09.948Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:17.860Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:29.642Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:38.882Z",
+        "feature": "settings",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:43.932Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:50.665Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:08:58.618Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:09:22.465Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:09:34.995Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:09:45.251Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:09:58.173Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:10:06.018Z",
+        "feature": "vaultService.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:10:35.438Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:11:06.365Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:11:12.304Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:12:08.229Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-23T07:13:25.557Z",
+        "feature": "vault",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T00:00:00.000Z",
+        "feature": "phase6",
+        "phase": "plan",
+        "action": "created"
+      },
+      {
+        "timestamp": "2026-02-25T13:58:33.830Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T13:58:43.543Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:02:04.746Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:02:09.955Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:02:16.602Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:02:24.196Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:02:30.423Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:04:18.354Z",
+        "feature": "ui",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:05:48.443Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:05:55.405Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:05:59.588Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:06:05.616Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:07:48.872Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:07:55.245Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:00.478Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:06.613Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:12.241Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:21.001Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:26.687Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:34.136Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:40.862Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:46.617Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:53.798Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:08:59.185Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:12:06.282Z",
+        "feature": "editor",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:15:37.687Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:15:45.385Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:15:57.111Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:16:04.126Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:16:10.438Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:16:17.450Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:16:22.947Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:16:30.115Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:16:39.764Z",
+        "feature": "programs",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:02.740Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:13.179Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:19.662Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:25.879Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:37.443Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:50.948Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:19:57.884Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:20:04.078Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:20:11.325Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:20:17.618Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:20:25.398Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:20:31.258Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:20:38.606Z",
+        "feature": "z-gps",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:22:38.965Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-25T14:22:56.689Z",
+        "feature": "benefits",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

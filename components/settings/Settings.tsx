@@ -154,6 +154,10 @@ const Settings: React.FC = () => {
         mainProducts: Array.isArray(c.mainProducts) ? c.mainProducts as string[] : prev.mainProducts,
         representative: (c.representative as string) ?? prev.representative, history: (c.history as string) ?? prev.history,
       }));
+      // Restore deepResearch from vault if available and not already loaded from localStorage
+      if (c.deepResearch && typeof c.deepResearch === 'object' && !deepResearchData) {
+        setDeepResearchData(c.deepResearch as Record<string, unknown>);
+      }
     }).catch(() => {}).finally(() => setCompanyLoading(false));
     loadDocuments();
   }, [activeTab, loadDocuments]);
@@ -202,12 +206,20 @@ const Settings: React.FC = () => {
 
   const handleSaveCompany = async () => {
     _setStoreCompany(company); saveStoredCompany(company);
-    const payload = { name: company.name, businessNumber: company.businessNumber, industry: company.industry,
+    const payload: Record<string, unknown> = { name: company.name, businessNumber: company.businessNumber, industry: company.industry,
       address: company.address, revenue: company.revenue, employees: company.employees,
       description: company.description, coreCompetencies: company.coreCompetencies,
       certifications: company.certifications, foundedYear: company.foundedYear,
       businessType: company.businessType, mainProducts: company.mainProducts,
       representative: company.representative, history: company.history };
+    if (deepResearchData) {
+      payload.deepResearch = {
+        strategicAnalysis: deepResearchData.strategicAnalysis,
+        governmentFundingFit: deepResearchData.governmentFundingFit,
+        marketPosition: deepResearchData.marketPosition,
+        industryInsights: deepResearchData.industryInsights,
+      };
+    }
     try {
       await vaultService.saveCompany(payload);
       window.dispatchEvent(new CustomEvent('zmis-toast', { detail: { message: '기업 정보가 서버에 저장되었습니다.', type: 'success' } }));

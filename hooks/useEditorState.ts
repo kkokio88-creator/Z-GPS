@@ -203,6 +203,46 @@ export function useEditorState(programId: string | undefined): EditorState & Edi
       .finally(() => setIsLoadingSchema(false));
   }, [programId]);
 
+  // Phase 5: Load crawled data from vault as reference context for AI section generation
+  useEffect(() => {
+    if (!programId) return;
+    vaultService.getProgram(programId)
+      .then(detail => {
+        if (!detail?.frontmatter) return;
+        const fm = detail.frontmatter as Record<string, unknown>;
+        const contextParts: string[] = [];
+
+        const crawledContent = fm.crawledContent as string | undefined;
+        const crawledSections = fm.crawledSections as string | undefined;
+        if (crawledSections || crawledContent) {
+          contextParts.push(`[공고 상세 크롤링 원문]\n${(crawledSections || crawledContent || '').substring(0, 3000)}`);
+        }
+
+        const eligCriteria = fm.eligibilityCriteria;
+        if (Array.isArray(eligCriteria) && eligCriteria.length > 0) {
+          contextParts.push(`[자격요건]\n${(eligCriteria as string[]).join('\n')}`);
+        }
+
+        const reqDocs = fm.requiredDocuments;
+        if (Array.isArray(reqDocs) && reqDocs.length > 0) {
+          contextParts.push(`[필요서류]\n${(reqDocs as string[]).join('\n')}`);
+        }
+
+        const evalCriteria = fm.evaluationCriteria;
+        if (Array.isArray(evalCriteria) && evalCriteria.length > 0) {
+          contextParts.push(`[평가기준]\n${(evalCriteria as string[]).join('\n')}`);
+        }
+
+        if (contextParts.length > 0) {
+          setReferenceContext(prev => {
+            const newContext = contextParts.join('\n\n');
+            return prev ? `${prev}\n\n${newContext}` : newContext;
+          });
+        }
+      })
+      .catch(() => { /* ignore */ });
+  }, [programId]);
+
   return {
     company,
     program,

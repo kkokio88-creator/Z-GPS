@@ -99,14 +99,24 @@ export function useResearchCompany({
       setCompany(updated);
       _setStoreCompany(updated);
       try {
-        await vaultService.saveCompany({
+        const savePayload: Record<string, unknown> = {
           name: updated.name, businessNumber: updated.businessNumber, industry: updated.industry,
           address: updated.address, revenue: updated.revenue, employees: updated.employees,
           description: updated.description, coreCompetencies: updated.coreCompetencies,
           certifications: updated.certifications, foundedYear: updated.foundedYear,
           businessType: updated.businessType, mainProducts: updated.mainProducts,
           representative: updated.representative, history: updated.history,
-        });
+        };
+        // Include deepResearch data in auto-save
+        if (c.strategicAnalysis || c.governmentFundingFit || c.marketPosition || c.industryInsights) {
+          savePayload.deepResearch = {
+            strategicAnalysis: c.strategicAnalysis,
+            governmentFundingFit: c.governmentFundingFit,
+            marketPosition: c.marketPosition,
+            industryInsights: c.industryInsights,
+          };
+        }
+        await vaultService.saveCompany(savePayload);
       } catch (saveErr) {
         console.warn('[Settings] Research auto-save failed:', saveErr);
         window.dispatchEvent(new CustomEvent('zmis-toast', { detail: { message: '서버 저장에 실패했습니다. 로컬에만 저장됩니다.', type: 'warning' } }));

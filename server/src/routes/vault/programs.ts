@@ -2136,4 +2136,71 @@ ${strategy.risksAndNotes}
   return { frontmatter, content };
 }
 
+/**
+ * POST /api/vault/programs/add-by-url
+ * URL로 프로그램 추가 (크롤링 → vault 노트 생성)
+ */
+router.post('/programs/add-by-url', async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body as { url: string };
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+      res.status(400).json({ error: '유효한 URL을 입력해주세요.' });
+      return;
+    }
+
+    await ensureVaultStructure();
+
+    // Crawl the URL
+    const crawl = await crawlHtmlOnly(url, 'URL 추가 프로그램');
+    if (!crawl || !crawl.content || crawl.content.length < 20) {
+      res.status(422).json({ error: '해당 URL에서 공고 내용을 가져올 수 없습니다.' });
+      return;
+    }
+
+    // Extract program name from metadata or content
+    const programName = crawl.metadata?.title || crawl.metadata?.programName || 'URL 추가 공고';
+    const slug = generateSlug(programName, `url-${Date.now()}`);
+    const programPath = path.join('programs', `${slug}.md`);
+
+    // Check if already exists
+    if (await noteExists(programPath)) {
+      res.json({ success: true, slug, programName, message: '이미 등록된 공고입니다.' });
+      return;
+    }
+
+    // Build frontmatter
+    const fm: Record<string, unknown> = {
+      type: 'program',
+      id: slug,
+      slug,
+      programName,
+      organizer: crawl.metadata?.organizer || crawl.metadata?.organization || '',
+      supportType: crawl.metadata?.supportType || '정보 없음',
+      officialEndDate: crawl.metadata?.deadline || crawl.metadata?.endDate || '',
+      expectedGrant: 0,
+      fitScore: 0,
+      eligibility: '검토 필요',
+      detailUrl: url,
+      source: 'manual_url',
+      syncedAt: new Date().toISOString(),
+      status: 'deep_crawled',
+      description: crawl.content.substring(0, 500),
+      crawledContent: crawl.content.substring(0, 15000),
+      attachmentLinks: crawl.attachmentLinks.slice(0, 10).map(l => ({
+        url: l.url,
+        filename: l.filename,
+      })),
+    };
+
+    const md = `# ${programName}\n\n> URL로 추가된 공고\n> 원문: ${url}\n\n${crawl.content.substring(0, 5000)}\n`;
+    await writeNote(programPath, fm, md);
+
+    console.log(`[programs/add-by-url] 프로그램 추가: ${programName} (${slug})`);
+    res.json({ success: true, slug, programName });
+  } catch (error) {
+    console.error('[programs/add-by-url] Error:', error);
+    res.status(500).json({ error: 'URL에서 프로그램 추가 실패', details: String(error) });
+  }
+});
+
 export default router;

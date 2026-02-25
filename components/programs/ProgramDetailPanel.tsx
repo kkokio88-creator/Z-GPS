@@ -128,7 +128,7 @@ const ProgramDetailPanel: React.FC<ProgramDetailPanelProps> = ({
 
   return (
     <>
-      <div className="w-full lg:w-[380px] bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden flex flex-col border border-gray-100 dark:border-gray-700 max-h-[50vh] lg:max-h-none">
+      <div className="w-full lg:w-[380px] bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden flex flex-col border border-gray-100 dark:border-gray-700 max-h-[50vh] lg:max-h-full lg:overflow-y-auto shrink-0">
         {selectedProgram ? (() => {
           const vd = vaultData.get(selectedProgram.id);
           return (
@@ -192,6 +192,19 @@ const ProgramDetailPanel: React.FC<ProgramDetailPanelProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* 공고 원문 링크 */}
+                {selectedProgram.detailUrl && (
+                  <a
+                    href={selectedProgram.detailUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <Icon name="open_in_new" className="w-4 h-4" />
+                    공고 원문 보기
+                  </a>
+                )}
 
                 {/* 지원 대상 */}
                 {vd?.targetAudience && (

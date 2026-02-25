@@ -201,12 +201,21 @@ router.put('/company', async (req: Request, res: Response) => {
 ## 기본 정보
 - **사업자번호**: ${companyData.businessNumber || ''}
 - **업종**: ${companyData.industry || ''}
+- **업태**: ${companyData.businessType || ''}
+- **대표자**: ${companyData.representative || ''}
+- **설립연도**: ${companyData.foundedYear || ''}
 - **주소**: ${companyData.address || ''}
 - **매출액**: ${companyData.revenue ? (Number(companyData.revenue) / 100000000).toFixed(1) + '억원' : ''}
 - **직원수**: ${companyData.employees || 0}명
 
 ## 기업 설명
 ${companyData.description || ''}
+
+## 연혁
+${companyData.history || ''}
+
+## 주요 제품/서비스
+${(companyData.mainProducts as string[] || []).map(c => `- ${c}`).join('\n')}
 
 ## 핵심 역량
 ${(companyData.coreCompetencies as string[] || []).map(c => `- ${c}`).join('\n')}
@@ -215,7 +224,13 @@ ${(companyData.coreCompetencies as string[] || []).map(c => `- ${c}`).join('\n')
 ${(companyData.certifications as string[] || []).map(c => `- ${c}`).join('\n')}
 `;
 
-    await writeNote(companyPath, companyData, content);
+    // deepResearch 데이터가 있으면 frontmatter에 함께 저장
+    const dataToSave = { ...companyData };
+    if (companyData.deepResearch && typeof companyData.deepResearch === 'object') {
+      dataToSave.deepResearch = companyData.deepResearch;
+    }
+
+    await writeNote(companyPath, dataToSave, content);
     res.json({ success: true });
   } catch (error) {
     console.error('[vault/company PUT] Error:', error);
