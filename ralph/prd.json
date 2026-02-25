@@ -183,8 +183,8 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "Wave 1 - 파일: components/editor/SectionCard.tsx"
+      "passes": true,
+      "notes": "완료: onFeedback prop 추가, 'Vault 피드백' Button(AI초안 옆), 인라인 textarea 폼(토글), 전송/취소 Button, Ctrl+Enter 전송. 빌드 통과."
     },
     {
       "id": "US-013",

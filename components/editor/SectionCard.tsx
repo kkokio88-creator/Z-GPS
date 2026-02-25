@@ -1,5 +1,6 @@
 import Icon from '../ui/Icon';
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
+import { Button } from '../ui/button';
 
 interface MagicToolbarState {
   show: boolean;
@@ -24,12 +25,29 @@ interface SectionCardProps {
   onTextChange: (text: string) => void;
   onTextSelect: (e: React.SyntheticEvent) => void;
   magicToolbar?: MagicToolbarState;
+  onFeedback?: (sectionId: string, feedback: string) => void;
 }
 
 const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
   section, content, isGenerating, isAnyGenerating,
-  onGenerateAI, onTextChange, onTextSelect, magicToolbar,
+  onGenerateAI, onTextChange, onTextSelect, magicToolbar, onFeedback,
 }, ref) => {
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSending, setFeedbackSending] = useState(false);
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackText.trim() || !onFeedback) return;
+    setFeedbackSending(true);
+    try {
+      await onFeedback(section.id, feedbackText.trim());
+      setFeedbackText('');
+      setShowFeedback(false);
+    } finally {
+      setFeedbackSending(false);
+    }
+  };
+
   return (
     <div ref={ref} className="bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark overflow-hidden relative transition-all duration-300">
       {/* Magic Toolbar */}
@@ -66,6 +84,17 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
                 {section.evaluationWeight}
               </span>
             )}
+            {onFeedback && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFeedback(!showFeedback)}
+                className="text-xs"
+              >
+                <Icon name="rate_review" className="h-3.5 w-3.5 mr-1" />
+                Vault 피드백
+              </Button>
+            )}
             <button
               onClick={onGenerateAI}
               disabled={isAnyGenerating}
@@ -93,6 +122,27 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(({
           </div>
         )}
       </div>
+
+      {/* Feedback Form */}
+      {showFeedback && onFeedback && (
+        <div className="px-6 py-3 bg-blue-50 dark:bg-blue-900/20 border-b flex gap-2 items-start animate-fade-in">
+          <textarea
+            className="flex-1 text-xs border rounded p-2 resize-none h-16 focus:ring-1 focus:ring-primary focus:border-primary"
+            placeholder="이 섹션에 대한 피드백을 입력하세요..."
+            value={feedbackText}
+            onChange={e => setFeedbackText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) handleSubmitFeedback(); }}
+          />
+          <div className="flex flex-col gap-1">
+            <Button size="sm" onClick={handleSubmitFeedback} disabled={feedbackSending || !feedbackText.trim()}>
+              {feedbackSending ? <Icon name="autorenew" className="h-3.5 w-3.5 animate-spin" /> : '전송'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowFeedback(false); setFeedbackText(''); }}>
+              취소
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Text Area */}
       <div className="p-6 relative">
