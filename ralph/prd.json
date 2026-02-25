@@ -215,8 +215,8 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "Wave 4 - 파일: vitest.config.ts(신규), tests/unit/(신규), package.json"
+      "passes": true,
+      "notes": "완료: vitest+testing-library+jsdom 설치, vitest.config.ts 생성(jsdom env), test/test:unit/test:unit:watch 스크립트, formatters.test.ts(9개), constants.test.ts(3개) 전부 통과. 빌드 통과."
     },
     {
       "id": "US-015",
