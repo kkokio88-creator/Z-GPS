@@ -44,8 +44,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Wave 2 준비. 이미 dialog.tsx가 있으므로 radix 의존성은 존재할 수 있음"
+      "passes": true,
+      "notes": "완료: components/ui/sheet.tsx 생성. dialog.tsx 패턴 일치(자체구현, radix 불필요). Sheet/SheetContent/SheetTrigger/SheetClose 등 export. 빌드 통과."
     },
     {
       "id": "US-004",
