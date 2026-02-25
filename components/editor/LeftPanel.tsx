@@ -1,11 +1,18 @@
 import Icon from '../ui/Icon';
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { SupportProgram } from '../../types';
+import { Button } from '../ui/button';
 
 interface GapAnalysisData {
   strengths: string[];
   gaps: string[];
   advice: string;
+}
+
+interface DocxParseResult {
+  fileName: string;
+  text: string;
+  sections: { title: string; content: string; level: number }[];
 }
 
 interface LeftPanelProps {
@@ -21,14 +28,61 @@ interface LeftPanelProps {
   onDefensePrep: () => void;
   onStartInterview: () => void;
   onCalendarSync: () => void;
+  onDocxParsed?: (result: DocxParseResult) => void;
 }
 
 const LeftPanel: React.FC<LeftPanelProps> = ({
   program, documentStatus, onDocumentToggle,
   gapAnalysisData, showContextPanel, onToggleContextPanel,
   onBudgetPlan, onGenerateGantt, onConsistencyCheck, onDefensePrep,
-  onStartInterview, onCalendarSync,
+  onStartInterview, onCalendarSync, onDocxParsed,
 }) => {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+      setUploadError('.docx 파일만 업로드할 수 있습니다.');
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const resp = await fetch(`${apiBase}/api/documents/parse`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: '업로드 실패' }));
+        throw new Error(err.message || `HTTP ${resp.status}`);
+      }
+      const result = await resp.json();
+      onDocxParsed?.(result);
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : '파일 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setUploading(false);
+    }
+  }, [onDocxParsed]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  }, [handleFile]);
+
   return (
     <div className="col-span-12 lg:col-span-4 space-y-6">
       {/* Program Info Card */}
@@ -67,6 +121,35 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
             </li>
           )) : <li className="text-gray-400">명시된 서류 없음</li>}
         </ul>
+      </div>
+
+      {/* DOCX Upload */}
+      <div
+        className={`bg-white dark:bg-surface-dark rounded-lg shadow-sm border-2 border-dashed p-4 text-center transition-colors ${
+          dragOver ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-600'
+        }`}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        <input ref={fileInputRef} type="file" accept=".docx" className="hidden" onChange={handleFileInput} />
+        {uploading ? (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <Icon name="autorenew" className="h-6 w-6 text-primary animate-spin" />
+            <span className="text-xs text-gray-500">DOCX 파싱 중...</span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <Icon name="upload_file" className="h-6 w-6 text-gray-400" />
+            <p className="text-xs text-gray-500">
+              .docx 파일을 드래그하거나
+            </p>
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+              파일 선택
+            </Button>
+          </div>
+        )}
+        {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
       </div>
 
       {/* Strategy Guide */}

@@ -168,8 +168,8 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "Wave 2 - US-010 의존. 파일: components/editor/LeftPanel.tsx"
+      "passes": true,
+      "notes": "완료: 드래그앤드롭 업로드 영역 추가, .docx 검증, POST /api/documents/parse 호출, onDocxParsed 콜백으로 부모에 결과 전달, 로딩 인디케이터. 빌드 통과."
     },
     {
       "id": "US-012",
