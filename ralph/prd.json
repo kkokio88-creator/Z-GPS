@@ -105,8 +105,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "Wave 3 - 파일: components/ProgramExplorer.tsx, components/programs/ProgramFilters.tsx"
+      "passes": true,
+      "notes": "완료: Tabs/TabsList/TabsTrigger로 탭 교체, Badge(추천 카운트), Button(새로고침/다시시도/URL추가/취소/추가), 빌드 통과."
     },
     {
       "id": "US-008",

@@ -19,6 +19,9 @@ import ProgramSwipeView from './programs/ProgramSwipeView';
 import ProgramDetailPanel from './programs/ProgramDetailPanel';
 import { useDragHandler } from './programs/useDragHandler';
 import { FIT_SCORE_THRESHOLD } from '../constants';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
 /** 관심 등록 시 자동 DRAFT 생성 (순수 함수) */
 const createDraftIfNeeded = (program: SupportProgram, companyId: string): void => {
@@ -274,17 +277,19 @@ const ProgramExplorer: React.FC = () => {
           <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 flex items-center gap-3">
             <span className="text-2xl">⚠️</span>
             <p className="flex-1 text-sm text-amber-700 dark:text-amber-300">{loadError}</p>
-            <button
+            <Button
               onClick={() => loadPrograms()}
               disabled={isLoading}
-              className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600"
+              size="sm"
+              className="bg-amber-500 text-white hover:bg-amber-600"
             >
               다시 시도
-            </button>
+            </Button>
           </div>
         )}
 
         {/* 상단 통계 + 탭 */}
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as typeof activeTab); setCurrentIndex(0); }}>
         <div className="mb-4 bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 sm:gap-6 overflow-x-auto">
@@ -295,36 +300,33 @@ const ProgramExplorer: React.FC = () => {
               <div className="text-center px-2 flex-shrink-0"><p className="text-lg sm:text-2xl font-bold text-primary dark:text-green-400">{stats.interested}</p><p className="text-[10px] sm:text-xs text-gray-400">관심</p></div>
               <div className="text-center px-2 flex-shrink-0"><p className="text-lg sm:text-2xl font-bold text-gray-400">{stats.rejected}</p><p className="text-[10px] sm:text-xs text-gray-400">부적합</p></div>
             </div>
-            <button onClick={() => loadPrograms()} disabled={isLoading} className="ml-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0" title="새로고침">
+            <Button variant="ghost" size="icon" onClick={() => loadPrograms()} disabled={isLoading} className="ml-2 flex-shrink-0" title="새로고침">
               <span className={`material-icons-outlined text-gray-400 text-xl ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true">refresh</span>
-            </button>
+            </Button>
           </div>
 
           {/* 탭 + 뷰 전환 */}
           <div className="flex items-center gap-2 overflow-x-auto">
-            {(['all', 'recommended', 'interested', 'rejected'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setCurrentIndex(0); }}
-                className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-shrink-0 ${
-                  activeTab === tab
-                    ? tab === 'recommended' ? 'bg-amber-500 text-white' : 'bg-primary text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                {tab === 'all' ? '미분류' : tab === 'recommended' ? `추천 ${stats.recommended}` : tab === 'interested' ? '관심' : '부적합'}
-              </button>
-            ))}
+            <TabsList className="h-auto p-1">
+              <TabsTrigger value="all" className="text-xs sm:text-sm">미분류</TabsTrigger>
+              <TabsTrigger value="recommended" className="text-xs sm:text-sm">
+                추천 <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{stats.recommended}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="interested" className="text-xs sm:text-sm">관심</TabsTrigger>
+              <TabsTrigger value="rejected" className="text-xs sm:text-sm">부적합</TabsTrigger>
+            </TabsList>
             <div className="flex-1" />
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setViewMode(viewMode === 'swipe' ? 'list' : 'swipe')}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
               title={viewMode === 'swipe' ? '리스트 뷰' : '스와이프 뷰'}
             >
               <Icon name={viewMode === 'swipe' ? 'view_list' : 'swipe'} className="w-5 h-5 text-gray-500" />
-            </button>
+            </Button>
           </div>
         </div>
+        </Tabs>
 
         {/* 검색/필터 바 */}
         <ProgramFilters
@@ -335,10 +337,11 @@ const ProgramExplorer: React.FC = () => {
           onSearchChange={setSearchQuery}
           onFilterTypeChange={setFilterType}
           onSortByChange={setSortBy}
+          onProgramAdded={loadPrograms}
         />
 
         {/* 메인 컨텐츠 */}
-        <div className="flex flex-col lg:flex-row gap-4 h-[calc(100%-140px)]">
+        <div className="flex flex-col lg:flex-row gap-4 min-h-0 flex-1">
 
           {/* 리스트 뷰 */}
           {viewMode === 'list' && (
