@@ -90,8 +90,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "Wave 3 - 파일: components/editor/ExportModal.tsx"
+      "passes": true,
+      "notes": "완료: Tabs/TabsList/TabsTrigger/TabsContent로 탭 교체, Button(PDF/DOCX/HWP/닫기), isExporting 유지. 빌드 통과."
     },
     {
       "id": "US-007",

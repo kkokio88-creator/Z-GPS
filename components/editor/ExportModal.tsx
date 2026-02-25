@@ -4,6 +4,8 @@ import { DEFAULT_SECTION_SCHEMA } from '../../constants';
 import { Company, SupportProgram, SectionSchema } from '../../types';
 import { vaultService } from '../../services/vaultService';
 import { exportToPdf, exportToDocx, exportToHwp } from '../../services/documentExport';
+import { Button } from '../ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 
 interface Attachment {
   name: string;
@@ -22,7 +24,6 @@ interface ExportModalProps {
 
 const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSections, sections, onClose }) => {
   const sectionList = sections && sections.length > 0 ? sections : DEFAULT_SECTION_SCHEMA;
-  const [activeTab, setActiveTab] = useState<'attachments' | 'preview'>('attachments');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
@@ -98,46 +99,33 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4">
       <div role="dialog" aria-modal="true" aria-labelledby="export-modal-title" className="bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden animate-fade-in-up h-[95vh] flex flex-col">
-        {/* Header with tabs */}
+        {/* Header */}
         <div className="px-6 py-3 bg-gray-800 text-white">
-          <div className="flex justify-between items-center mb-3">
+          <div className="flex justify-between items-center">
             <h3 id="export-modal-title" className="text-lg font-bold flex items-center">
               <Icon name="description" className="h-5 w-5" />
               서식 및 첨부파일
             </h3>
-            <button onClick={onClose} aria-label="닫기" className="text-white hover:text-gray-300">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기" className="text-white hover:text-gray-300 hover:bg-gray-700">
               <Icon name="close" className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => setActiveTab('attachments')}
-              className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
-                activeTab === 'attachments'
-                  ? 'bg-white text-gray-800'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <Icon name="attach_file" className="h-5 w-5" />
-              공고 첨부파일 ({attachments.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
-                activeTab === 'preview'
-                  ? 'bg-white text-gray-800'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <Icon name="print" className="h-5 w-5" />
-              지원서 미리보기
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* Attachments Tab */}
-        {activeTab === 'attachments' && (
-          <div className="flex-1 overflow-hidden flex">
+        <Tabs defaultValue="attachments" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="mx-6 mt-3 mb-0 w-fit">
+            <TabsTrigger value="attachments">
+              <Icon name="attach_file" className="h-4 w-4 mr-1.5" />
+              공고 첨부파일 ({attachments.length})
+            </TabsTrigger>
+            <TabsTrigger value="preview">
+              <Icon name="print" className="h-4 w-4 mr-1.5" />
+              지원서 미리보기
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Attachments Tab */}
+          <TabsContent value="attachments" className="flex-1 overflow-hidden flex mt-0">
             {/* 파일 목록 */}
             <div className={`${selectedPdf ? 'w-72' : 'w-full'} border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4`}>
               {isLoadingAttachments ? (
@@ -227,12 +215,10 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
                 />
               </div>
             )}
-          </div>
-        )}
+          </TabsContent>
 
-        {/* Preview Tab (기존 HWP 미리보기) */}
-        {activeTab === 'preview' && (
-          <>
+          {/* Preview Tab */}
+          <TabsContent value="preview" className="flex-1 flex flex-col overflow-hidden mt-0">
             <div className="flex-1 overflow-y-auto p-8 bg-gray-200 dark:bg-gray-900 flex justify-center">
               <div id="export-preview-content" className="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-lg text-black text-[11pt] leading-[1.6] font-serif">
                 {/* Title */}
@@ -278,33 +264,34 @@ const ExportModal: React.FC<ExportModalProps> = ({ company, program, draftSectio
               </div>
             </div>
             <div className="px-6 py-4 bg-white dark:bg-surface-dark border-t border-gray-200 flex justify-end gap-3">
-              <button
+              <Button
+                variant="outline"
                 onClick={handleExportPdf}
                 disabled={isExporting !== null}
-                className="px-4 py-2 border rounded flex items-center hover:bg-gray-50 disabled:opacity-50"
               >
-                <Icon name="picture_as_pdf" className="h-5 w-5" />
+                <Icon name="picture_as_pdf" className="h-4 w-4" />
                 {isExporting === 'pdf' ? '준비 중...' : 'PDF 저장'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleExportDocx}
                 disabled={isExporting !== null}
-                className="px-4 py-2 border border-blue-300 text-blue-700 rounded flex items-center hover:bg-blue-50 disabled:opacity-50"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
               >
-                <Icon name="description" className="h-5 w-5" />
+                <Icon name="description" className="h-4 w-4" />
                 {isExporting === 'docx' ? '생성 중...' : 'DOCX 다운로드'}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleExportHwp}
                 disabled={isExporting !== null}
-                className="px-4 py-2 bg-blue-600 text-white rounded flex items-center hover:bg-blue-700 disabled:opacity-50"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                <Icon name="file_download" className="h-5 w-5" />
+                <Icon name="file_download" className="h-4 w-4" />
                 HWP 다운로드
-              </button>
+              </Button>
             </div>
-          </>
-        )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
