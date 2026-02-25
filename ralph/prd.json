@@ -230,8 +230,8 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "Wave 4 - 파일: package.json"
+      "passes": true,
+      "notes": "완료: test:e2e/test:e2e:ui 스크립트 추가, 5개 spec(25 tests) --list 파싱 성공. 빌드 통과."
     }
   ]
 }

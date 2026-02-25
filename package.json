@@ -13,6 +13,8 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:unit:watch": "vitest watch tests/unit",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "lint": "eslint . --ext ts,tsx",
     "clean": "rm -rf dist node_modules && npm install",
