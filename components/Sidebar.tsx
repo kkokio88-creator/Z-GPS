@@ -68,7 +68,7 @@ const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 w-64 h-screen bg-card border-r border-border flex flex-col z-20 shadow-sm transition-colors duration-200">
+    <aside className="hidden md:flex fixed left-0 top-0 w-64 h-screen bg-card border-r border-border flex-col z-20 shadow-sm transition-colors duration-200">
       <NavLink
         to="/"
         className="h-16 flex items-center px-6 border-b border-border hover:bg-accent transition-colors"

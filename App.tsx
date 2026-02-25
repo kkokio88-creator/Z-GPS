@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import MobileNav from './components/MobileNav';
 import GlobalSearch from './components/GlobalSearch';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
@@ -48,7 +49,8 @@ const ProtectedRoute = () => {
   return (
     <div className="min-h-screen">
       <Sidebar />
-      <div className="ml-64 flex flex-col min-w-0 relative">
+      <MobileNav />
+      <div className="md:ml-64 ml-0 pt-14 md:pt-0 flex flex-col min-w-0 relative">
         <React.Suspense fallback={<PageSkeleton />}>
           <ErrorBoundary>
             <Outlet />

@@ -60,8 +60,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "Wave 2 - US-003 의존. 파일: components/MobileNav.tsx(신규), App.tsx, components/Sidebar.tsx"
+      "passes": true,
+      "notes": "완료: MobileNav.tsx 생성(햄버거+Sheet 드로어), Sidebar hidden md:flex, App.tsx ml-0 md:ml-64 pt-14 md:pt-0, 라우트 변경시 Sheet 자동닫힘. 빌드 통과."
     },
     {
       "id": "US-005",
