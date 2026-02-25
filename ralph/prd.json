@@ -198,8 +198,8 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Wave 1 - US-012 의존. 파일: components/ApplicationEditor.tsx"
+      "passes": true,
+      "notes": "완료: handleSectionFeedback(useCallback), vaultService.sendFeedbackAndRefetch 호출, setDraftSections로 UI 자동반영, zmis-toast 성공/실패 표시. 빌드 통과."
     },
     {
       "id": "US-014",

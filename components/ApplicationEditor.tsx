@@ -150,6 +150,24 @@ const ApplicationEditor: React.FC = () => {
     editor.setDocumentStatus(prev => ({ ...prev, [doc]: !prev[doc] }));
   };
 
+  const handleSectionFeedback = useCallback(async (sectionId: string, feedback: string) => {
+    if (!slug) return;
+    try {
+      const result = await vaultService.sendFeedbackAndRefetch(slug, sectionId, feedback, 'revise');
+      if (result.success && result.updatedSection) {
+        editor.setDraftSections(prev => ({ ...prev, [sectionId]: result.updatedSection!.content }));
+      }
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: '피드백이 반영되었습니다', type: 'success' },
+      }));
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[ApplicationEditor] Feedback error:', e);
+      window.dispatchEvent(new CustomEvent('zmis-toast', {
+        detail: { message: '피드백 전송에 실패했습니다', type: 'error' },
+      }));
+    }
+  }, [slug, editor]);
+
   const handleGenerateAI = async (sectionId: string, sectionTitle: string) => {
     ai.setIsGenerating(sectionId);
     let extendedContext = editor.referenceContext;
@@ -377,6 +395,7 @@ const ApplicationEditor: React.FC = () => {
                           onInstructionChange: ai.setMagicInstruction,
                           onRewrite: handleMagicRewrite,
                         } : undefined}
+                        onFeedback={slug ? handleSectionFeedback : undefined}
                       />
                     ))}
                   </>
