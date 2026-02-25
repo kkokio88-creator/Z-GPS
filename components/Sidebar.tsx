@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../services/storageService';
 import { useCompanyStore } from '../services/stores/companyStore';
 import { Button } from './ui/button';
@@ -26,11 +26,8 @@ interface MenuItem {
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [isDark, setIsDark] = useState(false);
   const companyName = useCompanyStore(s => s.company)?.name || '기업 미설정';
-
-  const isActive = (path: string) => location.pathname === path;
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -72,54 +69,60 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside className="fixed left-0 top-0 w-64 h-screen bg-card border-r border-border flex flex-col z-20 shadow-sm transition-colors duration-200">
-      <div
-        className="h-16 flex items-center px-6 border-b border-border cursor-pointer hover:bg-accent transition-colors"
-        onClick={() => navigate('/')}
+      <NavLink
+        to="/"
+        className="h-16 flex items-center px-6 border-b border-border hover:bg-accent transition-colors"
       >
         <span className="font-bold text-lg mr-2 text-primary">Z-GPS</span>
         <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-bold">Pro</Badge>
-      </div>
+      </NavLink>
 
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
         <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Core Workflow</div>
 
         {menuItems.map((item) => {
           const IconComp = item.icon;
-          const active = isActive(item.path);
           return (
-            <Button
+            <NavLink
               key={item.path}
-              variant="ghost"
-              className={cn(
-                "w-full justify-start px-3 py-3 h-auto font-medium mb-1",
-                active
+              to={item.path}
+              end={item.path === '/'}
+              className={({ isActive }) => cn(
+                "flex items-center w-full px-3 py-3 rounded-md font-medium mb-1 transition-colors",
+                isActive
                   ? "text-primary bg-primary/10 shadow-sm translate-x-1"
                   : "text-foreground hover:bg-accent"
               )}
-              onClick={() => navigate(item.path)}
             >
-              <IconComp className={cn("mr-3 h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
-              {item.label}
-            </Button>
+              {({ isActive }) => (
+                <>
+                  <IconComp className={cn("mr-3 h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                  {item.label}
+                </>
+              )}
+            </NavLink>
           );
         })}
 
         <Separator className="my-4 mx-2" />
         <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">System</div>
 
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start px-3 py-2 h-auto font-medium mb-1",
-            isActive('/settings')
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => cn(
+            "flex items-center w-full px-3 py-2 rounded-md font-medium mb-1 transition-colors",
+            isActive
               ? "text-primary bg-primary/10"
               : "text-foreground hover:bg-accent"
           )}
-          onClick={() => navigate('/settings')}
         >
-          <Settings className={cn("mr-3 h-5 w-5", isActive('/settings') ? "text-primary" : "text-muted-foreground")} />
-          환경 설정
-        </Button>
+          {({ isActive }) => (
+            <>
+              <Settings className={cn("mr-3 h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+              환경 설정
+            </>
+          )}
+        </NavLink>
       </nav>
 
       <div className="border-t border-border p-4 bg-muted/50">

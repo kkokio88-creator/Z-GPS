@@ -30,8 +30,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Wave 1 - US-001 이후. 파일: components/Sidebar.tsx"
+      "passes": true,
+      "notes": "완료: Button→NavLink 교체(메뉴4개+설정+로고), className/children 콜백, end prop, useLocation 제거. 빌드 통과."
     },
     {
       "id": "US-003",
