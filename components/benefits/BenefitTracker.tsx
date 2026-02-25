@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { vaultService } from '../../services/vaultService';
 import type {
@@ -12,6 +13,7 @@ import BenefitAnalysis from './BenefitAnalysis';
 import BenefitSummaryPanel from './BenefitSummary';
 import TaxRefund from './TaxRefund';
 import { useTaxHandlers } from './useTaxHandlers';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 
 const DEFAULT_FORM: BenefitFormState = {
   programName: '', category: '기타', receivedAmount: '', receivedDate: '',
@@ -150,55 +152,52 @@ const BenefitTracker: React.FC = () => {
       <Header title="놓친 세금 환급" />
       <main className="flex-1">
         <div className="max-w-6xl mx-auto p-6 md:p-8">
-          {/* Tabs */}
-          <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-            {tabs.map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id ? 'bg-white dark:bg-gray-700 text-primary dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                <Icon name={tab.icon} className="h-4 w-4" />{tab.label}
-              </button>
-            ))}
-          </div>
-
           {showForm && (
             <BenefitForm form={form} editingId={editingId} onFormChange={setForm} onSubmit={handleSubmit} onCancel={resetForm} />
           )}
 
-          {activeTab === 'data' && (
-            <BenefitList benefits={benefits} isLoading={isLoading} filterCategory={filterCategory} analyzing={analyzing}
-              onFilterChange={setFilterCategory}
-              onAdd={() => { setForm(DEFAULT_FORM); setEditingId(null); setShowForm(true); }}
-              onEdit={handleEdit} onDelete={handleDelete} onAnalyze={handleAnalyze}
-            />
-          )}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+            <TabsList className="w-full mb-6">
+              {tabs.map(tab => (
+                <TabsTrigger key={tab.id} value={tab.id} className="flex-1">
+                  <Icon name={tab.icon} className="h-4 w-4 mr-1" />{tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          {activeTab === 'analysis' && (
-            <BenefitAnalysis benefits={benefits} analyses={analyses} analyzingAll={analyzingAll}
-              expandedAnalysis={expandedAnalysis} onAnalyzeAll={handleAnalyzeAll} onToggleAnalysis={handleToggleAnalysis}
-            />
-          )}
+            <TabsContent value="tax" className="mt-0">
+              <TaxRefund
+                taxScan={taxScan} taxScanning={taxScanning} taxError={taxError} taxErrorCode={taxErrorCode} scanStep={scanStep}
+                sortedOpportunities={sortedOpportunities} taxSortBy={taxSortBy} taxFilterStatus={taxFilterStatus}
+                taxFilterSource={taxFilterSource} expandedOpportunity={expandedOpportunity}
+                generatingWorksheet={generatingWorksheet} showNpsTrend={showNpsTrend} showDartSummary={showDartSummary}
+                onRunScan={handleRunTaxScan} onSetTaxSortBy={setTaxSortBy}
+                onSetTaxFilterStatus={setTaxFilterStatus} onSetTaxFilterSource={setTaxFilterSource}
+                onToggleOpportunity={id => setExpandedOpportunity(expandedOpportunity === id ? null : id)}
+                onGenerateWorksheet={handleGenerateWorksheet} onUpdateWorksheetInput={handleUpdateWorksheetInput}
+                onUpdateOppStatus={handleUpdateOppStatus}
+                onToggleNpsTrend={() => setShowNpsTrend(v => !v)} onToggleDartSummary={() => setShowDartSummary(v => !v)}
+              />
+            </TabsContent>
 
-          {activeTab === 'summary' && (
-            <BenefitSummaryPanel summary={summary} benefits={benefits} isLoading={isLoading} />
-          )}
+            <TabsContent value="data" className="mt-0">
+              <BenefitList benefits={benefits} isLoading={isLoading} filterCategory={filterCategory} analyzing={analyzing}
+                onFilterChange={setFilterCategory}
+                onAdd={() => { setForm(DEFAULT_FORM); setEditingId(null); setShowForm(true); }}
+                onEdit={handleEdit} onDelete={handleDelete} onAnalyze={handleAnalyze}
+              />
+            </TabsContent>
 
-          {activeTab === 'tax' && (
-            <TaxRefund
-              taxScan={taxScan} taxScanning={taxScanning} taxError={taxError} taxErrorCode={taxErrorCode} scanStep={scanStep}
-              sortedOpportunities={sortedOpportunities} taxSortBy={taxSortBy} taxFilterStatus={taxFilterStatus}
-              taxFilterSource={taxFilterSource} expandedOpportunity={expandedOpportunity}
-              generatingWorksheet={generatingWorksheet} showNpsTrend={showNpsTrend} showDartSummary={showDartSummary}
-              onRunScan={handleRunTaxScan} onSetTaxSortBy={setTaxSortBy}
-              onSetTaxFilterStatus={setTaxFilterStatus} onSetTaxFilterSource={setTaxFilterSource}
-              onToggleOpportunity={id => setExpandedOpportunity(expandedOpportunity === id ? null : id)}
-              onGenerateWorksheet={handleGenerateWorksheet} onUpdateWorksheetInput={handleUpdateWorksheetInput}
-              onUpdateOppStatus={handleUpdateOppStatus}
-              onToggleNpsTrend={() => setShowNpsTrend(v => !v)} onToggleDartSummary={() => setShowDartSummary(v => !v)}
-            />
-          )}
+            <TabsContent value="analysis" className="mt-0">
+              <BenefitAnalysis benefits={benefits} analyses={analyses} analyzingAll={analyzingAll}
+                expandedAnalysis={expandedAnalysis} onAnalyzeAll={handleAnalyzeAll} onToggleAnalysis={handleToggleAnalysis}
+              />
+            </TabsContent>
+
+            <TabsContent value="summary" className="mt-0">
+              <BenefitSummaryPanel summary={summary} benefits={benefits} isLoading={isLoading} />
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
