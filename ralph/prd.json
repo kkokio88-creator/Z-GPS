@@ -1,273 +1,237 @@
 {
   "project": "Z-GPS",
-  "branchName": "ralph/phase5-obsidian-workflow",
-  "description": "Obsidian-First Workflow & Core Bug Fixes - Transition to Vault-centric data flow with AI research bug fixes, threshold unification, document export, and E2E testing",
+  "branchName": "ralph/phase6-ux-testing",
+  "description": "Phase 6 - UX Polish, Document I/O & Testing Infrastructure",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Remove mock data and fix Vault save error handling",
-      "description": "As a developer, I need to remove hardcoded mock data that blocks real AI research and add proper error handling for Vault saves.",
+      "title": "HashRouter를 BrowserRouter로 마이그레이션",
+      "description": "사용자가 깔끔한 URL(/#/ 없는)을 사용할 수 있도록 HashRouter를 BrowserRouter로 전환한다.",
       "acceptanceCriteria": [
-        "Remove '산너머남촌' hardcoded condition from CompanyProfile.tsx (delete companyMockData.ts if it exists)",
-        "Replace `.catch(() => {})` on Vault save with 1-retry pattern followed by Toast warning on failure",
-        "Add success Toast ('기업정보가 저장되었습니다') after successful Vault save",
-        "Zero imports of companyMockData remain in codebase",
+        "App.tsx에서 HashRouter를 BrowserRouter로 교체",
+        "react-router-dom에서 BrowserRouter import",
+        "기존 모든 라우트가 BrowserRouter에서 정상 동작",
+        "해시(#/) 기반 URL 참조가 코드에 남아있지 않음",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "DONE: All criteria already met. companyMockData.ts deleted, zero imports remain, 1-retry vault save at L212-218, success toast at L220 in CompanyProfile.tsx. Build passes."
+      "notes": "완료: HashRouter→BrowserRouter 교체, import 변경, 해시 참조 0건. 빌드 통과."
     },
     {
       "id": "US-002",
-      "title": "Fix data sync direction and storage event race guard",
-      "description": "As a developer, I need to establish a single-direction data flow (Zustand -> localStorage -> Vault) and prevent storage event race conditions.",
+      "title": "Sidebar NavLink 마이그레이션 + aria-current",
+      "description": "Sidebar의 button+navigate 패턴을 NavLink로 전환하여 접근성을 개선한다.",
       "acceptanceCriteria": [
-        "Data flows single-direction: Zustand is single source of truth, writes to localStorage, then to Vault",
-        "Add isResearchingRef boolean guard that prevents storage event listener from overwriting during active research",
-        "Guard is set true before research starts and false in finally block",
-        "Storage event listener checks isResearchingRef before processing",
+        "Sidebar.tsx에서 모든 네비게이션 버튼을 react-router-dom NavLink로 교체",
+        "NavLink의 className 콜백으로 활성 상태 스타일 적용",
+        "활성 NavLink에 aria-current='page' 자동 적용됨",
+        "기존 useNavigate() 기반 onClick 네비게이션 제거",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "DONE: Already implemented. isResearchingRef at L76, guard check at L110, set true at L153, false in finally at L175. Data flow: Zustand(L79,L197) -> localStorage(L198) -> Vault(L212)."
+      "passes": false,
+      "notes": "Wave 1 - US-001 이후. 파일: components/Sidebar.tsx"
     },
     {
       "id": "US-003",
-      "title": "Unify FIT_SCORE_THRESHOLD across all components",
-      "description": "As a user, I want consistent recommended program matching so Dashboard and ProgramExplorer show the same programs.",
+      "title": "shadcn/ui Sheet 컴포넌트 설치",
+      "description": "모바일 사이드바 드로어에 필요한 Sheet 컴포넌트를 설치한다.",
       "acceptanceCriteria": [
-        "Add `export const FIT_SCORE_THRESHOLD = 70;` to constants.ts",
-        "Dashboard.tsx uses FIT_SCORE_THRESHOLD instead of hardcoded >= 60",
-        "ProgramExplorer.tsx uses FIT_SCORE_THRESHOLD instead of hardcoded >= 80 (both filter locations)",
-        "ProgramDetail.tsx uses FIT_SCORE_THRESHOLD instead of hardcoded >= 60",
-        "No hardcoded 60 or 80 threshold values remain in program filter logic",
+        "npx shadcn@latest add sheet 실행 (또는 수동으로 components/ui/sheet.tsx 생성)",
+        "components/ui/sheet.tsx 파일이 존재하고 Sheet, SheetContent, SheetTrigger 등 export",
+        "@radix-ui/react-dialog 의존성이 package.json에 존재 (Sheet이 사용)",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "DONE: FIT_SCORE_THRESHOLD=70 in constants.ts L4. Used in Dashboard.tsx(L189,L332), ProgramExplorer.tsx(L129,L248), ProgramDetail.tsx(L275,L341,L754,L761). No hardcoded 60/80 in filter logic."
+      "passes": false,
+      "notes": "Wave 2 준비. 이미 dialog.tsx가 있으므로 radix 의존성은 존재할 수 있음"
     },
     {
       "id": "US-004",
-      "title": "Create Vault folder structure and file service",
-      "description": "As a developer, I need a backend service that manages the Obsidian Vault folder structure and provides file read/write operations.",
+      "title": "MobileNav 컴포넌트 + 반응형 레이아웃",
+      "description": "모바일에서 햄버거 메뉴로 사이드바를 열 수 있는 반응형 레이아웃을 구현한다.",
       "acceptanceCriteria": [
-        "Create server/src/services/vaultFileService.ts with ensureVaultStructure() that creates: company/, programs/, applications/, analysis/, strategies/",
-        "Implement readMarkdown(path) that reads .md files and parses YAML frontmatter + body",
-        "Implement writeMarkdown(path, frontmatter, body) that writes frontmatter + body to .md files",
-        "Implement listFiles(directory) that returns file list with frontmatter metadata",
-        "Vault root path is configurable via VAULT_ROOT env var with lazy getter (ESM hoisting safe)",
+        "components/MobileNav.tsx 생성: 햄버거 버튼(md:hidden) + Sheet 드로어(왼쪽)",
+        "Sheet 안에 Sidebar 네비게이션 항목 포함",
+        "라우트 변경 시 Sheet 자동 닫힘",
+        "App.tsx 레이아웃: 데스크톱 사이드바는 hidden md:block, 메인 콘텐츠는 md:ml-64 ml-0",
+        "MobileNav는 md 미만에서만 표시",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "DONE: vaultFileService.ts exists with ensureVaultStructure() (company,programs,applications,analysis,strategies), readNote(), writeNote(), listNotes(), listFiles(), lazy getVaultRoot() with VAULT_PATH env."
+      "passes": false,
+      "notes": "Wave 2 - US-003 의존. 파일: components/MobileNav.tsx(신규), App.tsx, components/Sidebar.tsx"
     },
     {
       "id": "US-005",
-      "title": "Add Vault company API routes",
-      "description": "As a developer, I need API endpoints to read and update company information stored as Markdown in the Vault.",
+      "title": "Dashboard 반응형 그리드 + shadcn Card 적용",
+      "description": "Dashboard의 통계 카드를 shadcn Card로 교체하고 모바일 반응형 그리드를 적용한다.",
       "acceptanceCriteria": [
-        "GET /api/vault/company returns company data from {vault_root}/company/ as JSON (frontmatter + summary)",
-        "PUT /api/vault/company accepts company data JSON and writes to {vault_root}/company/{companyName}.md",
-        "Routes use vaultFileService for file operations",
-        "Routes are registered in server/src/routes/vault/ directory",
-        "Returns 404 if company file not found on GET",
+        "Hero 통계 영역: grid-cols-2 sm:grid-cols-3 md:grid-cols-5 반응형 적용",
+        "주요 stat 카드를 shadcn Card(CardHeader+CardContent)로 교체",
+        "액션 버튼들을 shadcn Button으로 교체",
+        "모바일에서 가로 스크롤 없이 정상 표시",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "DONE: GET /company(L245), PUT /company(L192) in server/src/routes/vault/company.ts. Uses vaultFileService. Returns 404 on missing."
+      "passes": false,
+      "notes": "Wave 3 - 파일: components/Dashboard.tsx"
     },
     {
       "id": "US-006",
-      "title": "Add Vault programs API routes",
-      "description": "As a developer, I need API endpoints to list and read program (공고) data from the Vault.",
+      "title": "ExportModal shadcn/ui 마이그레이션",
+      "description": "ExportModal의 버튼과 탭을 shadcn 컴포넌트로 교체한다.",
       "acceptanceCriteria": [
-        "GET /api/vault/programs returns list of all programs with frontmatter metadata",
-        "GET /api/vault/programs/:slug returns full program detail (frontmatter + body)",
-        "Programs are read from {vault_root}/programs/ directory",
-        "Routes use vaultFileService for file operations",
-        "Returns 404 if program slug not found",
+        "모든 raw <button>을 shadcn Button으로 교체",
+        "탭 전환을 shadcn Tabs + TabsList + TabsContent로 교체",
+        "PDF/DOCX/HWP 내보내기 버튼 기능 유지 (exportToPdf, exportToDocx, exportToHwp)",
+        "isExporting 로딩 상태 유지",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "DONE: GET /programs(L1249), GET /program/:slug(L1299) in server/src/routes/vault/programs.ts. Uses vaultFileService. Returns 404 on missing slug."
+      "passes": false,
+      "notes": "Wave 3 - 파일: components/editor/ExportModal.tsx"
     },
     {
       "id": "US-007",
-      "title": "Add Vault applications and sync API routes",
-      "description": "As a developer, I need API endpoints to manage application sections and trigger full vault sync.",
+      "title": "ProgramExplorer shadcn Badge/Select 적용",
+      "description": "ProgramExplorer의 필터와 뱃지를 shadcn 컴포넌트로 교체한다.",
       "acceptanceCriteria": [
-        "GET /api/vault/applications/:id returns application section list from {vault_root}/applications/{id}/",
-        "GET /api/vault/applications/:id/sections/:num returns specific section content",
-        "PUT /api/vault/applications/:id/sections/:num updates section MD file content",
-        "POST /api/vault/sync triggers full synchronization of program data into Vault",
-        "Routes use vaultFileService for file operations",
+        "프로그램 카테고리 뱃지를 shadcn Badge로 교체",
+        "필터 드롭다운이 있다면 shadcn Select로 교체",
+        "탭 네비게이션(전체/추천/관심 등)을 shadcn Tabs로 교체",
+        "기존 필터링/정렬 기능 정상 동작",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "DONE: applications.ts has GET /applications(L23), GET /application/:slug/sections(L140), PUT sections/:sectionId(L207). POST /sync(L437) in programs.ts."
+      "passes": false,
+      "notes": "Wave 3 - 파일: components/ProgramExplorer.tsx, components/programs/ProgramFilters.tsx"
     },
     {
       "id": "US-008",
-      "title": "Extend vaultService.ts frontend HTTP client",
-      "description": "As a developer, I need a frontend service layer that communicates with all Vault API endpoints.",
+      "title": "ProgramDetail shadcn Card/Badge 적용",
+      "description": "ProgramDetail의 정보 카드와 뱃지를 shadcn 컴포넌트로 교체한다.",
       "acceptanceCriteria": [
-        "Implement getCompany() calling GET /api/vault/company",
-        "Implement saveCompany(data) calling PUT /api/vault/company",
-        "Implement getPrograms() calling GET /api/vault/programs",
-        "Implement getProgram(slug) calling GET /api/vault/programs/:slug",
-        "Implement getApplicationSections(slug) calling GET /api/vault/applications/:id",
-        "Implement updateApplicationSection(slug, sectionId, content) calling PUT /api/vault/applications/:id/sections/:num",
-        "Implement syncPrograms() calling POST /api/vault/sync",
-        "Implement sendSectionFeedback(slug, sectionId, feedback) for feedback submission",
-        "Implement sendFeedbackAndRefetch(slug, sectionId, feedback) that sends feedback then refetches section",
-        "All methods use API_BASE_URL from env and handle errors consistently",
+        "공고 상세 정보 영역을 shadcn Card로 교체",
+        "적합도/상태 뱃지를 shadcn Badge로 교체",
+        "전략 생성 버튼을 shadcn Button으로 교체",
+        "기존 데이터 표시 및 전략 생성 기능 정상 동작",
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "DONE: All methods exist in vaultService.ts: getCompany(L447), saveCompany(L438), getPrograms(L212), getProgram(L220), getApplicationSections(L373), updateApplicationSection(L394), syncPrograms(L179), sendSectionFeedback(L407), sendFeedbackAndRefetch(L421), getSyncStatus(L187)."
+      "passes": false,
+      "notes": "Wave 3 - 파일: components/ProgramDetail.tsx, components/programs/ProgramDetailPanel.tsx"
     },
     {
       "id": "US-009",
-      "title": "Update CompanyProfile for Vault-first loading",
-      "description": "As a user, I want my company research data to load from the Vault first, falling back to localStorage if Vault is unavailable.",
+      "title": "BenefitTracker shadcn Card/Tabs/Table 적용",
+      "description": "BenefitTracker의 KPI 카드, 탭, 데이터 테이블을 shadcn 컴포넌트로 교체한다.",
       "acceptanceCriteria": [
-        "useEffect attempts vaultService.getCompany() first on mount",
-        "Falls back to getStoredDeepResearch() from localStorage if Vault call fails",
-        "After successful research, saves to Vault via vaultService.saveCompany()",
-        "Vault-first load replaces previous localStorage-first approach",
+        "KPI 통계 카드를 shadcn Card로 교체",
+        "탭 네비게이션을 shadcn Tabs로 교체",
+        "혜택 데이터 테이블 영역에 shadcn Table 적용 (가능한 범위 내에서)",
+        "스캔/필터/정렬 기능 정상 동작",
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "DONE: CompanyProfile.tsx L82-104 tries vaultService.getCompany() first, falls back to getStoredDeepResearch(). L212 saves to Vault after research."
+      "passes": false,
+      "notes": "Wave 3 - 파일: components/benefits/ 하위 여러 파일"
     },
     {
       "id": "US-010",
-      "title": "Update ApplicationEditor for Vault-direct save and feedback loop",
-      "description": "As a user, I want my application section edits to save directly to the Vault, and feedback to update the Vault MD files.",
+      "title": "서버 DOCX 파싱 엔드포인트 추가",
+      "description": "DOCX 파일을 업로드하면 텍스트/구조를 추출하는 서버 API를 만든다.",
       "acceptanceCriteria": [
-        "handleSaveApplication() calls vaultService.updateApplication() for Vault-direct saving",
-        "Feedback submission uses sendFeedbackAndRefetch() to update Vault and refresh UI",
-        "Section content is loaded from Vault when available",
+        "server/package.json에 multer, mammoth 의존성 추가",
+        "server/src/routes/documents.ts 신규 생성",
+        "POST /api/documents/parse 엔드포인트: multipart/form-data로 .docx 수신",
+        "mammoth로 DOCX → HTML/텍스트 변환 후 구조화된 JSON 반환",
+        "비지원 파일(HWP, PDF)은 415 상태코드 + 안내 메시지 반환",
+        "server/src/index.ts에 documents 라우터 등록",
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "DONE: handleSaveApplication calls vaultService.updateApplication(L126). sendFeedbackAndRefetch exists in vaultService but not yet wired to UI (Low gap - no feedback UI exists). Sections load via existing data flow."
+      "passes": false,
+      "notes": "Wave 2 - 파일: server/src/routes/documents.ts(신규), server/src/index.ts, server/package.json"
     },
     {
       "id": "US-011",
-      "title": "Update Dashboard for Vault-based statistics",
-      "description": "As a user, I want the Dashboard to display statistics sourced from the Vault rather than localStorage.",
+      "title": "LeftPanel 파일 업로드 UI",
+      "description": "에디터 LeftPanel에 DOCX 드래그앤드롭 업로드 영역을 추가한다.",
       "acceptanceCriteria": [
-        "Dashboard loads programs from vaultService.getPrograms()",
-        "Dashboard loads applications from vaultService.getApplications()",
-        "Dashboard loads benefit summary from vaultService.getBenefitSummary()",
-        "Statistics (recommended programs, active applications, benefits) reflect Vault data",
+        "components/editor/LeftPanel.tsx에 드래그앤드롭 업로드 영역 추가",
+        ".docx 파일만 허용 (accept 속성 + 검증)",
+        "업로드 시 POST /api/documents/parse 호출",
+        "파싱 결과를 섹션 필드에 자동 채움 (콜백으로 부모에 전달)",
+        "업로드 진행 상태 표시 (로딩 인디케이터)",
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "DONE: Dashboard.tsx L85-88 loads from vaultService.getPrograms(), getApplications(), getBenefitSummary(). Stats reflect Vault data."
+      "passes": false,
+      "notes": "Wave 2 - US-010 의존. 파일: components/editor/LeftPanel.tsx"
     },
     {
       "id": "US-012",
-      "title": "Implement PDF export via window.print()",
-      "description": "As a user, I want to export my application as a PDF using the browser print dialog.",
+      "title": "SectionCard에 Vault 피드백 버튼 추가",
+      "description": "SectionCard에 피드백 전송 기능을 추가하여 Vault와 연동한다.",
       "acceptanceCriteria": [
-        "Create services/documentExport.ts with exportToPdf() function",
-        "exportToPdf() opens styled popup window with application content",
-        "Popup copies Tailwind CSS styles for print fidelity",
-        "A4 page settings applied via @media print CSS",
-        "Calls window.print() on the popup window",
+        "SectionCard props에 onFeedback?: (sectionId: string, feedback: string) => void 추가",
+        "'Vault 피드백' 버튼 추가 (AI 초안 버튼 옆)",
+        "버튼 클릭 시 피드백 입력 인라인 폼 표시",
+        "제출 시 onFeedback 콜백 호출",
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "DONE: exportToPdf() at L49 uses window.open + cloned content + print styles + window.print(). A4 page settings via @media print CSS."
+      "passes": false,
+      "notes": "Wave 1 - 파일: components/editor/SectionCard.tsx"
     },
     {
       "id": "US-013",
-      "title": "Implement DOCX export with docx npm package",
-      "description": "As a user, I want to export my application as a Word document (.docx).",
+      "title": "ApplicationEditor에서 sendFeedbackAndRefetch 연결",
+      "description": "ApplicationEditor에서 SectionCard의 피드백을 Vault에 전송하고 내용을 갱신한다.",
       "acceptanceCriteria": [
-        "Install docx and file-saver npm packages",
-        "Add exportToDocx() function in services/documentExport.ts",
-        "Function generates a proper .docx file with section headings and content",
-        "File download triggered via file-saver's saveAs()",
-        "docx and file-saver added to package.json dependencies",
+        "ApplicationEditor에서 SectionCard에 onFeedback 콜백 전달",
+        "콜백에서 vaultService.sendFeedbackAndRefetch(slug, sectionId, feedback) 호출",
+        "refetch 후 해당 섹션 내용이 UI에 자동 반영",
+        "성공 시 Toast 표시: '피드백이 반영되었습니다'",
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "DONE: exportToDocx() at L215 uses docx library + file-saver saveAs(). Both packages in package.json dependencies."
+      "passes": false,
+      "notes": "Wave 1 - US-012 의존. 파일: components/ApplicationEditor.tsx"
     },
     {
       "id": "US-014",
-      "title": "Wire ExportModal buttons with export handlers",
-      "description": "As a user, I want to click PDF, DOCX, and HWP buttons in the export modal and have them work.",
+      "title": "Vitest 설정 + 유틸리티 단위 테스트",
+      "description": "Vitest를 설치하고 핵심 유틸리티 함수의 단위 테스트를 작성한다.",
       "acceptanceCriteria": [
-        "PDF button calls exportToPdf() from documentExport.ts",
-        "DOCX button calls exportToDocx() from documentExport.ts",
-        "HWP button calls exportToHwp() which shows error message 'HWP 내보내기는 지원되지 않습니다. DOCX를 사용해주세요.'",
-        "All three buttons have proper onClick handlers (no empty stubs)",
-        "Loading states shown during export",
+        "package.json devDependencies에 vitest, @testing-library/react, @testing-library/jest-dom, jsdom 추가",
+        "vitest.config.ts 생성 (jsdom environment, vite.config.ts 확장)",
+        "package.json scripts에 test, test:unit, test:unit:watch 추가",
+        "tests/unit/formatters.test.ts 작성: formatKRW, getDday 테스트",
+        "tests/unit/constants.test.ts 작성: FIT_SCORE_THRESHOLD 값 검증",
+        "npm run test:unit 실행 시 모든 테스트 통과",
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": true,
-      "notes": "DONE: ExportModal.tsx L65 calls exportToPdf, L76 calls exportToDocx, L92 calls exportToHwp (throws error). Loading states via isExporting state."
+      "passes": false,
+      "notes": "Wave 4 - 파일: vitest.config.ts(신규), tests/unit/(신규), package.json"
     },
     {
       "id": "US-015",
-      "title": "Setup Playwright and create research E2E test",
-      "description": "As a developer, I need Playwright configured and an E2E test for the AI research flow.",
+      "title": "Playwright 테스트 스크립트 + 검증",
+      "description": "Playwright E2E 테스트 npm 스크립트를 추가하고 기존 테스트를 검증한다.",
       "acceptanceCriteria": [
-        "Install @playwright/test as devDependency",
-        "Create playwright.config.ts with testDir './tests/e2e', dev server auto-start via 'npm run dev', chromium project",
-        "Create tests/e2e/research.spec.ts with tests: page load, research button visible, result display area, mock data absence check",
-        "Config file is valid and parseable",
+        "package.json scripts에 test:e2e, test:e2e:ui 추가",
+        "test:e2e는 'npx playwright test' 실행",
+        "test:e2e:ui는 'npx playwright test --ui' 실행",
+        "기존 5개 spec 파일이 문법 오류 없이 파싱 가능 (npx playwright test --list)",
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": true,
-      "notes": "DONE: playwright.config.ts with testDir ./tests/e2e, chromium project, dev server auto-start. @playwright/test ^1.58.2 in devDeps. research.spec.ts exists."
-    },
-    {
-      "id": "US-016",
-      "title": "Create matching and benefits E2E tests",
-      "description": "As a developer, I need E2E tests for threshold matching and benefit tracker features.",
-      "acceptanceCriteria": [
-        "Create tests/e2e/matching.spec.ts with tests: dashboard recommended count, program explorer recommended tab, detail page threshold check",
-        "Create tests/e2e/benefits.spec.ts with tests: page load, auto scan trigger, manual scan, KPI cards display, sorting/filtering, tab switching, error handling",
-        "Tests use proper Playwright locators and waitFor patterns",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "DONE: matching.spec.ts (3 tests) and benefits.spec.ts (7 tests) exist with proper Playwright locators and waitFor patterns."
-    },
-    {
-      "id": "US-017",
-      "title": "Create export and vault-sync E2E tests",
-      "description": "As a developer, I need E2E tests for document export and vault synchronization features.",
-      "acceptanceCriteria": [
-        "Create tests/e2e/export.spec.ts with tests: editor entry, export buttons exist, preview tab, DOCX download event verification, HWP error dialog verification",
-        "Create tests/e2e/vault-sync.spec.ts with tests: dashboard load, settings vault path, sidebar navigation, API health check, dashboard stats display, program list vault data reflection",
-        "Tests use proper Playwright locators and assertions",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "DONE: export.spec.ts (5 tests incl. DOCX download + HWP error verification) and vault-sync.spec.ts (6 tests) exist with proper assertions."
+      "passes": false,
+      "notes": "Wave 4 - 파일: package.json"
     }
   ]
 }

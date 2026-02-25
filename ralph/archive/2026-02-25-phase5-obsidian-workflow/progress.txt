@@ -1,0 +1,38 @@
+# Ralph Progress - phase5-obsidian-workflow
+# Branch: ralph/phase5-obsidian-workflow
+# Started: 2026-02-25
+
+## Iteration 1 - Verification Pass (2026-02-25)
+
+All 17 user stories verified as already implemented in the codebase.
+
+### Wave 1 (US-001 ~ US-003): PASS
+- US-001: Mock data removed, vault save retry+toast implemented
+- US-002: isResearchingRef guard, single-direction sync established
+- US-003: FIT_SCORE_THRESHOLD=70 unified across Dashboard, ProgramExplorer, ProgramDetail
+
+### Wave 2 (US-004 ~ US-011): PASS
+- US-004: vaultFileService.ts with ensureVaultStructure, readNote, writeNote, listFiles, lazy getVaultRoot
+- US-005: GET/PUT /api/vault/company routes
+- US-006: GET /api/vault/programs, GET /api/vault/program/:slug routes
+- US-007: GET/PUT applications sections, POST /api/vault/sync routes
+- US-008: Full vaultService.ts frontend client (10+ methods)
+- US-009: CompanyProfile vault-first loading with localStorage fallback
+- US-010: ApplicationEditor vault-direct save (minor gap: sendFeedbackAndRefetch not wired to UI)
+- US-011: Dashboard loads from vaultService.getPrograms/getApplications/getBenefitSummary
+
+### Wave 3 (US-012 ~ US-014): PASS
+- US-012: exportToPdf via window.print with styled popup
+- US-013: exportToDocx via docx npm package + file-saver
+- US-014: ExportModal buttons wired with loading states
+
+### Wave 4 (US-015 ~ US-017): PASS
+- US-015: Playwright config + research.spec.ts
+- US-016: matching.spec.ts + benefits.spec.ts
+- US-017: export.spec.ts + vault-sync.spec.ts
+
+### Build Verification
+- `npx vite build` passes successfully
+
+### Minor Gaps (non-blocking)
+1. sendFeedbackAndRefetch() exists in vaultService but not called from any UI component (Low)

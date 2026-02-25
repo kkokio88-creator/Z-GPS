@@ -1,8 +1,6 @@
 
 import React from 'react';
-// NOTE: Using HashRouter for Vercel/Railway static hosting compatibility.
-// Consider migrating to BrowserRouter with server-side catch-all if SSR is added.
-import { HashRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import GlobalSearch from './components/GlobalSearch';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -67,7 +65,7 @@ const ProtectedRoute = () => {
 const App: React.FC = () => {
   return (
     <ToastProvider>
-      <HashRouter>
+      <BrowserRouter>
         <Routes>
           <Route
             path="/login"
@@ -96,7 +94,7 @@ const App: React.FC = () => {
             <Route path="editor/:programId/:companyId" element={<ErrorBoundary><ApplicationEditor /></ErrorBoundary>} />
           </Route>
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </ToastProvider>
   );
 };
