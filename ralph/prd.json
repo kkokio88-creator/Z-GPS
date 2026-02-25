@@ -152,8 +152,8 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "Wave 2 - 파일: server/src/routes/documents.ts(신규), server/src/index.ts, server/package.json"
+      "passes": true,
+      "notes": "완료: mammoth+multer 설치, documents.ts 생성(POST /api/documents/parse), 415 비지원포맷, 섹션 구조화 JSON 반환, index.ts 등록. 서버 타입체크+빌드 통과."
     },
     {
       "id": "US-011",

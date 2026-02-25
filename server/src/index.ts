@@ -20,6 +20,7 @@ import dataGoKrRouter from './routes/dataGoKr.js';
 import dartRouter from './routes/dart.js';
 import geminiRouter from './routes/gemini.js';
 import vaultRouter from './routes/vault/index.js';
+import documentsRouter from './routes/documents.js';
 import { ensureVaultStructure, getVaultRoot } from './services/vaultFileService.js';
 
 const app = express();
@@ -65,6 +66,7 @@ app.use('/api/odcloud', odcloudRouter);
 app.use('/api/data-go', dataGoKrRouter);
 app.use('/api/dart', dartRouter);
 app.use('/api/vault', vaultRouter);
+app.use('/api/documents', documentsRouter);
 
 // Start
 const server = app.listen(PORT, async () => {
